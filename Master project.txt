@@ -1,0 +1,10 @@
+multi class MI classification deep learning and Neural Network. Multi class data, 
+Paper for relation EEG and ECoG signals, writing
+classifier and preproc
+difference between classes
+make a model for real time BCI using class to get high accuracy
+decoding accuracy and deep learning methods
+
+forking with repository (download the repository and clone for myself), clone it and conda environment for repository, read everything and
+
+ multiclass eeg deconding neural network or data visualization (features for the classification and visualize them)

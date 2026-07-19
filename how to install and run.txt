@@ -1,0 +1,16 @@
+pip install -r requirements.txt
+
+# 1. Quick test on your 3 uploaded runs (no full dataset needed)
+python quickstart.py
+
+# 2. Full training — within-subject CV on all subjects
+python train.py --root "C:/Users/giaco/Box/EEGMI" --mode within_subject
+
+# 3. Real-time simulation (after training produces a checkpoint)
+python realtime_inference.py \
+  --edf    sub-01_ses-01_task-MI_run-01_eeg.edf \
+  --events sub-01_ses-01_task-MI_run-01_events.tsv \
+  --ckpt   checkpoint_sub01_ses01_run1.pt
+
+# 4. Cross-subject generalization
+python train.py --root "C:/Users/giaco/Box/EEGMI" --mode cross_subject
