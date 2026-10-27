@@ -9,13 +9,9 @@ env/
 venv/
 ENV/
 
-# MATLAB
-*.asv
-*.fig
-*.mex*
-*.p
-*.slxc
-*.mat
+# BCI Session Reports & Logs
+session_reports/
+*.log
 
 # System & Office
 desktop.ini
