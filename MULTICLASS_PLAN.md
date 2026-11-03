@@ -2,6 +2,8 @@
 
 Stage 1 has now been implemented: a separate three-class trainer, baseline, frozen test and continuous replay engine. Read [MULTICLASS_RESULTS.md](MULTICLASS_RESULTS.md) for the first recorded-data experiment. Prospective personal multiclass calibration/control is **not implemented** in the binary studio. The primary objective remains within-person learning and testing, with calibration for each wearer.
 
+The follow-up [v2 experiment](MULTICLASS_IMPROVEMENT_RESULTS.md) met the 70% overall cue target on unused sessions: 81.59% neural cue balanced accuracy and 77.27% continuous replay cue balanced accuracy. It uses 4-second covariance features and a fixed three-seed neural ensemble. Volar Grasp recall remains 53.85%, so further personal validation and class-specific improvement are still needed before nine-class expansion. Both v1 and v2 tests are now exposed; future model changes need unused test data.
+
 ## Classes established from Box
 
 BCIFEST random multiclass task and Multiclass_NN configuration define:

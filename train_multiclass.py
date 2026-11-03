@@ -125,10 +125,16 @@ def test_once(work,root=None):
     X,y,records,manifest,c=load_prepared(work);torch.set_num_threads(c['threads'])
     indices=np.array([i for i,r in enumerate(records) if r['partition']=='test']);rows=[records[i] for i in indices]
     ck=torch.load(work/'eegnet_multiclass.pt',map_location='cpu',weights_only=False)
-    model=EEGNet(ck['n_channels'],ck['n_times'],ck['n_classes']);model.load_state_dict(ck['model_state'])
+    if ck.get('arch')=='feature_ensemble':
+        from multiclass_features import FeatureEnsembleRunner
+        neural_probabilities=FeatureEnsembleRunner(ck).predict(X[indices])
+    else:
+        model=EEGNet(ck['n_channels'],ck['n_times'],ck['n_classes']);model.load_state_dict(ck['model_state'])
+        neural_probabilities=nn_probabilities(model,X[indices],ck['train_mean'],ck['train_std'])
     result=dict(experiment_id=c['experiment_id'],classes=c['classes'],chance_balanced_accuracy=1/len(c['classes']),
         frozen=frozen,partitions=manifest['partitions'],
-        eegnet=evaluate(nn_probabilities(model,X[indices],ck['train_mean'],ck['train_std']),y[indices],rows,c['classes'],True,c['seed']),
+        model_architecture=ck.get('arch','eegnet'),
+        eegnet=evaluate(neural_probabilities,y[indices],rows,c['classes'],True,c['seed']),
         bandpower_baseline=evaluate(baseline_probabilities(work/'bandpower_baseline.json',X[indices]),y[indices],rows,c['classes'],True,c['seed']),
         scope='Recorded within-person three-class subset. Not prospective accuracy or nine-class/open-set performance.')
     if root is not None:

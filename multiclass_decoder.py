@@ -34,12 +34,20 @@ class MulticlassDecoder:
         path=Path(checkpoint);c=json.loads(Path(str(path)+'.json').read_text())
         if c.get('task_mode')!='multiclass' or c.get('schema_version')!=2 or len(c['classes'])<3: raise ValueError('Multiclass schema v2 checkpoint required.')
         if c['sha256']!=digest(path): raise ValueError('Multiclass model SHA256 mismatch.')
-        if c['filter']!=dict(mode='causal',fmin=8.,fmax=30.,order=4) or c['normalization']!='fixed': raise ValueError('Unsupported multiclass preprocessing.')
+        if c['filter']!=dict(mode='causal',fmin=8.,fmax=30.,order=4) or c['normalization'] not in ('fixed','feature_train_only'): raise ValueError('Unsupported multiclass preprocessing.')
         ck=torch.load(path,map_location='cpu',weights_only=False)
         self.contract=c;self.channels=c['channels'];self.classes=c['classes'];self.n_ch=len(self.channels)
         self.sfreq=c['sfreq'];self.window_samples=c['n_times'];self.step_samples=round(.25*self.sfreq)
         if ck['n_channels']!=self.n_ch or ck['n_classes']!=len(self.classes) or ck['n_times']!=self.window_samples: raise ValueError('Multiclass dimensions differ from contract.')
-        self.model=EEGNet(self.n_ch,self.window_samples,len(self.classes));self.model.load_state_dict(ck['model_state']);self.model.eval()
+        self.arch=ck.get('arch','eegnet');self.feature_runner=None
+        if self.arch=='feature_ensemble':
+            if c['normalization']!='feature_train_only':raise ValueError('Feature ensemble requires train-only feature normalization.')
+            from multiclass_features import FeatureEnsembleRunner
+            self.feature_runner=FeatureEnsembleRunner(ck);self.model=None
+        elif self.arch=='eegnet':
+            if c['normalization']!='fixed':raise ValueError('EEGNet requires fixed normalization.')
+            self.model=EEGNet(self.n_ch,self.window_samples,len(self.classes));self.model.load_state_dict(ck['model_state']);self.model.eval()
+        else:raise ValueError('Unknown multiclass model architecture.')
         self.mean=np.asarray(ck['train_mean'],np.float32);self.std=np.asarray(ck['train_std'],np.float32)
         if self.mean.shape!=(self.n_ch,) or self.std.shape!=(self.n_ch,) or not np.isfinite(self.mean).all() or not np.isfinite(self.std).all() or np.any(self.std<1e-9):raise ValueError('Invalid multiclass normalization.')
         self.sos=butter(4,[8,30],fs=self.sfreq,btype='bandpass',output='sos')
@@ -62,7 +70,9 @@ class MulticlassDecoder:
             quality='artifact' if self.bad.get().any() else 'flat_signal' if np.any(x.std(axis=1)<self.contract['min_signal_std_v']) else 'ok'
             p=np.zeros(len(self.classes))
             if quality=='ok':
-                with torch.inference_mode():p=torch.softmax(self.model(torch.from_numpy((x-self.mean[:,None])/(self.std[:,None]+1e-8))[None]),dim=1)[0].numpy()
+                if self.feature_runner:p=self.feature_runner.predict(x[None])[0]
+                else:
+                    with torch.inference_mode():p=torch.softmax(self.model(torch.from_numpy((x-self.mean[:,None])/(self.std[:,None]+1e-8))[None]),dim=1)[0].numpy()
             decision=self.policy.update(p,quality)
             outputs.append(dict(sample_end=self.samples_seen,quality=quality,probabilities_raw=p.tolist(),
                 class_name=self.classes[decision['class_id']] if decision['class_id']>=0 else 'uncertain',**decision))

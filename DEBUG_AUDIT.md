@@ -84,4 +84,8 @@ Participant 08 sessions 21–25 train, 26–27 tune, 28–29 test: NN cue balanc
 
 ## Remaining lab checks
 
+The [multiclass v2 report](MULTICLASS_IMPROVEMENT_RESULTS.md) records the subsequent 70% target experiment. Sessions 1–6 fit, 7–8 tune, 9–10 fresh test; eight neural feature candidates compared on common tuning cues, with train-only feature statistics and fixed three-seed averaging. The selected 4-second log-covariance neural ensemble scored 81.59% cue balanced accuracy and 77.27% continuous replay cue balanced accuracy; individual-window balanced accuracy 63.92%, Volar Grasp recall 53.85%. The earlier and newer test cohorts differ; this is not a paired before/after comparison. One previously known empty event file was explicitly excluded, and all 95 remaining EDF/event pairs passed QA.
+
+The expanded suite has 52 passing tests, including covariance frequency/spatial content, neural gradients, offline/streaming parity, withheld-test feature isolation, candidate freezing and class-offset selection. No model or policy was changed after the v2 test. New prospective personal multiclass GUI/receiver work remains pending.
+
 Identify the installed acquisition/SDK and matching x86/x64 route; verify cap sites/reference and raw units; establish fresh clock-correct LSL transport; collect a personal fit and independent new-cue self-test; test virtual-hand UDP/Unity and timeout. [The lab guide](README_LAB_GUIDE.md) gives the operator procedure and primary acquisition references. Every compatible acquisition program does not automatically support the studio; an unverified producer requires a bridge/check first.

@@ -1,0 +1,170 @@
+{
+  "schema_version": 2,
+  "task_mode": "multiclass",
+  "arch": "feature_ensemble",
+  "role": "recorded_within_person_reference",
+  "classes": [
+    "rest",
+    "volar_grasp",
+    "finger_extension"
+  ],
+  "channels": [
+    "Fp1",
+    "Fp2",
+    "F7",
+    "F3",
+    "Fz",
+    "F4",
+    "F8",
+    "T3",
+    "C3",
+    "Cz",
+    "C4",
+    "T4",
+    "T5",
+    "P3",
+    "Pz",
+    "P4",
+    "T6",
+    "O1",
+    "POz",
+    "O2"
+  ],
+  "sfreq": 256,
+  "n_times": 1024,
+  "normalization": "feature_train_only",
+  "filter": {
+    "mode": "causal",
+    "fmin": 8.0,
+    "fmax": 30.0,
+    "order": 4
+  },
+  "artifact_limit_v": 0.0001,
+  "min_signal_std_v": 1e-09,
+  "sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+  "prepared_manifest_sha256": "b7f7c6e9245af3dc02b62e6d05d6d18085fce1d8fe731099c09552e8df6dab3a",
+  "experiment": {
+    "experiment_id": "bcifest_sub08_three_class_v2",
+    "declared_date": "2026-11-03",
+    "target_balanced_accuracy": 0.7,
+    "subject": "08",
+    "task": "olrandmcmitrain",
+    "classes": [
+      "rest",
+      "volar_grasp",
+      "finger_extension"
+    ],
+    "train_sessions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "validation_sessions": [
+      7,
+      8
+    ],
+    "test_sessions": [
+      9,
+      10
+    ],
+    "montage": "x24_stock20",
+    "sfreq": 256,
+    "window_s": 4.0,
+    "candidate_window_seconds": [
+      2.0,
+      4.0
+    ],
+    "stride_s": 0.25,
+    "settle_s": 0.5,
+    "artifact_limit_v": 0.0001,
+    "min_signal_std_v": 1e-09,
+    "min_windows_per_cue": 4,
+    "excluded_runs": {
+      "sub-08_ses-10_task-olrandmcmitrain_run-12": "Empty event file, already identified in the metadata inventory; no labels to validate."
+    },
+    "policy_search": {
+      "ema_alpha": [
+        0.1,
+        0.3,
+        0.6,
+        1.0
+      ],
+      "dwell_updates": [
+        1,
+        2
+      ],
+      "min_confidence": [
+        0.34,
+        0.4,
+        0.5
+      ],
+      "min_margin": [
+        0.0,
+        0.05
+      ]
+    },
+    "candidate_architectures": [
+      "filterbank_power",
+      "log_covariance"
+    ],
+    "candidate_montages": [
+      "all20",
+      "motor10"
+    ],
+    "ensemble_seeds": [
+      13,
+      42,
+      73
+    ],
+    "hidden_units": 32,
+    "dropout": 0.25,
+    "epochs": 120,
+    "patience": 20,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "covariance_shrinkage": 0.1,
+    "threads": 2,
+    "selection_metric": "validation_cue_balanced_accuracy_then_minimum_class_recall_then_log_loss",
+    "notes": "Eight predeclared candidates; fixed three-seed averaging, no best-seed selection. Original sessions21-29 test is exposed development evidence and is not a fresh test. Sessions9-10 remain sealed until selection and policy freeze. V1 and V2 use different cohorts and cannot demonstrate a paired improvement.",
+    "seed": 42,
+    "selected_candidate": "log_covariance_all20_4s",
+    "selection_common_validation_cues": 40,
+    "model_architecture": "feature_ensemble"
+  },
+  "verified": true,
+  "verified_meaning": "Train-only neural features/scales; validation-selected candidate. No live accuracy certification.",
+  "class_bias_calibration": {
+    "bias": [
+      0.0,
+      0.5,
+      0.0
+    ],
+    "scope": "Validation only; no test use.",
+    "declaration": {
+      "rest_bias": 0.0,
+      "other_class_grid": [
+        -1.5,
+        -1.0,
+        -0.5,
+        0.0,
+        0.5,
+        1.0,
+        1.5
+      ],
+      "selection": "validation_cue_balanced_accuracy_then_minimum_class_recall_then_smallest_bias_norm",
+      "scope": "Added following development class-imbalance observation, before sealed-test scoring; applied only to the selected network."
+    },
+    "probability_definition": "Mean neural softmax, validation-fitted class log offsets, then EMA."
+  },
+  "policy": {
+    "ema_alpha": 1.0,
+    "dwell_updates": 1,
+    "min_confidence": 0.5,
+    "min_margin": 0.05,
+    "validation_tuned": true
+  }
+}

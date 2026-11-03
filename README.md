@@ -35,6 +35,8 @@ Legacy weights are retained with unverified contracts. The default template has 
 
 ## Three-class recorded-data pipeline
 
+The latest [multiclass v2 result](MULTICLASS_IMPROVEMENT_RESULTS.md) exceeds the 70% **cue-level** target: 81.59% balanced accuracy on unused sessions 9–10, 77.27% in continuous cue-trial replay. It uses a covariance-feature neural ensemble, all 20 sites and 4-second windows. Individual-window balanced accuracy is 63.92%; Volar Grasp recall remains 53.85%. Reference: `decoder_and_models/multiclass_covariance_sub08_v2.pt` and its contract. The result report gives the full v2 preparation/search/calibration/test commands. New prospective personal multiclass GUI validation remains pending.
+
 `train_multiclass.py` trains **Rest / Volar Grasp / Finger Extension** from the BCIFEST random multiclass recordings, within one person. The fixed experiment uses participant 08, sessions 21–25 for training, 26–27 for tuning and 28–29 for test. Whole sessions stay separate; normalization and cue-balanced sampling use training data only. `replay_multiclass.py` tunes EMA/dwell/rejection on tuning recordings before a one-time frozen test. It emits no actuator commands.
 
 ```powershell

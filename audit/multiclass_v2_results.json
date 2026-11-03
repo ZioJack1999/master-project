@@ -1,0 +1,3596 @@
+{
+  "experiment_id": "bcifest_sub08_three_class_v2",
+  "classes": [
+    "rest",
+    "volar_grasp",
+    "finger_extension"
+  ],
+  "chance_balanced_accuracy": 0.3333333333333333,
+  "frozen": {
+    "model_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+    "baseline_sha256": "574b5ef5e6de3832b1daff9621148aca7189db13a7e9b9768b5d103a2e2d00e7",
+    "manifest_sha256": "b7f7c6e9245af3dc02b62e6d05d6d18085fce1d8fe731099c09552e8df6dab3a",
+    "records_sha256": "ebf9f3f23df99af8056520d02a159f0774deaaccb35b5a4e7d036e144603d61f",
+    "windows_sha256": "3c8949a0a0b1d539d9863fbdc312f2dbd05ff7dbdf4a12ffd4ba1ec6b4e0b934",
+    "contract_sha256": "4b6639220ea4702275a66de49eba26c391c3f8c944ab9e3e429c0e38b5078654"
+  },
+  "partitions": {
+    "train": {
+      "windows": {
+        "rest": 795,
+        "volar_grasp": 687,
+        "finger_extension": 622
+      },
+      "clean_cue_trials": {
+        "rest": 34,
+        "volar_grasp": 34,
+        "finger_extension": 27
+      },
+      "runs": 50,
+      "sessions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "validation": {
+      "windows": {
+        "rest": 300,
+        "volar_grasp": 358,
+        "finger_extension": 343
+      },
+      "clean_cue_trials": {
+        "rest": 14,
+        "volar_grasp": 14,
+        "finger_extension": 12
+      },
+      "runs": 19,
+      "sessions": [
+        7,
+        8
+      ]
+    },
+    "test": {
+      "windows": {
+        "rest": 340,
+        "volar_grasp": 271,
+        "finger_extension": 318
+      },
+      "clean_cue_trials": {
+        "rest": 13,
+        "volar_grasp": 13,
+        "finger_extension": 11
+      },
+      "runs": 21,
+      "sessions": [
+        9,
+        10
+      ]
+    }
+  },
+  "model_architecture": "feature_ensemble",
+  "eegnet": {
+    "windows": {
+      "n": 929,
+      "balanced_accuracy": 0.639212546398494,
+      "accuracy": 0.6512378902045209,
+      "macro_f1": 0.6394375578468701,
+      "confusion_matrix": [
+        [
+          250,
+          45,
+          45
+        ],
+        [
+          20,
+          121,
+          130
+        ],
+        [
+          28,
+          56,
+          234
+        ]
+      ],
+      "recall": {
+        "rest": 0.7352941176470589,
+        "volar_grasp": 0.44649446494464945,
+        "finger_extension": 0.7358490566037735
+      },
+      "rest_false_activation_rate": 0.2647058823529412
+    },
+    "cue_trials": {
+      "n": 37,
+      "balanced_accuracy": 0.8158508158508159,
+      "accuracy": 0.8108108108108109,
+      "macro_f1": 0.8012345679012345,
+      "confusion_matrix": [
+        [
+          13,
+          0,
+          0
+        ],
+        [
+          0,
+          7,
+          6
+        ],
+        [
+          1,
+          0,
+          10
+        ]
+      ],
+      "recall": {
+        "rest": 1.0,
+        "volar_grasp": 0.5384615384615384,
+        "finger_extension": 0.9090909090909091
+      },
+      "rest_false_activation_rate": 0.0,
+      "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent.",
+      "run_cluster_bootstrap_95ci": [
+        0.7023809523809524,
+        0.923076923076923
+      ],
+      "within_run_permutation_p": 0.0003332222592469177,
+      "uncertainty_warning": "Run-cluster bootstrap and within-run label permutations; exploratory with few independent sessions."
+    }
+  },
+  "bandpower_baseline": {
+    "windows": {
+      "n": 929,
+      "balanced_accuracy": 0.6021375957377776,
+      "accuracy": 0.604951560818084,
+      "macro_f1": 0.5991555093875038,
+      "confusion_matrix": [
+        [
+          183,
+          95,
+          62
+        ],
+        [
+          28,
+          140,
+          103
+        ],
+        [
+          25,
+          54,
+          239
+        ]
+      ],
+      "recall": {
+        "rest": 0.538235294117647,
+        "volar_grasp": 0.5166051660516605,
+        "finger_extension": 0.7515723270440252
+      },
+      "rest_false_activation_rate": 0.46176470588235297
+    },
+    "cue_trials": {
+      "n": 37,
+      "balanced_accuracy": 0.7132867132867133,
+      "accuracy": 0.7027027027027027,
+      "macro_f1": 0.7025534851621807,
+      "confusion_matrix": [
+        [
+          10,
+          1,
+          2
+        ],
+        [
+          0,
+          6,
+          7
+        ],
+        [
+          0,
+          1,
+          10
+        ]
+      ],
+      "recall": {
+        "rest": 0.7692307692307693,
+        "volar_grasp": 0.46153846153846156,
+        "finger_extension": 0.9090909090909091
+      },
+      "rest_false_activation_rate": 0.23076923076923078,
+      "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent.",
+      "run_cluster_bootstrap_95ci": [
+        0.5754878618113913,
+        0.842093253968254
+      ],
+      "within_run_permutation_p": 0.002999000333222259,
+      "uncertainty_warning": "Run-cluster bootstrap and within-run label permutations; exploratory with few independent sessions."
+    }
+  },
+  "scope": "Recorded within-person three-class subset. Not prospective accuracy or nine-class/open-set performance.",
+  "continuous_replay": {
+    "policy": {
+      "ema_alpha": 1.0,
+      "dwell_updates": 1,
+      "min_confidence": 0.5,
+      "min_margin": 0.05,
+      "validation_tuned": true
+    },
+    "cue_trials": {
+      "n_cue_trials": 36,
+      "skipped_cue_trials": 1,
+      "balanced_accuracy": 0.7727272727272728,
+      "confusion_matrix": [
+        [
+          13,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          0
+        ],
+        [
+          1,
+          0,
+          9,
+          1
+        ]
+      ],
+      "columns": [
+        "rest",
+        "volar_grasp",
+        "finger_extension",
+        "uncertain"
+      ],
+      "class_recall": {
+        "rest": 1.0,
+        "volar_grasp": 0.5,
+        "finger_extension": 0.8181818181818182
+      },
+      "rest_false_activation_rate": 0.0,
+      "known_class_update_coverage": 0.9760087241003271,
+      "other_gesture_updates": 1718,
+      "other_gesture_acceptance_rate": 0.9470314318975553,
+      "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+    },
+    "scope": "Continuous causal recorded replay; model and policy frozen before test."
+  },
+  "selection": {
+    "selected_candidate": "log_covariance_all20_4s",
+    "selection_common_validation_cues": 40,
+    "selection_rule": "validation_cue_balanced_accuracy_then_minimum_class_recall_then_log_loss",
+    "elapsed_s": 105.73604050002177,
+    "target_balanced_accuracy": 0.7,
+    "test_scored": false,
+    "prior_exposure_signal_overlap_checked": true,
+    "fresh_test_overlap": 0
+  },
+  "candidates": [
+    {
+      "name": "filterbank_power_all20_2s",
+      "window_s": 2.0,
+      "montage": "all20",
+      "channels": [
+        "Fp1",
+        "Fp2",
+        "F7",
+        "F3",
+        "Fz",
+        "F4",
+        "F8",
+        "T3",
+        "C3",
+        "Cz",
+        "C4",
+        "T4",
+        "T5",
+        "P3",
+        "Pz",
+        "P4",
+        "T6",
+        "O1",
+        "POz",
+        "O2"
+      ],
+      "family": "filterbank_power",
+      "validation": {
+        "windows": {
+          "n": 1317,
+          "balanced_accuracy": 0.5461743995453902,
+          "accuracy": 0.5322703113135915,
+          "macro_f1": 0.5015661785857946,
+          "confusion_matrix": [
+            [
+              324,
+              23,
+              65
+            ],
+            [
+              144,
+              85,
+              241
+            ],
+            [
+              83,
+              60,
+              292
+            ]
+          ],
+          "recall": {
+            "rest": 0.7864077669902912,
+            "volar_grasp": 0.18085106382978725,
+            "finger_extension": 0.671264367816092
+          },
+          "rest_false_activation_rate": 0.21359223300970873
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.6626984126984127,
+          "accuracy": 0.65,
+          "macro_f1": 0.5555133881509593,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0
+            ],
+            [
+              5,
+              1,
+              8
+            ],
+            [
+              1,
+              0,
+              11
+            ]
+          ],
+          "recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 0.8496254086494446,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "log_covariance_all20_2s",
+      "window_s": 2.0,
+      "montage": "all20",
+      "channels": [
+        "Fp1",
+        "Fp2",
+        "F7",
+        "F3",
+        "Fz",
+        "F4",
+        "F8",
+        "T3",
+        "C3",
+        "Cz",
+        "C4",
+        "T4",
+        "T5",
+        "P3",
+        "Pz",
+        "P4",
+        "T6",
+        "O1",
+        "POz",
+        "O2"
+      ],
+      "family": "log_covariance",
+      "validation": {
+        "windows": {
+          "n": 1317,
+          "balanced_accuracy": 0.5691935740454499,
+          "accuracy": 0.5573272589217919,
+          "macro_f1": 0.537937470534894,
+          "confusion_matrix": [
+            [
+              319,
+              25,
+              68
+            ],
+            [
+              141,
+              121,
+              208
+            ],
+            [
+              74,
+              67,
+              294
+            ]
+          ],
+          "recall": {
+            "rest": 0.7742718446601942,
+            "volar_grasp": 0.2574468085106383,
+            "finger_extension": 0.6758620689655173
+          },
+          "rest_false_activation_rate": 0.22572815533980584
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.7341269841269841,
+          "accuracy": 0.725,
+          "macro_f1": 0.6857825567502985,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0
+            ],
+            [
+              2,
+              4,
+              8
+            ],
+            [
+              1,
+              0,
+              11
+            ]
+          ],
+          "recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 0.7615900039672852,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "filterbank_power_motor10_2s",
+      "window_s": 2.0,
+      "montage": "motor10",
+      "channels": [
+        "F3",
+        "Fz",
+        "F4",
+        "C3",
+        "Cz",
+        "C4",
+        "P3",
+        "Pz",
+        "P4",
+        "POz"
+      ],
+      "family": "filterbank_power",
+      "validation": {
+        "windows": {
+          "n": 1317,
+          "balanced_accuracy": 0.537802344438192,
+          "accuracy": 0.5239179954441914,
+          "macro_f1": 0.4921480077486149,
+          "confusion_matrix": [
+            [
+              324,
+              22,
+              66
+            ],
+            [
+              173,
+              84,
+              213
+            ],
+            [
+              96,
+              57,
+              282
+            ]
+          ],
+          "recall": {
+            "rest": 0.7864077669902912,
+            "volar_grasp": 0.17872340425531916,
+            "finger_extension": 0.6482758620689655
+          },
+          "rest_false_activation_rate": 0.21359223300970873
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.6666666666666666,
+          "accuracy": 0.65,
+          "macro_f1": 0.557070707070707,
+          "confusion_matrix": [
+            [
+              13,
+              0,
+              1
+            ],
+            [
+              6,
+              1,
+              7
+            ],
+            [
+              0,
+              0,
+              12
+            ]
+          ],
+          "recall": {
+            "rest": 0.9285714285714286,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.07142857142857142,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 0.9474502801895142,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "log_covariance_motor10_2s",
+      "window_s": 2.0,
+      "montage": "motor10",
+      "channels": [
+        "F3",
+        "Fz",
+        "F4",
+        "C3",
+        "Cz",
+        "C4",
+        "P3",
+        "Pz",
+        "P4",
+        "POz"
+      ],
+      "family": "log_covariance",
+      "validation": {
+        "windows": {
+          "n": 1317,
+          "balanced_accuracy": 0.5278406586144372,
+          "accuracy": 0.5140470766894457,
+          "macro_f1": 0.4834688472354367,
+          "confusion_matrix": [
+            [
+              324,
+              25,
+              63
+            ],
+            [
+              166,
+              84,
+              220
+            ],
+            [
+              108,
+              58,
+              269
+            ]
+          ],
+          "recall": {
+            "rest": 0.7864077669902912,
+            "volar_grasp": 0.17872340425531916,
+            "finger_extension": 0.6183908045977011
+          },
+          "rest_false_activation_rate": 0.21359223300970873
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.6388888888888888,
+          "accuracy": 0.625,
+          "macro_f1": 0.5036764705882353,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              9
+            ],
+            [
+              1,
+              0,
+              11
+            ]
+          ],
+          "recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.0,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 0.9077633023262024,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "filterbank_power_all20_4s",
+      "window_s": 4.0,
+      "montage": "all20",
+      "channels": [
+        "Fp1",
+        "Fp2",
+        "F7",
+        "F3",
+        "Fz",
+        "F4",
+        "F8",
+        "T3",
+        "C3",
+        "Cz",
+        "C4",
+        "T4",
+        "T5",
+        "P3",
+        "Pz",
+        "P4",
+        "T6",
+        "O1",
+        "POz",
+        "O2"
+      ],
+      "family": "filterbank_power",
+      "validation": {
+        "windows": {
+          "n": 1001,
+          "balanced_accuracy": 0.5414657791821171,
+          "accuracy": 0.5264735264735265,
+          "macro_f1": 0.47608440465583324,
+          "confusion_matrix": [
+            [
+              221,
+              16,
+              63
+            ],
+            [
+              116,
+              36,
+              206
+            ],
+            [
+              39,
+              34,
+              270
+            ]
+          ],
+          "recall": {
+            "rest": 0.7366666666666667,
+            "volar_grasp": 0.1005586592178771,
+            "finger_extension": 0.7871720116618076
+          },
+          "rest_false_activation_rate": 0.2633333333333333
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.6666666666666666,
+          "accuracy": 0.65,
+          "macro_f1": 0.5577020202020202,
+          "confusion_matrix": [
+            [
+              13,
+              0,
+              1
+            ],
+            [
+              5,
+              1,
+              8
+            ],
+            [
+              0,
+              0,
+              12
+            ]
+          ],
+          "recall": {
+            "rest": 0.9285714285714286,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.07142857142857142,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 0.9305667877197266,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "log_covariance_all20_4s",
+      "window_s": 4.0,
+      "montage": "all20",
+      "channels": [
+        "Fp1",
+        "Fp2",
+        "F7",
+        "F3",
+        "Fz",
+        "F4",
+        "F8",
+        "T3",
+        "C3",
+        "Cz",
+        "C4",
+        "T4",
+        "T5",
+        "P3",
+        "Pz",
+        "P4",
+        "T6",
+        "O1",
+        "POz",
+        "O2"
+      ],
+      "family": "log_covariance",
+      "validation": {
+        "windows": {
+          "n": 1001,
+          "balanced_accuracy": 0.6145235290178854,
+          "accuracy": 0.5974025974025974,
+          "macro_f1": 0.5661683705458459,
+          "confusion_matrix": [
+            [
+              263,
+              14,
+              23
+            ],
+            [
+              120,
+              80,
+              158
+            ],
+            [
+              51,
+              37,
+              255
+            ]
+          ],
+          "recall": {
+            "rest": 0.8766666666666667,
+            "volar_grasp": 0.22346368715083798,
+            "finger_extension": 0.7434402332361516
+          },
+          "rest_false_activation_rate": 0.12333333333333334
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.7619047619047619,
+          "accuracy": 0.75,
+          "macro_f1": 0.7068384999419481,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              5
+            ],
+            [
+              0,
+              0,
+              12
+            ]
+          ],
+          "recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 0.9846577644348145,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "filterbank_power_motor10_4s",
+      "window_s": 4.0,
+      "montage": "motor10",
+      "channels": [
+        "F3",
+        "Fz",
+        "F4",
+        "C3",
+        "Cz",
+        "C4",
+        "P3",
+        "Pz",
+        "P4",
+        "POz"
+      ],
+      "family": "filterbank_power",
+      "validation": {
+        "windows": {
+          "n": 1001,
+          "balanced_accuracy": 0.5527901652813293,
+          "accuracy": 0.5354645354645354,
+          "macro_f1": 0.4694226801877101,
+          "confusion_matrix": [
+            [
+              236,
+              3,
+              61
+            ],
+            [
+              112,
+              24,
+              222
+            ],
+            [
+              49,
+              18,
+              276
+            ]
+          ],
+          "recall": {
+            "rest": 0.7866666666666666,
+            "volar_grasp": 0.0670391061452514,
+            "finger_extension": 0.8046647230320699
+          },
+          "rest_false_activation_rate": 0.21333333333333335
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.6190476190476191,
+          "accuracy": 0.6,
+          "macro_f1": 0.48888888888888893,
+          "confusion_matrix": [
+            [
+              12,
+              0,
+              2
+            ],
+            [
+              4,
+              0,
+              10
+            ],
+            [
+              0,
+              0,
+              12
+            ]
+          ],
+          "recall": {
+            "rest": 0.8571428571428571,
+            "volar_grasp": 0.0,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.14285714285714285,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 1.0656003952026367,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    },
+    {
+      "name": "log_covariance_motor10_4s",
+      "window_s": 4.0,
+      "montage": "motor10",
+      "channels": [
+        "F3",
+        "Fz",
+        "F4",
+        "C3",
+        "Cz",
+        "C4",
+        "P3",
+        "Pz",
+        "P4",
+        "POz"
+      ],
+      "family": "log_covariance",
+      "validation": {
+        "windows": {
+          "n": 1001,
+          "balanced_accuracy": 0.5525791524377776,
+          "accuracy": 0.5324675324675324,
+          "macro_f1": 0.4675238997588718,
+          "confusion_matrix": [
+            [
+              256,
+              8,
+              36
+            ],
+            [
+              157,
+              26,
+              175
+            ],
+            [
+              71,
+              21,
+              251
+            ]
+          ],
+          "recall": {
+            "rest": 0.8533333333333334,
+            "volar_grasp": 0.07262569832402235,
+            "finger_extension": 0.7317784256559767
+          },
+          "rest_false_activation_rate": 0.14666666666666667
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.6150793650793651,
+          "accuracy": 0.6,
+          "macro_f1": 0.4920634920634921,
+          "confusion_matrix": [
+            [
+              13,
+              1,
+              0
+            ],
+            [
+              7,
+              0,
+              7
+            ],
+            [
+              1,
+              0,
+              11
+            ]
+          ],
+          "recall": {
+            "rest": 0.9285714285714286,
+            "volar_grasp": 0.0,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.07142857142857142,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "validation_cue_loss": 1.0799782276153564,
+      "ensemble_seeds": [
+        13,
+        42,
+        73
+      ],
+      "test_scored": false
+    }
+  ],
+  "class_bias_calibration": {
+    "before": {
+      "windows": {
+        "n": 1001,
+        "balanced_accuracy": 0.6145235290178854,
+        "accuracy": 0.5974025974025974,
+        "macro_f1": 0.5661683705458459,
+        "confusion_matrix": [
+          [
+            263,
+            14,
+            23
+          ],
+          [
+            120,
+            80,
+            158
+          ],
+          [
+            51,
+            37,
+            255
+          ]
+        ],
+        "recall": {
+          "rest": 0.8766666666666667,
+          "volar_grasp": 0.22346368715083798,
+          "finger_extension": 0.7434402332361516
+        },
+        "rest_false_activation_rate": 0.12333333333333334
+      },
+      "cue_trials": {
+        "n": 40,
+        "balanced_accuracy": 0.7619047619047619,
+        "accuracy": 0.75,
+        "macro_f1": 0.7068384999419481,
+        "confusion_matrix": [
+          [
+            14,
+            0,
+            0
+          ],
+          [
+            5,
+            4,
+            5
+          ],
+          [
+            0,
+            0,
+            12
+          ]
+        ],
+        "recall": {
+          "rest": 1.0,
+          "volar_grasp": 0.2857142857142857,
+          "finger_extension": 1.0
+        },
+        "rest_false_activation_rate": 0.0,
+        "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+      }
+    },
+    "selected": {
+      "bias": [
+        0.0,
+        0.5,
+        0.0
+      ],
+      "metrics": {
+        "windows": {
+          "n": 1001,
+          "balanced_accuracy": 0.6077518445526654,
+          "accuracy": 0.5914085914085914,
+          "macro_f1": 0.5652060552116942,
+          "confusion_matrix": [
+            [
+              258,
+              19,
+              23
+            ],
+            [
+              117,
+              86,
+              155
+            ],
+            [
+              49,
+              46,
+              248
+            ]
+          ],
+          "recall": {
+            "rest": 0.86,
+            "volar_grasp": 0.24022346368715083,
+            "finger_extension": 0.7230320699708455
+          },
+          "rest_false_activation_rate": 0.14
+        },
+        "cue_trials": {
+          "n": 40,
+          "balanced_accuracy": 0.7857142857142857,
+          "accuracy": 0.775,
+          "macro_f1": 0.7439811650337966,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4
+            ],
+            [
+              0,
+              0,
+              12
+            ]
+          ],
+          "recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "rule": "Mean raw softmax probability per eligible cue, then argmax; overlapping windows are not independent."
+        }
+      },
+      "score": [
+        0.7857142857142857,
+        0.35714285714285715,
+        -0.5
+      ]
+    },
+    "test_used": false
+  },
+  "policy_tuning": {
+    "selection_scope": "Validation sessions only; test not scored.",
+    "selected": {
+      "policy": {
+        "ema_alpha": 1.0,
+        "dwell_updates": 1,
+        "min_confidence": 0.5,
+        "min_margin": 0.05,
+        "validation_tuned": true
+      },
+      "metrics": {
+        "n_cue_trials": 40,
+        "skipped_cue_trials": 2,
+        "balanced_accuracy": 0.7857142857142857,
+        "confusion_matrix": [
+          [
+            14,
+            0,
+            0,
+            0
+          ],
+          [
+            4,
+            5,
+            4,
+            1
+          ],
+          [
+            0,
+            0,
+            12,
+            0
+          ]
+        ],
+        "columns": [
+          "rest",
+          "volar_grasp",
+          "finger_extension",
+          "uncertain"
+        ],
+        "class_recall": {
+          "rest": 1.0,
+          "volar_grasp": 0.35714285714285715,
+          "finger_extension": 1.0
+        },
+        "rest_false_activation_rate": 0.0,
+        "known_class_update_coverage": 0.9748237663645518,
+        "other_gesture_updates": 1721,
+        "other_gesture_acceptance_rate": 0.9552585705984893,
+        "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+      }
+    },
+    "candidates": [
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7103174603174603,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              7,
+              0
+            ],
+            [
+              0,
+              1,
+              11,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 1.0,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 1.0,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6825396825396824,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              7,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              2
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9476334340382678,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.926786751888437,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7103174603174603,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              7,
+              0
+            ],
+            [
+              0,
+              1,
+              11,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9828801611278952,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9848925043579314,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6825396825396824,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              7,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              2
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9415911379657603,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9203951191167926,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6626984126984127,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              1,
+              5,
+              4
+            ],
+            [
+              0,
+              1,
+              11,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8731117824773413,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8558977338756537,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6349206349206349,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              1,
+              5,
+              4
+            ],
+            [
+              0,
+              0,
+              10,
+              2
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8640483383685801,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8402091807088902,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6825396825396824,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              7,
+              0
+            ],
+            [
+              0,
+              1,
+              10,
+              1
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9587109768378651,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9488669378268448,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6825396825396824,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              6,
+              1
+            ],
+            [
+              1,
+              1,
+              10,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9083585095669687,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.872748402091807,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6825396825396824,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              7,
+              0
+            ],
+            [
+              0,
+              1,
+              10,
+              1
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9405840886203424,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9343404997094712,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6825396825396824,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              6,
+              1
+            ],
+            [
+              1,
+              1,
+              10,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9013091641490433,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8675188843695526,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6349206349206349,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              1,
+              5,
+              4
+            ],
+            [
+              0,
+              1,
+              10,
+              1
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.837865055387714,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8018593840790238,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.1,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.6349206349206349,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              1,
+              5,
+              4
+            ],
+            [
+              1,
+              1,
+              10,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.07142857142857142,
+            "finger_extension": 0.8333333333333334
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8277945619335347,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.7861708309122604,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              4,
+              4,
+              2
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 1.0,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 1.0,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9687814702920443,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9494479953515398,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              4,
+              4,
+              2
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.998992950654582,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.990122022080186,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9677744209466264,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9482858803021499,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9526686807653575,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9233004067402673,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9395770392749244,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.905287623474724,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              4,
+              4,
+              2
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9284994964753273,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9122603137710633,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8982880161127895,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.862289366647298,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              4,
+              4,
+              2
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9274924471299094,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9023823358512493,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7619047619047619,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              4,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.2857142857142857,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8972809667673716,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8617083091226031,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7380952380952381,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              4,
+              3
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8851963746223565,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8373038930854154,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.3,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7380952380952381,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              4,
+              3
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.21428571428571427,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8741188318227593,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8204532248692621,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 1.0,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.999418942475305,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9838872104733132,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9662986635676932,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 1.0,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9941894247530505,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9838872104733132,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9651365485183033,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9859013091641491,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9529343404997095,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.972809667673716,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9389889599070308,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9174219536757301,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8901801278326554,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9013091641490433,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.862289366647298,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9174219536757301,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8861127251597908,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9013091641490433,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8617083091226031,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9033232628398792,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.852992446252179,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 0.6,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              5,
+              4,
+              0
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8912386706948641,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8407902382335851,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 1.0,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 1.0,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 1,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9788519637462235,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9732713538640325,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9979859013091642,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9976757699012202,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 1,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9788519637462235,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9732713538640325,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9879154078549849,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9703660662405578,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 1,
+          "min_confidence": 0.5,
+          "min_margin": 0.05,
+          "validation_tuned": true
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9748237663645518,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.9552585705984893,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7579365079365079,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              11,
+              1
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9174219536757301,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8855316676350958,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 2,
+          "min_confidence": 0.34,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8942598187311178,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8599651365485182,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7579365079365079,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              11,
+              1
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.9154078549848943,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8837884950610111,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 2,
+          "min_confidence": 0.4,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8942598187311178,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8599651365485182,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.0
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7579365079365079,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              11,
+              1
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 0.9166666666666666
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.905337361530715,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8599651365485182,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      },
+      {
+        "policy": {
+          "ema_alpha": 1.0,
+          "dwell_updates": 2,
+          "min_confidence": 0.5,
+          "min_margin": 0.05
+        },
+        "metrics": {
+          "n_cue_trials": 40,
+          "skipped_cue_trials": 2,
+          "balanced_accuracy": 0.7857142857142857,
+          "confusion_matrix": [
+            [
+              14,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              5,
+              4,
+              1
+            ],
+            [
+              0,
+              0,
+              12,
+              0
+            ]
+          ],
+          "columns": [
+            "rest",
+            "volar_grasp",
+            "finger_extension",
+            "uncertain"
+          ],
+          "class_recall": {
+            "rest": 1.0,
+            "volar_grasp": 0.35714285714285715,
+            "finger_extension": 1.0
+          },
+          "rest_false_activation_rate": 0.0,
+          "known_class_update_coverage": 0.8902316213494461,
+          "other_gesture_updates": 1721,
+          "other_gesture_acceptance_rate": 0.8448576409064498,
+          "warning": "Three-class subset only. Other protocol gestures are out-of-set; softmax rejection is not a validated unknown-gesture detector."
+        }
+      }
+    ]
+  },
+  "quality": {
+    "train": {
+      "excluded_other_class_cues": 229,
+      "selected_cues": 110,
+      "candidate_windows": 2339,
+      "artifact_windows": 219,
+      "kept_windows": 2104,
+      "kept_cues": 95,
+      "insufficient_clean_cue_windows": 4,
+      "short_cues": 5,
+      "flat_windows": 8
+    },
+    "validation": {
+      "excluded_other_class_cues": 76,
+      "selected_cues": 43,
+      "candidate_windows": 1016,
+      "kept_windows": 1001,
+      "kept_cues": 40,
+      "insufficient_clean_cue_windows": 2,
+      "artifact_windows": 10,
+      "short_cues": 1
+    },
+    "test": {
+      "excluded_other_class_cues": 83,
+      "selected_cues": 44,
+      "candidate_windows": 980,
+      "kept_windows": 929,
+      "kept_cues": 37,
+      "short_cues": 7,
+      "artifact_windows": 51
+    }
+  },
+  "declared_exclusions": [
+    {
+      "run": "sub-08_ses-10_task-olrandmcmitrain_run-12",
+      "partition": "test",
+      "reason": "Empty event file, already identified in the metadata inventory; no labels to validate."
+    }
+  ],
+  "window_s": 4.0,
+  "runtime": {
+    "model_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+    "n_outputs": 225,
+    "chunk_ms_median": 0.981999997748062,
+    "chunk_ms_p95": 1.2590600119438022,
+    "window_s": 4.0,
+    "stride_s": 0.25,
+    "scope": "Decoder CPU time only; excludes acquisition and display latency."
+  },
+  "target_scope": "70% cue-level balanced accuracy on eligible trials. Per-update and every-class targets are separate."
+}

@@ -1,0 +1,9 @@
+{
+  "model_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+  "n_outputs": 225,
+  "chunk_ms_median": 0.981999997748062,
+  "chunk_ms_p95": 1.2590600119438022,
+  "window_s": 4.0,
+  "stride_s": 0.25,
+  "scope": "Decoder CPU time only; excludes acquisition and display latency."
+}

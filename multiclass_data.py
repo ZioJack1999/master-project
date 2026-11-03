@@ -75,7 +75,7 @@ def extract_windows(filtered,events,config):
 def prepare(root,config,output):
     c=validate_config(config);output=Path(output);output.mkdir(parents=True,exist_ok=True)
     channels=MONTAGES[c['montage']];fs=c['sfreq'];sos=butter(4,[8,30],fs=fs,btype='bandpass',output='sos')
-    xs=[];records=[];runs=[];failures=[];seen={}
+    xs=[];records=[];runs=[];failures=[];seen={};excluded=[]
     for partition,key in [('train','train_sessions'),('validation','validation_sessions'),('test','test_sessions')]:
         for ses in c[key]:
             folder=Path(root)/f"sub-{int(c['subject']):02d}"/f'ses-{ses:02d}'/'eeg'
@@ -84,6 +84,8 @@ def prepare(root,config,output):
             for event_path in paths:
                 edf=event_path.with_name(event_path.name.replace('_events.tsv','_eeg.edf'))
                 run=edf.stem.removesuffix('_eeg')
+                if run in c.get('excluded_runs',{}):
+                    excluded.append(dict(run=run,partition=partition,reason=c['excluded_runs'][run]));continue
                 try:
                     events=pd.read_csv(event_path,sep='\t')
                     if events.empty: raise ValueError('Empty events table.')
@@ -117,7 +119,7 @@ def prepare(root,config,output):
                 except Exception as exc:
                     failures.append(dict(run=run,partition=partition,error=f'{type(exc).__name__}: {exc}'))
                     print(f'EXCLUDED {run}: {exc}',flush=True)
-    manifest=dict(config=c,channels=channels,runs=runs,failures=failures,partitions={})
+    manifest=dict(config=c,channels=channels,runs=runs,failures=failures,partitions={},declared_exclusions=excluded)
     for partition in ['train','validation','test']:
         rows=[r for r in records if r['partition']==partition]
         counts={name:sum(r['label']==i for r in rows) for i,name in enumerate(c['classes'])}

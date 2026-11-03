@@ -5,6 +5,7 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 import mne,torch
+from itertools import product
 from multiclass_data import cue_spans,digest
 from multiclass_decoder import MulticlassDecoder,MulticlassPolicy
 from multiclass_metrics import balanced_recall
@@ -64,12 +65,17 @@ def tune(root,work):
     from train_multiclass import verify_frozen
     frozen=verify_frozen(work)
     rows,classes,c=continuous_predictions(root,work,'validation');candidates=[]
-    for confidence in [.4,.5,.6]:
-        for margin in [0.,.05,.1]:
-            policy=dict(ema_alpha=.3,dwell_updates=2,min_confidence=confidence,min_margin=margin)
-            metrics=policy_metrics(apply_policy(rows,classes,policy),classes)
-            candidates.append(dict(policy=policy,metrics=metrics))
-    best=max(candidates,key=lambda r:(r['metrics']['balanced_accuracy'],-(r['metrics']['rest_false_activation_rate'] or 0),r['policy']['min_confidence'],r['policy']['min_margin']))
+    grid=c.get('policy_search',dict(ema_alpha=[.3],dwell_updates=[2],min_confidence=[.4,.5,.6],min_margin=[0.,.05,.1]))
+    for alpha,dwell,confidence,margin in product(grid['ema_alpha'],grid['dwell_updates'],grid['min_confidence'],grid['min_margin']):
+        policy=dict(ema_alpha=alpha,dwell_updates=dwell,min_confidence=confidence,min_margin=margin)
+        metrics=policy_metrics(apply_policy(rows,classes,policy),classes)
+        candidates.append(dict(policy=policy,metrics=metrics))
+    def objective(r):
+        m=r['metrics'];p=r['policy']
+        if c.get('policy_search'):
+            return (m['balanced_accuracy'],min(m['class_recall'].values()),-(m['rest_false_activation_rate'] or 0),p['min_confidence'],p['min_margin'],-p['dwell_updates'],p['ema_alpha'])
+        return (m['balanced_accuracy'],-(m['rest_false_activation_rate'] or 0),p['min_confidence'],p['min_margin'])
+    best=max(candidates,key=objective)
     best['policy']['validation_tuned']=True
     contract_path=work/'eegnet_multiclass.pt.json';contract=json.loads(contract_path.read_text());contract['policy']=best['policy']
     contract_path.write_text(json.dumps(contract,indent=2),encoding='utf-8')
