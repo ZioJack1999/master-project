@@ -7,9 +7,10 @@ def balanced_recall(y,p,n_classes):
     return float(np.mean([np.mean(p[y==i]==i) for i in range(n_classes)]))
 
 def cue_probabilities(probabilities,records):
-    names=sorted(set(r['trial'] for r in records));truth=[];values=[];runs=[]
-    for name in names:
-        indices=[i for i,r in enumerate(records) if r['trial']==name]
+    groups={};truth=[];values=[];runs=[]
+    for i,r in enumerate(records):groups.setdefault(r['trial'],[]).append(i)
+    for name in sorted(groups):
+        indices=groups[name]
         labels=set(records[i]['label'] for i in indices)
         if len(labels)!=1: raise ValueError('One cue has conflicting labels.')
         truth.append(labels.pop());values.append(np.mean(probabilities[indices],axis=0));runs.append(records[indices[0]]['run'])

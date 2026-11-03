@@ -18,10 +18,13 @@ def probabilities(model,features,batch=256):
         for a in range(0,len(features),batch):result.append(torch.softmax(model(torch.from_numpy(features[a:a+batch])),dim=1).numpy())
     return np.concatenate(result)
 
-def fit_member(train_x,train_y,weights,val_x,val_y,val_rows,c,preprocessing,family,n_channels,seed):
+def fit_member(train_x,train_y,weights,val_x,val_y,val_rows,c,preprocessing,family,n_channels,seed,train_rows=None):
     torch.manual_seed(seed);model=FeatureNetwork(family,n_channels,len(c['classes']),preprocessing,c['hidden_units'],c['dropout'])
     data=TensorDataset(torch.from_numpy(train_x),torch.from_numpy(train_y))
-    sampler=WeightedRandomSampler(torch.from_numpy(weights),len(train_y),replacement=True,generator=torch.Generator().manual_seed(seed))
+    draws=len(train_y)
+    if train_rows is not None and c.get('draws_per_training_cue'):
+        draws=min(draws,c['draws_per_training_cue']*len({r['trial'] for r in train_rows}))
+    sampler=WeightedRandomSampler(torch.from_numpy(weights),draws,replacement=True,generator=torch.Generator().manual_seed(seed))
     loader=DataLoader(data,batch_size=c['batch_size'],sampler=sampler)
     optimizer=torch.optim.AdamW(model.parameters(),lr=c['learning_rate'],weight_decay=c['weight_decay'])
     best=(-1.,-1.,float('-inf'));state=None;wait=0;history=[]
@@ -34,7 +37,12 @@ def fit_member(train_x,train_y,weights,val_x,val_y,val_rows,c,preprocessing,fami
         truth,cue_p,runs=cue_probabilities(p,val_rows)
         nll=float(-np.log(np.maximum(cue_p[np.arange(len(truth)),truth],1e-12)).mean())
         score=(metrics['balanced_accuracy'],min(metrics['recall'].values()),-nll)
-        history.append(dict(epoch=epoch,training_loss=loss_sum/len(train_y),validation_cue_balanced_accuracy=score[0],validation_min_class_recall=score[1],validation_cue_loss=nll))
+        row=dict(epoch=epoch,training_loss=loss_sum/draws,validation_cue_balanced_accuracy=score[0],validation_min_class_recall=score[1],validation_cue_loss=nll)
+        if train_rows is not None and c.get('diagnostic_interval') and (epoch==1 or epoch%c['diagnostic_interval']==0):
+            tp=probabilities(model,train_x);tm=evaluate(tp,train_y,train_rows,c['classes'])['cue_trials']
+            ty,tprob,_=cue_probabilities(tp,train_rows)
+            row.update(train_cue_balanced_accuracy=tm['balanced_accuracy'],train_cue_loss=float(-np.log(np.maximum(tprob[np.arange(len(ty)),ty],1e-12)).mean()))
+        history.append(row)
         if score>best:best=score;state=copy.deepcopy(model.state_dict());wait=0
         else:wait+=1
         if epoch%20==0:print(f'  seed {seed} epoch {epoch}: tuning BA={score[0]:.3f}, best={best[0]:.3f}',flush=True)

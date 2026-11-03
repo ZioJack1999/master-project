@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "task_mode": "multiclass",
+  "arch": "feature_ensemble",
+  "classes": [
+    "rest",
+    "volar_grasp",
+    "finger_extension"
+  ],
+  "channels": [
+    "Fp1",
+    "Fp2",
+    "F7",
+    "F3",
+    "Fz",
+    "F4",
+    "F8",
+    "T3",
+    "C3",
+    "Cz",
+    "C4",
+    "T4",
+    "T5",
+    "P3",
+    "Pz",
+    "P4",
+    "T6",
+    "O1",
+    "POz",
+    "O2"
+  ],
+  "role": "source_pooled_transfer_reference",
+  "sfreq": 256,
+  "n_times": 1024,
+  "normalization": "feature_train_only",
+  "filter": {
+    "mode": "causal",
+    "fmin": 8.0,
+    "fmax": 30.0,
+    "order": 4
+  },
+  "artifact_limit_v": 0.0001,
+  "min_signal_std_v": 1e-09,
+  "sha256": "6f3b53506121e19f6a49424926a5cb7cbcc8f18456e4c45666ccdf2c0412cd83",
+  "verified": true,
+  "verified_meaning": "Documented preprocessing/split; transfer study only, no prospective certification.",
+  "source_subjects": [
+    "07",
+    "08"
+  ],
+  "held_subject": "04",
+  "study_id": "bcifest_more_classes_subject_transfer_v1",
+  "study_case": "transfer_hold_04_three",
+  "policy_status": "No live policy/actuator validation."
+}
