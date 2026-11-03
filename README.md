@@ -1,5 +1,7 @@
 # Personal motor-imagery BCI Studio
 
+**Separate downloads for lab testing:** [binary Rest/Grasp ZIP](downloads/BCI_Binary_Lab_2026-11-05.zip) and [three-class Rest/Grasp/Extension ZIP](downloads/BCI_ThreeClass_Lab_2026-11-05.zip). Extract them into different folders and read [the two-package lab guide](LAB_PACKAGES.md). The three-class package now includes its own live cue/calibration/validation console at port8051; both packages still require physical lab validation.
+
 Fit an EEGNet to your own **REST versus imagined right-hand grasp** calibration, then evaluate the frozen model on new cue trials. Windows are 2 seconds, stride .25 seconds (87.5% overlap), with continuous causal 8–30 Hz filtering.
 
 The software pipeline has integration tests. Actual B-Alert X24 driver compatibility and accuracy on a new wearer still require the lab session. Read [the audit](DEBUG_AUDIT.md), [lab procedure](README_LAB_GUIDE.md) and separate [multiclass plan](MULTICLASS_PLAN.md).
@@ -11,6 +13,7 @@ The software pipeline has integration tests. Actual B-Alert X24 driver compatibi
 | Track | Entry point | Outputs and scope |
 |---|---|---|
 | Binary lab validation | `Launch_BINARY_Lab.bat` | Existing Rest/action GUI and personal model; new live validation required |
+| Three-class lab validation | `Launch_THREECLASS_Lab.bat` | Separate Rest/Grasp/Extension personal calibration and frozen new-cue console; physical validation pending |
 | Multiclass research | [experiments/multiclass_v3](experiments/multiclass_v3/README.md) | Separate 3/5/9-class configs, private models/results; offline only |
 
 Multiclass research does not replace binary models, settings or launchers. The binary loader rejects multiclass contracts. Accuracy from these two tracks must be reported separately.
@@ -62,7 +65,7 @@ python train_multiclass.py test --root "C:\path\to\BCIFEST\bids"
 python report_multiclass.py
 ```
 
-See [multiclass results](MULTICLASS_RESULTS.md) for measured results and limitations. This recorded-data stage provides a separate multiclass model/engine; prospective personal multiclass calibration and GUI/receiver integration remain a subsequent stage. The binary studio retains its existing personal rest/action workflow.
+See [multiclass results](MULTICLASS_RESULTS.md) for measured results and limitations. The separate [three-class console](THREECLASS_LAB_README.md) now implements live personal calibration and frozen new-cue validation with display/recording output. Physical prospective validation and any multiclass actuator integration remain pending. The binary studio retains its existing personal rest/action workflow.
 
 ## Demo, replay and tests
 

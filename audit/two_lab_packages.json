@@ -1,0 +1,25 @@
+[
+  {
+    "file": "BCI_Binary_Lab_2026-11-05.zip",
+    "bytes": 139377,
+    "files": 43,
+    "models": [
+      "BCI_Binary_Lab/decoder_and_models/eegnet_master_live.pt",
+      "BCI_Binary_Lab/decoder_and_models/eegnet_sub08_causal20_fixed.pt",
+      "BCI_Binary_Lab/decoder_and_models/eegnet_sub08_causal20_per_window.pt",
+      "BCI_Binary_Lab/decoder_and_models/eegnet_sub08_live.pt",
+      "BCI_Binary_Lab/decoder_and_models/personal_template_eegmi_custom20.pt",
+      "BCI_Binary_Lab/decoder_and_models/personal_template_x24_stock20.pt"
+    ],
+    "sha256": "309078cd78be411332e7f54336529e4aacca3356f1e53a16eba3595c0ba397af"
+  },
+  {
+    "file": "BCI_ThreeClass_Lab_2026-11-05.zip",
+    "bytes": 386431,
+    "files": 22,
+    "models": [
+      "BCI_ThreeClass_Lab/decoder_and_models/multiclass_covariance_sub08_v2.pt"
+    ],
+    "sha256": "616c7127f9f92f81cafae420ec5ab6cb4446e93a5ed3a20a434163aa64d644e3"
+  }
+]

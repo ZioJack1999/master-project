@@ -1,0 +1,14 @@
+[
+  {
+    "package": "BCI_Binary_Lab_2026-11-05.zip",
+    "sha256": "309078cd78be411332e7f54336529e4aacca3356f1e53a16eba3595c0ba397af",
+    "passed": true,
+    "output": "binary final extracted package: integrity/import/model/HTTP PASS; no browser, EEG or actuator.\n"
+  },
+  {
+    "package": "BCI_ThreeClass_Lab_2026-11-05.zip",
+    "sha256": "616c7127f9f92f81cafae420ec5ab6cb4446e93a5ed3a20a434163aa64d644e3",
+    "passed": true,
+    "output": "threeclass final extracted package: integrity/import/model/HTTP PASS; no browser, EEG or actuator.\n"
+  }
+]

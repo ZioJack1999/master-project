@@ -1,6 +1,8 @@
 # Master project debug audit — 2026-11-03
 
-Latest release: [separate multiclass v3 results](MULTICLASS_V3_RESULTS.md), [Thursday binary checklist](THURSDAY_BINARY_VALIDATION.md). All 36 binary code/config/model files match the prior release (text line-ending conversions allowed); `verify_binary_release.py` checks them and `Launch_BINARY_Lab.bat` calls the unchanged studio. The full suite passes 68 tests. Multiclass candidate fitting/scoring remains offline and does not change binary calibration or live settings.
+The latest [two lab packages](LAB_PACKAGES.md) provide isolated binary and three-class ZIPs. The binary code/weights preserve their frozen release. The new three-class console supplies personal fitting and frozen fresh-cue validation, with reference-only initialization, class-aware private recording, complete-cue scoring including rejection errors, stream/display interruption handling and no actuator output. Physical compatibility and live accuracy remain for the lab session.
+
+Latest release: [separate multiclass v3 results](MULTICLASS_V3_RESULTS.md), [Thursday binary checklist](THURSDAY_BINARY_VALIDATION.md). All 36 binary code/config/model files match the prior release (text line-ending conversions allowed); `verify_binary_release.py` checks them and `Launch_BINARY_Lab.bat` calls the unchanged studio. The full suite passes 93 tests. Multiclass candidate fitting/scoring remains offline and does not change binary calibration or live settings.
 
 ## Conclusion and scope
 

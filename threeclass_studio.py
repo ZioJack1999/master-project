@@ -1,0 +1,589 @@
+"""Separate three-class LSL calibration/validation console. Display and recording only."""
+import argparse
+from collections import deque
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+import re
+import threading
+import uuid
+import webbrowser
+import numpy as np
+from scipy.signal import butter, sosfilt
+from lsl_acquisition import connect
+from multiclass_decoder import MulticlassDecoder
+from multiclass_data import digest
+
+ROOT = Path(__file__).resolve().parent
+CLASSES = ['rest', 'volar_grasp', 'finger_extension']
+POLICY = dict(ema_alpha=1., dwell_updates=1, min_confidence=.5, min_margin=.05)
+
+
+def clock_now():
+    from pylsl import local_clock
+    return local_clock()
+
+
+class ThreeClassProtocol:
+    def __init__(self, kind, now, per_class, duration=8., seed=42):
+        if kind not in ('calibration', 'validation') or per_class < 1 or duration < 7.:
+            raise ValueError('Use calibration/validation, positive cue counts and cues of at least seven seconds.')
+        self.kind, self.duration = kind, float(duration)
+        self.run_id = uuid.uuid4().hex
+        self.labels = np.tile(np.arange(3), per_class)
+        np.random.default_rng(seed).shuffle(self.labels)
+        self.index, self.done = 0, False
+        self.events, self.predictions = [], []
+        self._new_event(now)
+
+    def _new_event(self, now):
+        self.events.append(dict(trial=self.index+1, label=CLASSES[self.labels[self.index]],
+            onset=float(now), end=None, complete=False, run_id=self.run_id, kind=self.kind))
+
+    def advance(self, now):
+        if self.done or now-self.events[-1]['onset'] < self.duration:
+            return
+        # Actual transitions follow the cue clock; a delayed worker never invents
+        # cues that the display could not have presented.
+        self.events[-1].update(end=float(now), complete=True)
+        self.index += 1
+        if self.index == len(self.labels):
+            self.done = True
+        else:
+            self._new_event(now)
+
+    def add(self, packet, timestamp):
+        if self.done:
+            return
+        event = self.events[-1]
+        if timestamp-4. < event['onset']+.5 or timestamp > event['onset']+self.duration:
+            return
+        self.predictions.append(dict(packet, trial=event['trial'], timestamp=float(timestamp),
+                                     truth=event['label']))
+
+
+def score_validation(protocol, permutations=2000, seed=42):
+    if not protocol.done or protocol.kind != 'validation' or not all(e['complete'] for e in protocol.events):
+        raise ValueError('Only complete fresh validation runs can be scored.')
+    truth, decisions, details = [], [], []
+    for event in protocol.events:
+        rows = [r for r in protocol.predictions if r['trial'] == event['trial']]
+        accepted = [r for r in rows if r['quality'] == 'ok' and r['class_id'] >= 0]
+        decision = -1
+        if len(accepted) >= 4 and len(accepted) >= .5*len(rows):
+            counts = np.bincount([r['class_id'] for r in accepted], minlength=3)
+            if np.sum(counts == counts.max()) == 1:
+                decision = int(counts.argmax())
+        truth.append(CLASSES.index(event['label']))
+        decisions.append(decision)
+        details.append(dict(trial=event['trial'], truth=event['label'],
+            decision=CLASSES[decision] if decision >= 0 else 'rejected',
+            eligible_updates=len(rows), accepted_updates=len(accepted)))
+    y, pred = np.array(truth), np.array(decisions)
+    recall = {c:float(np.mean(pred[y == i] == i)) for i, c in enumerate(CLASSES)}
+    ba = float(np.mean(list(recall.values())))
+    cm = np.zeros((3, 4), dtype=int)
+    for a, b in zip(y, pred):
+        cm[a, b if b >= 0 else 3] += 1
+    rng = np.random.default_rng(seed)
+    null = []
+    for _ in range(permutations):
+        shuffled = rng.permutation(y)
+        null.append(np.mean([np.mean(pred[shuffled == i] == i) for i in range(3)]))
+    bootstrap = []
+    for _ in range(permutations):
+        bootstrap.append(np.mean([np.mean(pred[rng.choice(np.flatnonzero(y == i), np.sum(y == i), replace=True)] == i)
+                                  for i in range(3)]))
+    accepted = pred >= 0
+    return dict(kind='fresh_frozen_personal_validation', status='complete' if accepted.all() else 'complete_with_rejections',
+        metrics=dict(balanced_accuracy=ba, accuracy=float(np.mean(y == pred)), recall=recall,
+            n_cues=len(y), n_scored=int(accepted.sum()), n_rejected=int((~accepted).sum()),
+            coverage=float(accepted.mean()), confusion_matrix=cm.tolist(),
+            confusion_columns=CLASSES+['rejected'],
+            cue_stratified_bootstrap_95ci=np.percentile(bootstrap, [2.5, 97.5]).tolist(),
+            permutation_p=float((1+np.sum(np.array(null) >= ba-1e-12))/(1+permutations)),
+            unit_of_analysis='One majority deployed decision per new cue. Rejected cues count as errors.',
+            uncertainty_scope='Within-run cue bootstrap/permutations; limited pilot, not across-person/day confidence.'),
+        cues=details)
+
+
+class ThreeClassStudio:
+    def __init__(self, config, root=ROOT, clock=clock_now):
+        self.root, self.config, self.clock = Path(root), dict(config), clock
+        self.channels = list(config['channels'])
+        if len(self.channels) != 20 or len({c.casefold() for c in self.channels}) != 20:
+            raise ValueError('Select twenty unique actual electrode sites.')
+        if config.get('sfreq', 256) != 256 or config.get('window_s', 4.) != 4. or config.get('stride_s', .25) != .25:
+            raise ValueError('Three-class studio requires 256 Hz, four-second windows and .25-second stride.')
+        self.metadata_contract = dict(channels=self.channels, sfreq=256)
+        self.reports = (self.root/config.get('reports_dir', 'session_reports/threeclass')).resolve()
+        self.reports.mkdir(parents=True, exist_ok=True)
+        self.lock, self.stop_event, self.cancel_fit = threading.RLock(), threading.Event(), threading.Event()
+        self.inlet = self.adapter = self.decoder = self.protocol = None
+        self.training_thread = None
+        self.connect_requested = False
+        self.connection_generation = 0
+        self.last_data = None
+        self.last_ui_seen = self.clock()
+        self.run_serial = 0
+        self.checkpoint = (self.root/config['checkpoint']).resolve()
+        self.reference_checkpoint = self.checkpoint
+        self.state = dict(connected=False, connecting=False, streaming=False, mode='live', status='Connect EEG to begin.', error='',
+            participant=config.get('participant', 'self'), stream_name='', model_role='untrained',
+            model_sha256='', model_ready=False, training=False, training_progress='', protocol_kind='',
+            cue='', cue_index=0, cue_total=0, cue_remaining_s=0., raw_probabilities=[0.]*3,
+            ema_probabilities=[0.]*3, decision='uncertain', quality='warming_up', result=None,
+            last_saved='', window_s=4., stride_s=.25,
+            model_scope='Personal calibration is required before fresh validation.')
+        if re.fullmatch(r'[A-Za-z0-9_-]{1,40}', self.state['participant']) is None:
+            raise ValueError('Use a short pseudonymous participant ID: letters, digits, underscore or hyphen.')
+        self.results = []
+        self._load_reference()
+        self._clear_recording()
+
+    def _load_reference(self):
+        self.decoder = None
+        reference = MulticlassDecoder(self.reference_checkpoint)
+        if reference.classes != CLASSES:
+            raise ValueError('Expected Rest, Volar Grasp and Finger Extension in that order.')
+        self.state.update(model_ready=False, model_role='untrained', model_sha256='')
+        if reference.channels == self.channels:
+            self.decoder = reference
+            self.state.update(model_role='recorded_reference', model_sha256=reference.contract['sha256'],
+                model_scope='Recorded participant08 reference only. Fit your own calibration before validation.')
+        else:
+            self.state['model_scope'] = 'Selected physical montage needs personal fitting; reference predictions unavailable.'
+        self.checkpoint = self.reference_checkpoint
+
+    def _clear_recording(self):
+        self.raw, self.times, self.segment_ids, self.events, self.predictions = [], [], [], [], []
+        self.segment = 0
+        self.session_id = uuid.uuid4().hex
+        self.session_started = datetime.now(timezone.utc).isoformat()
+        self.waves = {c:deque(maxlen=1024) for c in ['time', 'C3', 'Cz', 'C4']}
+        self.history = {c:deque(maxlen=240) for c in ['time']+CLASSES+
+                        ['raw_'+c for c in CLASSES]+['ema_'+c for c in CLASSES]}
+        self._reset_segment()
+
+    def _reset_segment(self):
+        self.segment += 1
+        self.plot_sos = butter(4, [8, 30], fs=256, btype='bandpass', output='sos')
+        self.plot_zi = np.zeros((len(self.plot_sos), 20, 2))
+        if self.decoder:
+            self.decoder.reset()
+        if self.adapter:
+            self.adapter.reset_timestamps()
+        self.state.update(quality='warming_up', decision='uncertain', raw_probabilities=[0.]*3,
+                          ema_probabilities=[0.]*3)
+
+    def snapshot(self, seen=False):
+        with self.lock:
+            if seen:
+                self.last_ui_seen = self.clock()
+            return dict(self.state, waves={k:list(v) for k, v in self.waves.items()},
+                        probability_history={k:list(v) for k, v in self.history.items()})
+
+    def _abort(self, reason):
+        if self.protocol:
+            now = self.clock()
+            self.protocol.events[-1].update(end=now, complete=False)
+            self.events.extend(self.protocol.events)
+            self.results.append(dict(kind=self.protocol.kind, status='aborted', reason=reason,
+                                     run_id=self.protocol.run_id))
+            self.protocol = None
+            self.state['result'] = self.results[-1]
+        self.state.update(streaming=False, protocol_kind='', cue='', cue_remaining_s=0., status=reason)
+        self._reset_segment()
+
+    def save(self):
+        folder = self.reports/self.state['participant']/self.session_id
+        folder.mkdir(parents=True, exist_ok=True)
+        raw = np.concatenate(self.raw, axis=1) if self.raw else np.empty((20, 0), np.float32)
+        times = np.concatenate(self.times) if self.times else np.empty(0)
+        segments = np.concatenate(self.segment_ids) if self.segment_ids else np.empty(0, dtype=int)
+        np.savez_compressed(folder/'eeg.npz', raw=raw, timestamps=times, segments=segments,
+                            channels=np.array(self.channels), sfreq=256., unit='V')
+        metadata = dict(schema_version=1, task_mode='threeclass_lab', source=self.state['mode'],
+            participant=self.state['participant'], channels=self.channels, sfreq=256, unit='V',
+            session_started=self.session_started, model_path=str(self.checkpoint),
+            model_sha256=self.state['model_sha256'], model_role=self.state['model_role'],
+            reference_sha256=digest(self.reference_checkpoint), config=self.config,
+            timing='LSL/worker cue clock; browser/display latency unmeasured.',
+            classes=CLASSES, results=self.results, protocol_in_progress=self.protocol is not None,
+            active_frozen=getattr(self.protocol, 'frozen', None))
+        active_events = self.protocol.events if self.protocol else []
+        for name, data in [('metadata.json', metadata), ('events.json', self.events+active_events),
+                           ('predictions.json', self.predictions)]:
+            (folder/name).write_text(json.dumps(data, indent=2, allow_nan=False), encoding='utf-8')
+        self.state['last_saved'] = str(folder)
+        return str(folder)
+
+    def action(self, path, body=None):
+        body = body or {}
+        with self.lock:
+            if path in ('/api/start', '/api/calibrate', '/api/validate') and body.get('participant', self.state['participant']) != self.state['participant']:
+                raise ValueError('Reconnect EEG with the new participant ID before starting or validating a recording.')
+            if path == '/api/stop':
+                self.connection_generation += 1
+                self.connect_requested = False
+                self.state['connecting'] = False
+                self.cancel_fit.set()
+                self._abort(body.get('reason', 'Stopped by user.'))
+                self.save()
+            elif path == '/api/save':
+                if self.state['training']:
+                    raise ValueError('Calibration is already saved. Wait for fitting or stop it first.')
+                self._abort('Saved and stopped.')
+                self.save()
+            elif self.state['training']:
+                raise ValueError('Wait for personal fitting or stop it before changing the session.')
+            elif path == '/api/connect':
+                if self.protocol or self.state['streaming']:
+                    raise ValueError('Stop and save the active recording before reconnecting.')
+                participant = body.get('participant', self.state['participant'])
+                if re.fullmatch(r'[A-Za-z0-9_-]{1,40}', participant) is None:
+                    raise ValueError('Use a short pseudonymous ID: letters, digits, underscore or hyphen.')
+                if participant != self.state['participant']:
+                    self.save()
+                    self.state['participant'] = participant
+                    self.results = []
+                    self.state['result'] = None
+                    self._load_reference()
+                    self._clear_recording()
+                if self.inlet:
+                    self.inlet.close_stream()
+                self.inlet = self.adapter = None
+                self.connection_generation += 1
+                self.state.update(mode='live', connected=False, connecting=True, error='', status='Connecting to EEG…')
+                self.connect_requested = True
+            elif path == '/api/demo':
+                if self.protocol or self.state['streaming']:
+                    raise ValueError('Stop and save before changing data source.')
+                self.save()
+                if self.inlet:
+                    self.inlet.close_stream()
+                self.inlet = self.adapter = None
+                self.connection_generation += 1
+                self.connect_requested = False
+                mode = 'live' if self.state['mode'] == 'demo' else 'demo'
+                self.results = []
+                self.state.update(mode=mode, connected=mode == 'demo', connecting=False, result=None,
+                                  status='Synthetic demo.' if mode == 'demo' else 'Connect EEG to begin.')
+                self._clear_recording()
+            elif path == '/api/reset':
+                if self.protocol or self.state['streaming']:
+                    raise ValueError('Stop and save before resetting.')
+                self.save()
+                self._clear_recording()
+                self.state.update(result=None, status='New recording; personal model retained.')
+            elif path == '/api/start':
+                self._start_stream()
+            elif path in ('/api/calibrate', '/api/validate'):
+                if self.state['mode'] != 'live' or not self.state['connected']:
+                    raise ValueError('A fresh live EEG connection is required; demo cannot calibrate or validate.')
+                if self.protocol:
+                    raise ValueError('A cue run is already active.')
+                kind = 'calibration' if path.endswith('calibrate') else 'validation'
+                if kind == 'validation' and not self.state['model_ready']:
+                    raise ValueError('Fit your personal three-class calibration before validation.')
+                if kind == 'validation' and digest(self.checkpoint) != self.state['model_sha256']:
+                    raise ValueError('Personal model file changed. Reload or fit a new calibration before validation.')
+                if self.raw:
+                    self._abort('Starting a separate cue recording.')
+                    self.save()
+                self._clear_recording()
+                self.state.update(result=None, error='')
+                if kind == 'calibration':
+                    self.state['model_ready'] = False
+                    self._load_reference()
+                self._start_stream()
+                count = int(self.config.get('calibration_cues_per_class', 12) if kind == 'calibration'
+                            else self.config.get('validation_cues_per_class', 10))
+                self.protocol = ThreeClassProtocol(kind, self.clock(), count,
+                    float(self.config.get('cue_duration_s', 8.)), int(self.config.get('seed', 42))+self.run_serial)
+                self.run_serial += 1
+                self.protocol.frozen = dict(model_sha256=self.state['model_sha256'],
+                    contract_sha256=digest(str(self.checkpoint)+'.json'),
+                    policy=dict(self.decoder.policy.config) if self.decoder else dict(POLICY))
+                self.last_ui_seen = self.clock()
+                self.state.update(protocol_kind=kind, status=f'{kind.title()} in progress.')
+                self._refresh(self.clock())
+            else:
+                raise ValueError('Unknown operation.')
+            return self.snapshot()
+
+    def _start_stream(self):
+        if not self.state['connected']:
+            raise ValueError('Connect live EEG, or choose synthetic demo to preview the interface.')
+        if not self.state['streaming']:
+            if self.inlet:
+                self.inlet.flush()
+            self._reset_segment()
+            self.state.update(streaming=True,
+                              status='Synthetic preview running.' if self.state['mode'] == 'demo' else 'Recording EEG.',
+                              error='')
+
+    def _refresh(self, now):
+        p = self.protocol
+        if not p:
+            return
+        if now-self.last_ui_seen > 3.:
+            self._abort('Cue display connection timed out; run aborted.')
+            self.save()
+            return
+        p.advance(now)
+        if not p.done:
+            self.state.update(cue=CLASSES[p.labels[p.index]], cue_index=p.index+1,
+                cue_total=len(p.labels), cue_remaining_s=max(0., p.duration-now+p.events[-1]['onset']))
+            return
+        self.events.extend(p.events)
+        self.protocol = None
+        self.state.update(streaming=False, protocol_kind='', cue='', cue_remaining_s=0.)
+        if p.kind == 'validation':
+            try:
+                if digest(self.checkpoint) != p.frozen['model_sha256'] or digest(str(self.checkpoint)+'.json') != p.frozen['contract_sha256']:
+                    raise ValueError('The frozen validation model/contract changed; this run cannot be scored.')
+                if self.decoder.policy.config != p.frozen['policy']:
+                    raise ValueError('The frozen validation decision policy changed; this run cannot be scored.')
+                result = score_validation(p)
+                result.update(run_id=p.run_id, frozen=p.frozen, participant=self.state['participant'], source=self.state['mode'])
+                self.results.append(result)
+                self.state.update(result=result, status='Validation complete. Save the result and record another fresh block.')
+            except ValueError as exc:
+                self.state.update(error=str(exc), status='Validation failed.')
+                self.results.append(dict(kind='validation', status='failed', error=str(exc)))
+            self.save()
+        else:
+            self.results.append(dict(kind='calibration_collection', status='complete', n_cues=len(p.events), run_id=p.run_id))
+            self.save()
+            self._fit(p)
+
+    def _fit(self, protocol):
+        from threeclass_personal import fit_personal
+        raw = np.concatenate(self.raw, axis=1).copy()
+        times = np.concatenate(self.times).copy()
+        segments = np.concatenate(self.segment_ids).copy()
+        output = self.reports/self.state['participant']/('model_'+protocol.run_id)
+        self.cancel_fit.clear()
+        self.state.update(training=True, model_ready=False, training_progress='Preparing clean calibration cues.', status='Fitting personal three-class model…')
+        participant = self.state['participant']
+        def progress(message):
+            with self.lock:
+                self.state['training_progress'] = str(message)
+        def task():
+            try:
+                result = fit_personal(raw, times, protocol.events, self.channels, output,
+                    config=dict(self.config, participant=participant, calibration_run_id=protocol.run_id),
+                    cancel=self.cancel_fit, progress=progress, segments=segments)
+                decoder = MulticlassDecoder(result['checkpoint'], policy=POLICY)
+                if decoder.channels != self.channels or decoder.classes != CLASSES:
+                    raise ValueError('Personal calibration produced an incompatible montage or class order.')
+                with self.lock:
+                    if self.cancel_fit.is_set() or self.stop_event.is_set():
+                        raise ValueError('Personal fitting cancelled.')
+                    self.decoder, self.checkpoint = decoder, Path(result['checkpoint'])
+                    self.state.update(model_ready=True, model_role='personal', model_sha256=decoder.contract['sha256'],
+                        model_scope='Personal model. Validate on NEW cues with weights/settings frozen.',
+                        training_progress='Personal model ready.', status='Personal model ready. Start a fresh validation block.', error='')
+                    self.results.append(dict(kind='personal_calibration_fit', diagnostics=result['diagnostics'], checkpoint=str(self.checkpoint)))
+                    self.save()
+            except Exception as exc:
+                with self.lock:
+                    self.state.update(model_ready=False, error=str(exc), status='Personal fitting failed or was stopped.')
+                    self.results.append(dict(kind='personal_calibration_fit', status='failed', error=str(exc)))
+                    self.save()
+            finally:
+                with self.lock:
+                    self.state['training'] = False
+        self.training_thread = threading.Thread(target=task, daemon=True)
+        self.training_thread.start()
+
+    def ingest(self, raw, timestamps):
+        if not self.state['streaming']:
+            return
+        raw = np.asarray(raw, np.float32)
+        ts = np.asarray(timestamps, dtype=float)
+        if raw.shape != (20, len(ts)) or not len(ts) or not np.isfinite(raw).all() or not np.isfinite(ts).all():
+            raise ValueError('Invalid EEG/timestamp geometry.')
+        if np.any(np.diff(ts) <= 0) or (self.times and ts[0] <= self.times[-1][-1]):
+            raise ValueError('EEG timestamps moved backwards.')
+        if np.any(np.diff(ts) > float(self.config.get('max_gap_s', .1))):
+            raise ValueError('EEG timestamps contain a recording gap.')
+        if self.times and self.segment_ids[-1][-1] == self.segment and ts[0]-self.times[-1][-1] > float(self.config.get('max_gap_s', .1)):
+            raise ValueError('EEG timestamps contain a recording gap.')
+        self.raw.append(raw.copy())
+        self.times.append(ts.copy())
+        self.segment_ids.append(np.full(len(ts), self.segment, np.int32))
+        filtered, self.plot_zi = sosfilt(self.plot_sos, raw, axis=1, zi=self.plot_zi)
+        self.waves['time'].extend(ts.tolist())
+        for c in ['C3', 'Cz', 'C4']:
+            self.waves[c].extend((filtered[self.channels.index(c)]*1e6).tolist() if c in self.channels else [None]*len(ts))
+        if not self.decoder:
+            self.state.update(quality='recording_untrained', decision='uncertain')
+            return
+        before = self.decoder.samples_seen
+        packets = self.decoder.process_chunk_all(raw)
+        for packet in packets:
+            offset = packet['sample_end']-before-1
+            sample_time = float(ts[offset])
+            record = dict(packet, timestamp=sample_time, segment=self.segment,
+                model_sha256=self.state['model_sha256'], mode=self.state['mode'])
+            self.predictions.append(record)
+            p, ema = packet['probabilities_raw'], packet['probabilities_ema']
+            self.state.update(raw_probabilities=p, ema_probabilities=ema, decision=packet['class_name'], quality=packet['quality'])
+            self.history['time'].append(sample_time)
+            for i, c in enumerate(CLASSES):
+                self.history[c].append(p[i])
+                self.history['raw_'+c].append(p[i])
+                self.history['ema_'+c].append(ema[i])
+            if self.protocol:
+                self.protocol.add(packet, sample_time)
+
+    def worker(self):
+        rng = np.random.default_rng(42)
+        next_demo = 0.
+        while not self.stop_event.is_set():
+            now = self.clock()
+            with self.lock:
+                try:
+                    self._refresh(now)
+                except Exception as exc:
+                    self.cancel_fit.set()
+                    self._abort('Cue run stopped because recording or fitting preparation failed.')
+                    self.state['error'] = str(exc)
+                    self.results.append(dict(status='failed', error=str(exc)))
+                    try:
+                        self.save()
+                    except OSError as save_exc:
+                        self.state['error'] += f' Could not save: {save_exc}'
+                should_connect = self.connect_requested
+                connection_generation = self.connection_generation
+                self.connect_requested = False
+                mode = self.state['mode']
+            if should_connect:
+                try:
+                    inlet, adapter = connect(self.config, self.metadata_contract)
+                    with self.lock:
+                        if connection_generation != self.connection_generation or self.state['mode'] != 'live' or self.stop_event.is_set():
+                            inlet.close_stream()
+                            continue
+                        self.inlet, self.adapter = inlet, adapter
+                        self.last_data = self.clock()
+                        self.state.update(connecting=False, stream_name=adapter.metadata['name'], status='Waiting for fresh EEG samples.', error='')
+                except Exception as exc:
+                    with self.lock:
+                        if connection_generation == self.connection_generation:
+                            self.state.update(connected=False, connecting=False, error=str(exc), status='Connection failed; check preflight.')
+            if mode == 'demo':
+                with self.lock:
+                    if self.state['streaming'] and now >= next_demo:
+                        start = (self.times[-1][-1]+1/256 if self.times and
+                                 self.segment_ids[-1][-1] == self.segment else now-63/256)
+                        ts = start+np.arange(64)/256
+                        self.ingest(rng.normal(0, 5e-6, (20, 64)).astype(np.float32), ts)
+                        next_demo = now+.25
+                self.stop_event.wait(.01)
+                continue
+            with self.lock:
+                inlet, adapter = self.inlet, self.adapter
+            if inlet is not None:
+                try:
+                    chunk, ts = inlet.pull_chunk(timeout=.03, max_samples=64)
+                    now = self.clock()
+                    with self.lock:
+                        if inlet is not self.inlet:
+                            continue
+                        if len(chunk):
+                            raw, stamps = adapter.transform(chunk, ts, now)
+                            self.last_data = now
+                            self.state['connected'] = True
+                            self.ingest(raw, stamps)
+                        elif self.last_data is not None and now-self.last_data > 1.:
+                            raise ValueError('EEG stream timed out. Reconnect before starting a new cue run.')
+                except Exception as exc:
+                    with self.lock:
+                        self.state.update(connected=False, error=str(exc))
+                        self._abort('EEG connection lost; run aborted.')
+                        self.save()
+                        if self.inlet:
+                            self.inlet.close_stream()
+                        self.inlet = self.adapter = None
+            self.stop_event.wait(.01)
+        with self.lock:
+            self._abort('Studio closed.')
+            self.save()
+            if self.inlet:
+                self.inlet.close_stream()
+
+
+class Handler(BaseHTTPRequestHandler):
+    studio = None
+    def log_message(self, *args): pass
+    def respond(self, code, value, html=False):
+        payload = value.encode('utf-8') if html else json.dumps(value, allow_nan=False).encode('utf-8')
+        self.send_response(code)
+        self.send_header('Content-Type', 'text/html; charset=utf-8' if html else 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+    def do_GET(self):
+        if self.path in ('/', '/index.html'):
+            self.respond(200, (self.studio.root/'threeclass_studio.html').read_text(encoding='utf-8'), True)
+        elif self.path == '/api/state':
+            self.respond(200, self.studio.snapshot(seen=True))
+        else:
+            self.respond(404, dict(error='Not found.'))
+    def do_POST(self):
+        origin = self.headers.get('Origin')
+        if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
+            self.respond(403, dict(error='Local console origin required.'))
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if length > 10000:
+                raise ValueError('Request too large.')
+            body = json.loads(self.rfile.read(length) or b'{}')
+            if not isinstance(body, dict):
+                raise ValueError('Expected a JSON object.')
+            self.respond(200, self.studio.action(self.path, body))
+        except (ValueError, RuntimeError) as exc:
+            self.respond(409, dict(error=str(exc)))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config', type=Path, default=ROOT/'threeclass_config.json')
+    parser.add_argument('--port', type=int, default=8051)
+    parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument('--demo', action='store_true')
+    args = parser.parse_args()
+    import torch
+    config = json.loads(args.config.read_text(encoding='utf-8-sig'))
+    torch.set_num_threads(int(config.get('torch_threads', 1)))
+    studio = ThreeClassStudio(config)
+    if args.demo:
+        studio.action('/api/demo')
+    handler = type('ThreeClassHandler', (Handler,), dict(studio=studio))
+    server = ThreadingHTTPServer(('127.0.0.1', args.port), handler)
+    worker = threading.Thread(target=studio.worker, daemon=True)
+    worker.start()
+    url = f'http://127.0.0.1:{args.port}'
+    print(f'Three-class lab: {url}\nPrivate reports: {studio.reports}', flush=True)
+    if not args.no_browser:
+        webbrowser.open(url)
+    try:
+        server.serve_forever(poll_interval=.2)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        studio.cancel_fit.set()
+        studio.stop_event.set()
+        worker.join(5.)
+        if studio.training_thread:
+            studio.training_thread.join(15.)
+        server.server_close()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,20 @@
+{
+  "checkpoint": "decoder_and_models/multiclass_covariance_sub08_v2.pt",
+  "channels": ["F3", "F1", "Fz", "F2", "F4", "C3", "C1", "Cz", "C2", "C4", "CPz", "P3", "P1", "Pz", "P2", "P4", "POz", "O1", "Oz", "O2"],
+  "sfreq": 256,
+  "window_s": 4.0,
+  "stride_s": 0.25,
+  "settle_s": 0.5,
+  "stream_name": "",
+  "source_id": "",
+  "input_unit": "",
+  "channel_labels": null,
+  "max_sample_age_s": 1.0,
+  "max_gap_s": 0.1,
+  "reports_dir": "session_reports/threeclass",
+  "calibration_cues_per_class": 12,
+  "validation_cues_per_class": 10,
+  "cue_duration_s": 8.0,
+  "torch_threads": 1,
+  "participant": "self"
+}
