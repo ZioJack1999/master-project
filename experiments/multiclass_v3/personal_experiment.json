@@ -1,0 +1,88 @@
+{
+  "experiment_id": "multiclass_v3_personal_04_07_20261103",
+  "status": "Exploratory: all historical test participants/sessions have been exposed previously.",
+  "cohort": "session_reports/multiclass/cohort_study_v1",
+  "output": "session_reports/multiclass/personal_v3",
+  "classes": [],
+  "within_cases": [],
+  "transfer_held_id": "07",
+  "feature_sets": [
+    "power_motor",
+    "relative_motor",
+    "tangent_motor",
+    "tangent_all"
+  ],
+  "heads": [
+    "linear",
+    "small_nn"
+  ],
+  "hidden_units": 16,
+  "dropout": 0.5,
+  "weight_decay": 0.05,
+  "label_smoothing": 0.05,
+  "learning_rate": 0.001,
+  "epochs": 120,
+  "patience": 20,
+  "batch_cues": 32,
+  "windows_per_cue": 4,
+  "covariance_shrinkage": 0.3,
+  "selection_seed": 42,
+  "ensemble_seeds": [
+    13,
+    42,
+    73
+  ],
+  "threads": 2,
+  "target_prefix_sessions": [
+    1,
+    2
+  ],
+  "selection_rule": "Source-validation mean participant cue balanced accuracy; then worst class recall; then lower cue NLL. No historical test scoring until all selections and model hashes are frozen.",
+  "target_adaptation": "None. Each subject supplies separate earlier training/tuning sessions; later sessions are historical exploratory tests.",
+  "personal_cases": [
+    {
+      "subject": "04",
+      "class_sets": [
+        "five",
+        "nine"
+      ],
+      "split": {
+        "train": [
+          2
+        ],
+        "validation": [
+          3
+        ],
+        "test": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "subject": "07",
+      "class_sets": [
+        "five",
+        "nine"
+      ],
+      "split": {
+        "train": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation": [
+          7,
+          8
+        ],
+        "test": [
+          9,
+          10
+        ]
+      }
+    }
+  ]
+}

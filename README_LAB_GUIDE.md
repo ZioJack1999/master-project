@@ -2,6 +2,8 @@
 
 Person-specific REST versus imagined right-hand grasp with the pictured X24 and ESU. Physical hardware and the lab's installed software have not been tested in this audit.
 
+For Thursday November 5, follow the [binary validation checklist](THURSDAY_BINARY_VALIDATION.md). The new `Launch_BINARY_Lab.bat` checks the frozen binary files and calls the existing launcher. Offline multiclass experiments are a separate research track.
+
 ## Acquisition routes
 
 Confirm EEG in the installed licensed vendor acquisition first. ABM documents [B-Alert Live and SDK integration](https://www.advancedbrainmonitoring.com/products/b-alert-mobile). An older X24 may need its matching legacy SDK; preserve a working lab installation.

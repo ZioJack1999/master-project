@@ -1,5 +1,7 @@
 # Master project debug audit — 2026-11-03
 
+Latest release: [separate multiclass v3 results](MULTICLASS_V3_RESULTS.md), [Thursday binary checklist](THURSDAY_BINARY_VALIDATION.md). All 36 binary code/config/model files match the prior release (text line-ending conversions allowed); `verify_binary_release.py` checks them and `Launch_BINARY_Lab.bat` calls the unchanged studio. The full suite passes 68 tests. Multiclass candidate fitting/scoring remains offline and does not change binary calibration or live settings.
+
 ## Conclusion and scope
 
 The corrected code supports person-specific rest/imagined-grasp calibration and independent new-cue testing. Real recorded within-person EEG supports useful discrimination. Connecting the GUI on a lab PC is feasible **if** its acquisition exports a correctly labeled, correctly scaled 256 Hz LSL stream with the selected montage. Physical acquisition, installed vendor versions, Unity build and the user's live self-test remain unverified. No software-only test can establish those outcomes.

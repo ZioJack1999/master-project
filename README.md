@@ -4,6 +4,17 @@ Fit an EEGNet to your own **REST versus imagined right-hand grasp** calibration,
 
 The software pipeline has integration tests. Actual B-Alert X24 driver compatibility and accuracy on a new wearer still require the lab session. Read [the audit](DEBUG_AUDIT.md), [lab procedure](README_LAB_GUIDE.md) and separate [multiclass plan](MULTICLASS_PLAN.md).
 
+**Thursday November 5: use the binary track.** [Lab checklist](THURSDAY_BINARY_VALIDATION.md). `Launch_BINARY_Lab.bat` verifies the frozen binary files and starts the existing studio. `python verify_binary_release.py` checks integrity without starting acquisition. Local cap/stream settings belong in ignored `lab_config.local.json`.
+
+`python package_binary_lab.py` creates a ZIP containing only the binary app and lab instructions. It excludes multiclass code/models and all recordings; read its [package instructions](BINARY_LAB_README.md). Python dependencies, vendor acquisition and an appropriate LSL bridge are still required on the lab PC.
+
+| Track | Entry point | Outputs and scope |
+|---|---|---|
+| Binary lab validation | `Launch_BINARY_Lab.bat` | Existing Rest/action GUI and personal model; new live validation required |
+| Multiclass research | [experiments/multiclass_v3](experiments/multiclass_v3/README.md) | Separate 3/5/9-class configs, private models/results; offline only |
+
+Multiclass research does not replace binary models, settings or launchers. The binary loader rejects multiclass contracts. Accuracy from these two tracks must be reported separately.
+
 ## Start
 
 Use 64-bit Python 3.11 (tested):
@@ -34,6 +45,8 @@ Real EEGMI subject 08: sessions 1–4 train, 5 tune, 6 test; custom 20 sites. Co
 Legacy weights are retained with unverified contracts. The default template has random weights: its probabilities have no learned meaning and cannot emit hand predictions. The trained subject-08 checkpoint is a reference for its montage, not a model for an arbitrary wearer.
 
 ## Three-class recorded-data pipeline
+
+Latest [multiclass v3 development results](MULTICLASS_V3_RESULTS.md): 14 frozen historical cases, independent-cue training, eight source-validation candidates per case and a separate prefix-alignment arm. Results are mixed; no five/nine-class case reaches 70%. All historical tests remain exploratory. This research is separate from Thursday's binary validation.
 
 The new [more-class/transfer study](MULTICLASS_TRANSFER_RESULTS.md) implements 3/5/9-class pooled training and held-person evaluation across IDs04,07,08. Native annotations recovered 170 empty event tables without modifying originals. Primary zero-shot transfer to ID07 scored 36.3%/25.0%/13.0% for 3/5/9 classes; chance is 33.3%/20%/11.1%. Training/tuning diagnostics show large gaps, so reliable five/nine-class or cross-person control is not established. `study_multiclass_transfer.py prepare/run` and `report_multiclass_transfer.py` reproduce the study; `study_*.pt` reference models have adjacent class/preprocessing contracts.
 

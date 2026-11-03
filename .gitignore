@@ -30,3 +30,4 @@ audit/studio_script.js
 decoder_and_models/eegnet_personal*
 audit/*.local.json
 RESUME_NOTES.md
+lab_packages/
