@@ -1,23 +1,19 @@
 @echo off
-title BCI 3D Live Studio (60 FPS)
-echo ======================================================================
-echo    STARTING BCI 3D LIVE STUDIO & REALISTIC VIRTUAL HAND (60 FPS)
-echo ======================================================================
-echo.
-echo Launching BCI Studio Web Dashboard at http://127.0.0.1:8050 ...
-
-REM Try Anaconda multi_nn environment first if it exists on this PC
-if exist "C:\tools\Anaconda3\envs\multi_nn\python.exe" (
-    "C:\tools\Anaconda3\envs\multi_nn\python.exe" bci_studio_gui.py
-    pause
-    exit /b
+setlocal
+cd /d "%~dp0"
+title BCI Studio - EEG self-test
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" bci_studio_gui.py %*
+  goto finished
 )
-
-REM Otherwise use system python / active environment
-python bci_studio_gui.py
-if %errorlevel% neq 0 (
-    echo.
-    echo Trying python via py launcher...
-    py -3 bci_studio_gui.py
+if exist "%USERPROFILE%\.bci_studio\venv\Scripts\python.exe" (
+  "%USERPROFILE%\.bci_studio\venv\Scripts\python.exe" bci_studio_gui.py %*
+  goto finished
 )
+where py >nul 2>&1
+if errorlevel 1 (python bci_studio_gui.py %*) else (py -3 bci_studio_gui.py %*)
+:finished
+set "BCI_EXIT=%ERRORLEVEL%"
+if errorlevel 1 echo BCI Studio stopped with an error. Run Setup_BCI_Studio.bat and check README_LAB_GUIDE.md.
 pause
+exit /b %BCI_EXIT%

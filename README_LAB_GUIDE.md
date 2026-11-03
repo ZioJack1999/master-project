@@ -1,202 +1,71 @@
-# Real-Time BCI Lab Operational Manual & Fast Calibration Guide
-========================================================================
+# B-Alert X24 lab procedure
 
-This manual provides complete step-by-step instructions for operating the standalone real-time motor imagery decoder in the laboratory with physical electrodes and a virtual hand.
+Person-specific REST versus imagined right-hand grasp with the pictured X24 and ESU. Physical hardware and the lab's installed software have not been tested in this audit.
 
----
+## Acquisition routes
 
-## 1. Hardware & Electrode Preparation
+Confirm EEG in the installed licensed vendor acquisition first. ABM documents [B-Alert Live and SDK integration](https://www.advancedbrainmonitoring.com/products/b-alert-mobile). An older X24 may need its matching legacy SDK; preserve a working lab installation.
 
-### 1.1 Electrode Montage & Target Sites
-Ensure your 20-channel EEG cap aligns with the 10–20 international system:
-* **Primary Motor Channels (Crucial)**: `C3` (Left Hemisphere / Right Hand area), `Cz` (Vertex / Foot/Hand midline), `C4` (Right Hemisphere).
-* **Frontal & Parieto-Occipital Channels**: `F3`, `F1`, `Fz`, `F2`, `F4`, `C1`, `C2`, `CPz`, `P3`, `P1`, `Pz`, `P2`, `P4`, `POz`, `O1`, `Oz`, `O2`.
-* **Reference & Ground**: Earlobe (`A1/A2`) or Mastoid (`M1/M2`), Ground at `AFz` or `Fpz`.
+| Installed route | Studio connection | Remaining check |
+|---|---|---|
+| B-Alert Live / Athena SDK | Separate matching B-Alert LSL application | SDK version, bridge build, labels, units, timestamps |
+| Legacy SDK / lab abmbci | Existing acquisition plus validated LSL outlet | Source uses 32-bit Python 3.9/DLLs; no hardware test here |
+| Vendor EDF export only | Offline replay/training | EDF export alone is not a live stream |
+| Existing BCI2000 / FieldTrip acquisition | Independently verified LSL output | Additional adapter route, not implemented/tested here |
 
-### 1.2 Impedance Check
-* Inject conductive gel into each electrode well.
-* Target impedance: **$< 10\text{ k}\Omega$** across all motor cortex channels (`C3`, `Cz`, `C4`).
-* Verify reference and ground channels have clean, low-impedance contact.
+[LSL App-BAlert](https://github.com/labstreaminglayer/App-BAlert) documents Athena/x86 dependencies and a legacy v1.0 tag; its README says hardware testing is incomplete. [BCI2000 B-Alert documentation](https://www.bci2000.org/mediawiki/index.php/Contributions%3AB-Alert) describes X24 acquisition at 256 Hz. These are candidate interfaces, not proof that every compatible program exports LSL. Studio accepts `type=EEG` LSL; other interfaces need a bridge.
 
----
+Keep vendor acquisition in its required process architecture. A 64-bit PyTorch process cannot load 32-bit vendor DLLs. LSL connects separate processes. The older BCIFEST GUI hardware manager also initializes FES: do not launch it merely to inspect EEG. This studio implements virtual-hand UDP only, no stimulator integration.
 
-## 2. Launching the Electrode Stream (LabStreamingLayer)
+ESU participates in vendor acquisition/synchronization; it does not classify EEG. Its driver pairing and marker path need a lab check.
 
-1. Open your acquisition software (e.g. OpenBCI GUI, BrainVision RDA / LSL Connector, g.tec Nautilus, ANT Neuro eego, LabRecorder).
-2. Configure stream parameters:
-   * **Stream Type**: `EEG`
-   * **Sampling Rate**: `256 Hz` (or allow internal resampling if native rate is 500/1000 Hz)
-   * **Channel Count**: 20 channels (matching the standard montage)
-3. Click **Start Streaming** / **LSL Broadcast**.
+## Physical montage
 
----
+| Profile | Sites in model order |
+|---|---|
+| lab_config.json (`x24_stock20`) | Fp1, Fp2, F7, F3, Fz, F4, F8, T3, C3, Cz, C4, T4, T5, P3, Pz, P4, T6, O1, POz, O2 |
+| lab_config.eegmi_custom20.example.json | F3, F1, Fz, F2, F4, C3, C1, Cz, C2, C4, CPz, P3, P1, Pz, P2, P4, POz, O1, Oz, O2 |
 
-## 3. The 60-Second Guided EEG Calibration Routine
+The first is BCIFEST's `STANDARD_MONTAGE` and matches the set of sites in two inspected BCIFEST EDFs; file order differs and is reordered by name. The second is EEGMI metadata. The X24 case alone establishes neither cap layout. Verify strip/cap sites and reference with the lab operator. Establish physical equivalence before supplying aliases such as T7/T8. Never substitute missing sites.
 
-Because every user has a unique skull thickness, baseline $\mu/\beta$ band power, and resting voltage offset, **always run the 60-second calibration when putting on the cap**:
+Both personal profiles use random architecture weights and learn from your calibration. Regenerate with `create_personal_template.py` if necessary. Do not choose pretrained initialization with a random template. Prepare/check electrodes using manufacturer instructions and the lab protocol. Studio does not measure impedance, change hardware reference, or resample.
 
-### 3.1 Start Calibration Command
-Open PowerShell or Command Prompt in the `multi_nn` conda environment:
-```powershell
-& "C:\tools\Anaconda3\envs\multi_nn\python.exe" C:\Users\giaco\Desktop\BCI_EEGMI_Results_and_Decoder\decoder_and_models\realtime_bci_decoder.py --mode calibrate --udp-port 5005
-```
+## Preflight
 
-### 3.2 What Happens During Calibration
-The script guides you through **3 alternating pairs** of Rest and Motor Imagery (5.0 seconds per trial, 60 seconds total):
+1. Start matching vendor acquisition and EEG LSL bridge; close conflicting exclusive device owners.
+2. Run `lab_preflight.py --config YOUR_CONFIG --inspect-lsl` with studio Python. `ready` means compatible metadata/checkpoint only, not fresh signal or accuracy.
+3. Set `stream_name` and preferably `source_id`. Ambiguous streams and rates other than 256 Hz are rejected.
+4. Prefer producer labels/units. Otherwise set `channel_labels` to the **full verified stream field order**, including six prefix fields in a 30-field ABM outlet. Only named EEG sites are selected. Set `input_unit` to `uV`, `mV` or `V` after confirming SDK numeric scale; the adapter converts to volts. A plausible graph is not proof of units.
+5. Launch with `Launch_BCI_3D_Studio.bat --config YOUR_CONFIG`. Missing/duplicate sites, nonfinite samples, stale/backward timestamps and gaps stop decoding. No implicit resampling.
 
-```
-[Trial 1/3] ---> RELAX / REST (5s) <---
-  • Sit comfortably, look at the screen center.
-  • Keep jaw, neck, and facial muscles completely relaxed.
-  • Do not imagine any hand movement.
+Inspect all electrodes in vendor software. Studio shows C3/Cz/C4 only. Automatic checks reject filtered peaks above 100 µV and near-flat windows, but cannot identify every eye/muscle artifact.
 
-[Trial 1/3] >>> IMAGINE RIGHT HAND GRASP / CLOSING (5s) <<<
-  • Perform kinesthetic motor imagery of closing your right hand into a fist.
-  • Feel the muscle tension in your mind (do not physically move fingers).
+## Personal calibration and validation
 
-[Trial 2/3] ---> RELAX / REST (5s) <---
-[Trial 2/3] >>> IMAGINE RIGHT HAND GRASP / CLOSING (5s) <<<
+1. Enter a pseudonymous ID and Start Stream. Template probabilities are meaningless; hand predictions are withheld.
+2. Personal calibration: 18 randomized 8-second cues, 144 seconds plus fitting. Imagine the feeling of grasping; keep actual fingers, jaw and shoulders still. Physical movement/EMG separation is not proof of imagery decoding.
+3. Raw EEG is saved. **Whole cue trials** are split for training, tuning and a small internal test. Default NN training starts from scratch. Early stopping/threshold fitting use tuning only. Aborted/failed fitting leaves personalization unavailable; improve the signal and repeat.
+4. After Personal model ready, Start Stream → Validate: 20 NEW 8-second cues, 160 seconds. Model/threshold stay frozen during the run. Scoring uses actual EMA/dwell decisions with one majority vote per cue after full-window settling. Stop/Cancel aborts an incomplete run.
+5. Save Session & Stop; keep NPZ/events/predictions/metadata together. Tuning and fresh validation are separate. Changing settings after observing validation makes that run development data; collect new cues for another test.
+6. Repeat frozen testing in another block, ideally another day/cap placement. Define success beforehand. Example project pilot target: ≥70% trial balanced accuracy, both classes detected and permutation p<.05. This is not a certified standard; 20 trials have substantial uncertainty.
 
-[Trial 3/3] ---> RELAX / REST (5s) <---
-[Trial 3/3] >>> IMAGINE RIGHT HAND GRASP / CLOSING (5s) <<<
-```
+Eighteen cues are a pilot minimum, not a guarantee of enough NN data. If new-cue scores stay near chance, collect more balanced independent trials, inspect labels/artifacts, and compare bandpower/CSP before increasing NN complexity. Insufficient clean predictions fail the run; retain exclusion rates, not only successful runs.
 
-### 3.3 Automatic Calibration Computation
-At the end of 60 seconds, the decoder automatically:
-1. Calculates your personal baseline mean ($\mu$) and standard deviation ($\sigma$).
-2. Sweeps decision thresholds via ROC analysis.
-3. Prints your optimal threshold:
-   ```
-   [Calibration Complete] Computing optimal user threshold...
-     Calibrated Threshold: 0.32 | Calibration Balanced Acc: 86.4%
-   ```
-4. **Instantly and seamlessly transitions into live decoding mode.**
+Cue times use the studio/LSL clock. Browser/display latency is unmeasured. For precise event-related timing add a measured display marker/photodiode/ESU path. A .5-second settling margin reduces boundary mixing but does not establish millisecond accuracy.
 
----
+## Prediction and virtual hand
 
-## 4. Live Real-Time Closed-Loop Control
+512-sample (2 s) windows, 64-sample (.25 s) stride, **87.5% overlap**. Restart requires a full window. Causal filter state persists across chunks. Raw probability → EMA (alpha .3) → threshold → two-update dwell are separate stages. Flexion is a confidence/animation parameter, not measured grasp force or angle.
 
-Once calibrated, the terminal displays real-time telemetry updating at **4.0 Hz (every 250 ms)**:
+UDP defaults to localhost:5005. Calibration, demo and replay withhold predictions. After fitting, live validation/free decoding can send virtual-hand packets. Pause, artifacts, gaps and shutdown neutralize commands; the reference Unity receiver times out after .75 s. Test `udp_monitor.py` first. The C# receiver still needs a lab Unity build/Animator check.
 
-```
-[LIVE] Step: 00142 | Latency:  5.1ms | p(EMA): 0.78 | Hand: ACTION [████████░░]
-```
+| Symptom | Check |
+|---|---|
+| No stream | Bridge, EEG type, process architecture, exclusive ownership, selected source |
+| Missing sites/units | Physical cap and SDK mapping; never invent labels or scales |
+| Stale timestamps/gaps | LSL clocks, buffering/network; restart after reconnect |
+| Flat probabilities | Untrained versus fitted model, hash, units, quality and actual EEG |
+| Fit good, validation poor | Small sample, artifacts, timing, reference/cap changes, overfitting; retain both results |
+| Offline good, live lower/slower | EMA/dwell/saved threshold alter deployment decisions; compare matching metrics |
 
-### Signal Processing Safeguards in Real Time:
-* **Online Bandpass (8–30 Hz)**: 4th-order Butterworth with persistent `zi` state to prevent edge blips.
-* **Artifact Clamping**: Soft-clips voltage spikes $> \pm 100\ \mu\text{V}$ from eye blinks or swallowing.
-* **EMA Smoothing ($\alpha = 0.3$)**: Eliminates jerky, sporadic probability spikes.
-* **Dwell-Time Hysteresis ($500\text{ ms}$)**: Requires sustained intent before triggering hand closure.
-
----
-
-## 5. Virtual Hand Integration (UDP Port 5005)
-
-Every 250 ms, the decoder broadcasts a JSON datagram to `127.0.0.1:5005`:
-```json
-{
-  "timestamp": 1771781630.12,
-  "p_raw": 0.8421,
-  "p_smooth": 0.7610,
-  "grasp_command": 1,
-  "continuous_flex": 0.8850,
-  "state_label": "ACTION"
-}
-```
-
-### 5.1 Unity C# Receiver Script (`HandController.cs`)
-Attach this script to your Virtual Hand GameObject in Unity:
-
-```csharp
-using UnityEngine;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-
-public class HandController : MonoBehaviour
-{
-    private UdpClient udpClient;
-    private Thread receiveThread;
-    public Animator handAnimator;
-    public float currentFlex = 0f;
-    private float targetFlex = 0f;
-
-    [System.Serializable]
-    public class BciPacket
-    {
-        public float p_smooth;
-        public int grasp_command;
-        public float continuous_flex;
-        public string state_label;
-    }
-
-    void Start()
-    {
-        udpClient = new UdpClient(5005);
-        receiveThread = new Thread(new ThreadStart(ReceiveData));
-        receiveThread.IsBackground = true;
-        receiveThread.Start();
-    }
-
-    private void ReceiveData()
-    {
-        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-        while (true)
-        {
-            try
-            {
-                byte[] data = udpClient.Receive(ref remoteEndPoint);
-                string text = Encoding.UTF8.GetString(data);
-                BciPacket packet = JsonUtility.FromJson<BciPacket>(text);
-                targetFlex = packet.continuous_flex;
-            }
-            catch {}
-        }
-    }
-
-    void Update()
-    {
-        // Smooth interpolation for fluid finger animation
-        currentFlex = Mathf.Lerp(currentFlex, targetFlex, Time.deltaTime * 10f);
-        if (handAnimator != null)
-        {
-            handAnimator.SetFloat("Flexion", currentFlex);
-        }
-    }
-
-    void OnApplicationQuit()
-    {
-        if (receiveThread != null) receiveThread.Abort();
-        if (udpClient != null) udpClient.Close();
-    }
-}
-```
-
-### 5.2 Standalone Python Virtual Hand Tester
-If you want to test the UDP receiver without Unity:
-```python
-import socket
-import json
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(("127.0.0.1", 5005))
-print("Listening for BCI Virtual Hand packets on port 5005...")
-
-while True:
-    data, _ = sock.recvfrom(1024)
-    packet = json.loads(data.decode('utf-8'))
-    bar = "█" * int(packet['continuous_flex'] * 20)
-    print(f"\rHand State: {packet['state_label']:<6} | Flex: {packet['continuous_flex']:.2f} [{bar:<20}]", end="", flush=True)
-```
-
----
-
-## 6. Troubleshooting Common Lab Issues
-
-| Issue | Root Cause | Solution |
-| :--- | :--- | :--- |
-| **No LSL stream detected** | Amplifier software not broadcasting LSL | Verify `type='EEG'` and start LSL stream before running decoder. |
-| **Hand triggers on rest** | Baseline threshold too low or subject tense | Re-run `--mode calibrate` and ensure jaw/shoulders are completely relaxed. |
-| **Hand slow to respond** | Dwell-time too conservative | Decrease dwell steps (e.g. `dwell_steps=1` in `realtime_bci_decoder.py`). |
-| **High 50/60 Hz noise** | Mains line interference | Ensure ground electrode impedance is $< 5\text{ k}\Omega$; 8–30 Hz filter will reject mains noise. |
+Physical X24/ESU acquisition, Unity build and live self-test remain for the first lab session.

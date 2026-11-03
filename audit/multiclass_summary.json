@@ -1,0 +1,203 @@
+{
+  "task": "olrandmcmitrain",
+  "event_files_found": 410,
+  "readable_event_files": 404,
+  "read_errors": 6,
+  "subjects": {
+    "sub-00": {
+      "runs": 7,
+      "sessions": [
+        "ses-06",
+        "ses-07"
+      ],
+      "paired_edf_paths": 7,
+      "empty_runs": 1,
+      "class_cues": {
+        "Peace": 1,
+        "Wrist Pronation": 1,
+        "Finger Extension": 3,
+        "Wrist Supination": 1
+      },
+      "cues_long_enough_for_2s_window": {
+        "Wrist Pronation": 1,
+        "Finger Extension": 3,
+        "Wrist Supination": 1
+      },
+      "short_cues": 0,
+      "unknown_labels": [
+        "Peace"
+      ]
+    },
+    "sub-04": {
+      "runs": 65,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05"
+      ],
+      "paired_edf_paths": 65,
+      "empty_runs": 45,
+      "class_cues": {
+        "Opponens Grasp": 15,
+        "Wrist Pronation": 14,
+        "Wrist Flexion": 13,
+        "Volar Grasp": 14,
+        "Wrist Supination": 16,
+        "Rest": 15,
+        "Pinch Grasp": 13,
+        "Finger Extension": 13,
+        "Wrist Extension": 11
+      },
+      "cues_long_enough_for_2s_window": {
+        "Opponens Grasp": 15,
+        "Wrist Pronation": 14,
+        "Wrist Flexion": 13,
+        "Volar Grasp": 14,
+        "Wrist Supination": 16,
+        "Rest": 15,
+        "Pinch Grasp": 12,
+        "Finger Extension": 12,
+        "Wrist Extension": 11
+      },
+      "short_cues": 2,
+      "unknown_labels": []
+    },
+    "sub-07": {
+      "runs": 140,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06",
+        "ses-07",
+        "ses-08",
+        "ses-09",
+        "ses-10"
+      ],
+      "paired_edf_paths": 140,
+      "empty_runs": 140,
+      "class_cues": {},
+      "cues_long_enough_for_2s_window": {},
+      "short_cues": 0,
+      "unknown_labels": []
+    },
+    "sub-08": {
+      "runs": 191,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06",
+        "ses-07",
+        "ses-08",
+        "ses-09",
+        "ses-10",
+        "ses-21",
+        "ses-22",
+        "ses-23",
+        "ses-24",
+        "ses-25",
+        "ses-26",
+        "ses-27",
+        "ses-28",
+        "ses-29"
+      ],
+      "paired_edf_paths": 191,
+      "empty_runs": 0,
+      "class_cues": {
+        "Wrist Pronation": 141,
+        "Wrist Supination": 140,
+        "Volar Grasp": 130,
+        "Opponens Grasp": 128,
+        "Pinch Grasp": 129,
+        "Rest": 132,
+        "Wrist Flexion": 125,
+        "Wrist Extension": 147,
+        "Finger Extension": 121
+      },
+      "cues_long_enough_for_2s_window": {
+        "Wrist Pronation": 134,
+        "Wrist Supination": 136,
+        "Volar Grasp": 125,
+        "Opponens Grasp": 125,
+        "Pinch Grasp": 124,
+        "Rest": 129,
+        "Wrist Flexion": 123,
+        "Wrist Extension": 139,
+        "Finger Extension": 115
+      },
+      "short_cues": 43,
+      "unknown_labels": []
+    },
+    "sub-99": {
+      "runs": 1,
+      "sessions": [
+        "ses-33"
+      ],
+      "paired_edf_paths": 1,
+      "empty_runs": 0,
+      "class_cues": {
+        "Finger Extension": 1,
+        "Wrist Supination": 1,
+        "Opponens Grasp": 1,
+        "Wrist Pronation": 1,
+        "Volar Grasp": 1,
+        "Wrist Flexion": 1
+      },
+      "cues_long_enough_for_2s_window": {
+        "Finger Extension": 1,
+        "Wrist Supination": 1,
+        "Opponens Grasp": 1,
+        "Wrist Pronation": 1,
+        "Volar Grasp": 1,
+        "Wrist Flexion": 1
+      },
+      "short_cues": 0,
+      "unknown_labels": []
+    }
+  },
+  "eligibility": "Duration >=2.5 s permits a 2 s window after .5 s settling; signal/EDF quality NOT established by metadata counts.",
+  "representative_edf_headers": {
+    "sample_rate_hz": 256,
+    "n_fields": 24,
+    "eeg_labels": [
+      "Fp1",
+      "F7",
+      "F8",
+      "T4",
+      "T6",
+      "T5",
+      "T3",
+      "Fp2",
+      "O1",
+      "P3",
+      "Pz",
+      "F3",
+      "Fz",
+      "F4",
+      "C4",
+      "P4",
+      "POz",
+      "C3",
+      "Cz",
+      "O2"
+    ],
+    "aux_labels": [
+      "ECG",
+      "AUX1",
+      "AUX2",
+      "AUX3"
+    ],
+    "checked_runs": [
+      "sub-08_ses-01_task-olrandmcmitrain_run-02",
+      "sub-08_ses-29_task-olrandmcmitrain_run-10"
+    ],
+    "scope": "Header and annotations of two representative EDFs only; not a signal-quality audit of all recordings."
+  }
+}

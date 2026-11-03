@@ -1,0 +1,102 @@
+{
+  "channels": [
+    "F3",
+    "F1",
+    "Fz",
+    "F2",
+    "F4",
+    "C3",
+    "C1",
+    "Cz",
+    "C2",
+    "C4",
+    "CPz",
+    "P3",
+    "P1",
+    "Pz",
+    "P2",
+    "P4",
+    "POz",
+    "O1",
+    "Oz",
+    "O2"
+  ],
+  "sfreq": 256,
+  "n_times": 512,
+  "normalization": "per_window",
+  "filter": {
+    "mode": "causal",
+    "fmin": 8.0,
+    "fmax": 30.0,
+    "order": 4
+  },
+  "classes": [
+    "rest",
+    "action"
+  ],
+  "verified": true,
+  "verified_meaning": "Reproducible preprocessing contract; not proof of biological or live validation.",
+  "sha256": "6a7cccfc21261b90ece56ab4c67f6c3a07d49149398ee60432ca078f75c743bf",
+  "artifact_limit_v": 0.0001,
+  "artifact_detection": "filtered_peak",
+  "raw_clipping": false,
+  "threshold": 0.54,
+  "partitions": {
+    "train": [
+      "ses-01",
+      "ses-02",
+      "ses-03",
+      "ses-04"
+    ],
+    "validation": [
+      "ses-05"
+    ],
+    "test": [
+      "ses-06"
+    ]
+  },
+  "seed": 42,
+  "training_runs": [
+    "sub-08_ses-01_task-MI_run-01",
+    "sub-08_ses-01_task-MI_run-02",
+    "sub-08_ses-01_task-MI_run-03",
+    "sub-08_ses-02_task-MI_run-01",
+    "sub-08_ses-02_task-MI_run-02",
+    "sub-08_ses-02_task-MI_run-03",
+    "sub-08_ses-03_task-MI_run-01",
+    "sub-08_ses-03_task-MI_run-02",
+    "sub-08_ses-03_task-MI_run-03",
+    "sub-08_ses-03_task-MI_run-04",
+    "sub-08_ses-03_task-MI_run-05",
+    "sub-08_ses-03_task-MI_run-06",
+    "sub-08_ses-04_task-MI_run-01",
+    "sub-08_ses-04_task-MI_run-02",
+    "sub-08_ses-04_task-MI_run-03",
+    "sub-08_ses-04_task-MI_run-04",
+    "sub-08_ses-04_task-MI_run-05",
+    "sub-08_ses-04_task-MI_run-06",
+    "sub-08_ses-04_task-MI_run-07"
+  ],
+  "validation_runs": [
+    "sub-08_ses-05_task-MI_run-01",
+    "sub-08_ses-05_task-MI_run-02",
+    "sub-08_ses-05_task-MI_run-03",
+    "sub-08_ses-05_task-MI_run-04",
+    "sub-08_ses-05_task-MI_run-05",
+    "sub-08_ses-05_task-MI_run-06",
+    "sub-08_ses-05_task-MI_run-07",
+    "sub-08_ses-05_task-MI_run-08",
+    "sub-08_ses-05_task-MI_run-09"
+  ],
+  "test_runs": [
+    "sub-08_ses-06_task-MI_run-01",
+    "sub-08_ses-06_task-MI_run-02",
+    "sub-08_ses-06_task-MI_run-03",
+    "sub-08_ses-06_task-MI_run-04",
+    "sub-08_ses-06_task-MI_run-05",
+    "sub-08_ses-06_task-MI_run-06",
+    "sub-08_ses-06_task-MI_run-07",
+    "sub-08_ses-06_task-MI_run-08",
+    "sub-08_ses-06_task-MI_run-09"
+  ]
+}

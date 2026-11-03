@@ -1,1258 +1,450 @@
-"""
-Professional BCI Neuro-Engineering Console & Lab Calibration Suite
-===================================================================
-Hardware-accelerated, zero-lag graphical interface for live laboratory BCI testing.
-
-Features:
-1. Dynamic 60 FPS SVG Calibration Countdown Ring with smooth circular progress drain.
-2. Animated state icons (🧠 Rest vs ✊ Motor Imagery Grasp).
-3. Trial-by-trial progress stepper (Trial 1/3, 2/3, 3/3).
-4. Multi-Channel EEG Stream Oscilloscope (C3, Cz, C4 motor cortex traces).
-5. Real-Time Model Probability Analytics & Rolling Accuracy Tracking.
-6. Dedicated Session Reports Directory (`session_reports/`).
-7. One-Click Full Session Reset and Auto-Stop on Save.
-"""
-
-import os
-import sys
-import time
-from datetime import datetime
+"""Local BCI studio: validated LSL acquisition, real calibration, and held-out cues."""
+import argparse
+from collections import deque
+from datetime import datetime,timezone
+from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 import json
-import socket
-import threading
-import webbrowser
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import time
+from urllib.parse import urlparse,parse_qs
+import webbrowser
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(SCRIPT_DIR))
-
-try:
-    from realtime_bci_decoder import RealtimeBCIDecoder
-except ImportError:
-    pass
-
-REPORTS_DIR = SCRIPT_DIR / "session_reports"
-os.makedirs(REPORTS_DIR, exist_ok=True)
-
-# Also mirror to Box and Desktop if available
-EXTRA_REPORT_DIRS = []
-for p in [Path(r"C:\Users\giaco\Box\EEGMI_Personal\session_reports"),
-          Path(r"C:\Users\giaco\Desktop\BCI_EEGMI_Results_and_Decoder\session_reports")]:
-    try:
-        if p.parent.exists():
-            p.mkdir(parents=True, exist_ok=True)
-            EXTRA_REPORT_DIRS.append(p)
-    except Exception:
-        pass
-
-state = {
-    "is_connected": False,
-    "is_streaming": False,
-    "demo_mode": False,
-    "is_calibrating": False,
-    "calib_phase": "idle",
-    "calib_timer": 8.0,
-    "calib_progress": 1.0, # 1.0 down to 0.0 for smooth circle drain
-    "calib_trial": 0,
-    "total_trials": 3,
-    "calib_acc": 0.0,
-    "calib_th": 0.32,
-    "p_raw": 0.0,
-    "p_smooth": 0.0,
-    "grasp_command": 0,
-    "continuous_flex": 0.0,
-    "threshold": 0.32,
-    "latency_ms": 0.0,
-    "step_count": 0,
-    "stream_name": "No Hardware Detected",
-    "udp_target": "127.0.0.1:5005",
-    "packets_sent": 0,
-    "reset_flag": False,
-    "eeg_c3": [0.0] * 60,
-    "eeg_cz": [0.0] * 60,
-    "eeg_c4": [0.0] * 60,
-    "prob_history": [0.0] * 60,
-    "ema_history": [0.0] * 60,
-    "session_time": [],
-    "session_p_raw": [],
-    "session_p_smooth": [],
-    "session_decisions": [],
-    "session_flex": [],
-    "session_cz_uv": [],
-    "session_c3_uv": [],
-    "session_c4_uv": []
-}
-
-HTML_UI = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BCI Neuro-Engineering Console & Lab Calibration</title>
-    <style>
-        :root {
-            --bg: #0b0e14;
-            --panel: #151922;
-            --panel-card: #1c212c;
-            --border: #2d3342;
-            --accent-cyan: #38bdf8;
-            --accent-green: #34d399;
-            --accent-red: #f87171;
-            --accent-yellow: #fbbf24;
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        header {
-            background: var(--panel);
-            border-bottom: 1px solid var(--border);
-            padding: 0 20px;
-            height: 56px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 100;
-            flex-shrink: 0;
-            gap: 16px;
-        }
-        .brand-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-        .brand-title {
-            font-size: 1.05rem;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
-        }
-        .conn-badge {
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            text-transform: uppercase;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .conn-disconnected { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border: 1px solid rgba(248, 113, 113, 0.4); }
-        .conn-connected { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); border: 1px solid rgba(52, 211, 153, 0.4); }
-        .conn-demo { background: rgba(251, 191, 36, 0.15); color: var(--accent-yellow); border: 1px solid rgba(251, 191, 36, 0.4); }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-        .btn {
-            background: var(--panel-card);
-            border: 1px solid var(--border);
-            color: var(--text);
-            height: 36px;
-            padding: 0 13px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.82rem;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .btn:hover { background: #262c3a; border-color: var(--accent-cyan); }
-        .btn-stream { background: #166534; border-color: #22c55e; color: #f0fdf4; }
-        .btn-stream:hover { background: #15803d; }
-        .btn-stream-stop { background: #991b1b; border-color: #ef4444; color: #fef2f2; }
-        .btn-stream-stop:hover { background: #b91c1c; }
-        .btn-reset { background: #374151; border-color: #4b5563; color: #e5e7eb; }
-        .btn-reset:hover { background: #4b5563; border-color: var(--accent-yellow); color: var(--accent-yellow); }
-        .btn-calib { background: #0284c7; border-color: #38bdf8; color: white; }
-        .btn-calib:hover { background: #0369a1; }
-        .btn-export { background: #047857; border-color: #34d399; color: white; }
-        .btn-export:hover { background: #065f46; }
-
-        /* Workspace Grid */
-        .workspace {
-            display: grid;
-            grid-template-columns: 1.35fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 14px;
-            padding: 14px 18px;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        .card {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 14px 18px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-            min-height: 0;
-        }
-        .card-header {
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            border-bottom: 1px solid rgba(45, 51, 66, 0.6);
-            padding-bottom: 6px;
-            flex-shrink: 0;
-        }
-        .card-body {
-            flex: 1;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-        canvas { width: 100%; height: 100%; display: block; }
-
-        .metric-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 4px;
-        }
-        .metric-box {
-            background: var(--panel-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .metric-title {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-        .metric-value {
-            font-size: 1.25rem;
-            font-weight: 800;
-            font-family: monospace;
-        }
-
-        .hand-command-banner {
-            background: var(--panel-card);
-            border: 2px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .cmd-pill {
-            font-size: 1.05rem;
-            font-weight: 900;
-            padding: 4px 14px;
-            border-radius: 6px;
-            letter-spacing: 0.5px;
-        }
-        .cmd-rest { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
-        .cmd-action { background: rgba(248, 113, 113, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); box-shadow: 0 0 16px rgba(248, 113, 113, 0.4); }
-
-        .progress-bar-bg {
-            background: #262c3a;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 5px 0;
-        }
-        .progress-bar-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #38bdf8, #34d399);
-            transition: width 0.08s linear;
-        }
-
-        .slider-wrap {
-            margin-top: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-        .slider-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.78rem;
-            color: var(--text-muted);
-        }
-        input[type=range] {
-            width: 100%;
-            accent-color: var(--accent-cyan);
-            cursor: pointer;
-        }
-
-        .json-box {
-            background: #0d1117;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-family: monospace;
-            font-size: 0.75rem;
-            color: #7ee787;
-            margin-top: 8px;
-            overflow: hidden;
-            white-space: nowrap;
-        }
-
-        /* ─── DYNAMIC ANIMATED CALIBRATION OVERLAY ─── */
-        .calib-modal {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(11, 14, 20, 0.95);
-            backdrop-filter: blur(16px);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-            text-align: center;
-        }
-        .calib-card {
-            background: #151922;
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 32px 48px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-            max-width: 540px;
-        }
-        .calib-ring-container {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        .progress-ring {
-            transform: rotate(-90deg);
-        }
-        .progress-ring-track {
-            stroke: #21262d;
-        }
-        .progress-ring-indicator {
-            stroke-dasharray: 565.48; /* 2 * PI * 90 */
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
-        }
-        .calib-center-content {
-            position: absolute;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .calib-icon {
-            font-size: 2.2rem;
-            margin-bottom: 2px;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .calib-count-num {
-            font-size: 3.2rem;
-            font-weight: 900;
-            font-family: monospace;
-            line-height: 1;
-            color: var(--text);
-        }
-        .calib-count-sec {
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-        .calib-title {
-            font-size: 1.8rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-            letter-spacing: 0.5px;
-        }
-        .calib-sub {
-            font-size: 1rem;
-            color: var(--text-muted);
-            max-width: 440px;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-        .calib-stepper {
-            display: flex;
-            gap: 8px;
-        }
-        .stepper-pill {
-            background: #1c212c;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            transition: all 0.2s ease;
-        }
-        .stepper-pill.active {
-            background: #0284c7;
-            border-color: #38bdf8;
-            color: white;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 35px;
-            right: 25px;
-            background: #065f46;
-            color: #ecfdf5;
-            border: 1px solid #34d399;
-            padding: 14px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            display: none;
-            z-index: 300;
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        footer {
-            background: #090c10;
-            border-top: 1px solid var(--border);
-            padding: 6px 20px;
-            height: 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            font-family: monospace;
-            flex-shrink: 0;
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="brand-section">
-            <div class="brand-title">
-                <span>⚡ BCI NEURO-ENGINEERING CONSOLE</span>
-            </div>
-            <div id="conn-badge" class="conn-badge conn-disconnected">
-                <span id="conn-dot">●</span>
-                <span id="conn-text">DISCONNECTED</span>
-            </div>
-        </div>
-        <div class="header-controls">
-            <button class="btn btn-stream" id="btn-stream-toggle" onclick="toggleStreamingState()">▶ Start Stream</button>
-            <button class="btn btn-reset" onclick="resetSession()">🔄 Reset Session</button>
-            <button class="btn" id="btn-demo" onclick="toggleDemo()">🧪 Demo Mode: OFF</button>
-            <button class="btn btn-calib" onclick="triggerCalibration()">🎯 8s Calibration</button>
-            <button class="btn btn-export" onclick="exportFigure()">💾 Save Session & Stop</button>
-        </div>
-    </header>
-
-    <div class="workspace">
-        <!-- Top Left: Live EEG Scope -->
-        <div class="card">
-            <div class="card-header">
-                <span>Motor Cortex EEG Oscilloscope (C3, Cz, C4)</span>
-                <span style="color: var(--accent-green);">Bandpass: 8.0 – 30.0 Hz</span>
-            </div>
-            <div class="card-body">
-                <canvas id="eeg-canvas"></canvas>
-            </div>
-        </div>
-
-        <!-- Top Right: Real-Time Model Probability -->
-        <div class="card">
-            <div class="card-header">
-                <span>Classification Probability vs. Decision Threshold</span>
-                <span style="color: var(--accent-cyan);" id="prob-badge">p = 0.00</span>
-            </div>
-            <div class="card-body">
-                <canvas id="prob-canvas"></canvas>
-            </div>
-            <div class="slider-wrap">
-                <div class="slider-label">
-                    <span>Calibrated Decision Threshold (Sensitivity)</span>
-                    <strong id="th-display" style="color: var(--accent-red);">0.32</strong>
-                </div>
-                <input type="range" id="th-slider" min="0.10" max="0.80" step="0.01" value="0.32" oninput="updateThreshold(this.value)">
-            </div>
-        </div>
-
-        <!-- Bottom Left: Output Signal to External Hand (Port 5005) -->
-        <div class="card">
-            <div class="card-header">
-                <span>External Hand Controller Output (UDP Port 5005)</span>
-                <span style="color: var(--accent-cyan);">4.0 Hz Update Rate</span>
-            </div>
-            <div class="card-body" style="justify-content: center;">
-                <div class="hand-command-banner">
-                    <div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Command State:</div>
-                        <div id="cmd-state-text" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-green); margin-top: 2px;">REST (OPEN)</div>
-                    </div>
-                    <div id="cmd-pill" class="cmd-pill cmd-rest">VALUE: 0</div>
-                </div>
-
-                <div class="slider-label">
-                    <span>Continuous Finger Flexion Parameter (0.00 → 1.00)</span>
-                    <strong id="flex-val-text" style="color: var(--accent-cyan);">0.00 (0%)</strong>
-                </div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" id="flex-bar"></div>
-                </div>
-
-                <div class="json-box" id="json-monitor">
-                    {"grasp_command": 0, "continuous_flex": 0.000, "state_label": "REST"}
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom Right: Performance Metrics & Storage Info -->
-        <div class="card">
-            <div class="card-header">
-                <span>Session Metrics & Reports Storage</span>
-                <span style="color: var(--accent-yellow);" id="calib-status-badge">Default Threshold</span>
-            </div>
-            <div class="card-body">
-                <div class="metric-grid">
-                    <div class="metric-box">
-                        <div class="metric-title">Inference Latency</div>
-                        <div class="metric-value" id="val-lat" style="color: var(--accent-cyan);">0.0 ms</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="metric-title">Decoded Stream Steps</div>
-                        <div class="metric-value" id="val-steps">0</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="metric-title">Subject Calibration Acc</div>
-                        <div class="metric-value" id="val-calib-acc" style="color: var(--accent-green);">-- %</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="metric-title">Packets Broadcasted</div>
-                        <div class="metric-value" id="val-pkts" style="color: var(--text);">0</div>
-                    </div>
-                </div>
-                <div style="margin-top: 10px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
-                    📁 <strong>Saved Reports Folder:</strong> <span style="color: var(--accent-cyan);">EEGMI_Personal/session_reports/</span><br>
-                    • <strong>Status:</strong> <span id="val-stream-status" style="color: var(--text);">Stream Paused. Click Start to stream.</span>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- ─── DYNAMIC ANIMATED CALIBRATION MODAL ─── -->
-    <div class="calib-modal" id="calib-modal">
-        <div class="calib-card">
-            <div class="calib-ring-container">
-                <svg class="progress-ring" width="200" height="200">
-                    <circle class="progress-ring-track" stroke-width="10" fill="transparent" r="85" cx="100" cy="100"/>
-                    <circle id="calib-ring-circle" class="progress-ring-indicator" stroke="#34d399" stroke-width="10" stroke-linecap="round" fill="transparent" r="85" cx="100" cy="100"/>
-                </svg>
-                <div class="calib-center-content">
-                    <div class="calib-icon" id="calib-icon">🧠</div>
-                    <div class="calib-count-num" id="calib-countdown">8.0</div>
-                    <div class="calib-count-sec">SECONDS</div>
-                </div>
-            </div>
-            <div class="calib-title" id="calib-title">RELAX & REST</div>
-            <div class="calib-sub" id="calib-sub">Sit comfortably, breathe naturally, and relax your hands completely.</div>
-            <div class="calib-stepper">
-                <div class="stepper-pill" id="pill-t1">TRIAL 1/3</div>
-                <div class="stepper-pill" id="pill-t2">TRIAL 2/3</div>
-                <div class="stepper-pill" id="pill-t3">TRIAL 3/3</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div class="toast" id="toast-msg">
-        ✅ Session Report Saved to <code>session_reports/</code><br>
-        <span style="font-size: 0.78rem; opacity: 0.85;">Stream reset and paused. Click 'Start Stream' for next run.</span>
-    </div>
-
-    <footer>
-        <span id="footer-lsl">LSL Status: Searching for type='EEG'...</span>
-        <span>Destination: External Virtual Hand Socket (127.0.0.1:5005)</span>
-        <span id="footer-status">🔴 Disconnected</span>
-    </footer>
-
-    <script>
-        const eegCanvas = document.getElementById('eeg-canvas');
-        const eegCtx = eegCanvas.getContext('2d');
-        const probCanvas = document.getElementById('prob-canvas');
-        const probCtx = probCanvas.getContext('2d');
-
-        function resizeCanvases() {
-            eegCanvas.width = eegCanvas.clientWidth * window.devicePixelRatio;
-            eegCanvas.height = eegCanvas.clientHeight * window.devicePixelRatio;
-            probCanvas.width = probCanvas.clientWidth * window.devicePixelRatio;
-            probCanvas.height = probCanvas.clientHeight * window.devicePixelRatio;
-        }
-        window.addEventListener('resize', resizeCanvases);
-        resizeCanvases();
-
-        let eegC3 = new Array(60).fill(0);
-        let eegCz = new Array(60).fill(0);
-        let eegC4 = new Array(60).fill(0);
-        let probHist = new Array(60).fill(0.0);
-        let emaHist = new Array(60).fill(0.0);
-        let currentTh = 0.32;
-
-        const circumference = 2 * Math.PI * 85; // ~534.07
-        const calibCircle = document.getElementById('calib-ring-circle');
-        calibCircle.style.strokeDasharray = `${circumference} ${circumference}`;
-
-        function renderCharts() {
-            const ew = eegCanvas.width;
-            const eh = eegCanvas.height;
-            eegCtx.clearRect(0, 0, ew, eh);
-            eegCtx.fillStyle = "#151922";
-            eegCtx.fillRect(0, 0, ew, eh);
-
-            eegCtx.strokeStyle = "rgba(45, 51, 66, 0.6)";
-            eegCtx.lineWidth = 1;
-            eegCtx.beginPath();
-            [0.25, 0.5, 0.75].forEach(yPos => {
-                eegCtx.moveTo(0, eh * yPos);
-                eegCtx.lineTo(ew, eh * yPos);
-            });
-            eegCtx.stroke();
-
-            // C3
-            eegCtx.lineWidth = 2;
-            eegCtx.strokeStyle = "#38bdf8";
-            eegCtx.beginPath();
-            eegC3.forEach((v, i) => {
-                const x = i * (ew / (eegC3.length - 1));
-                const y = (eh * 0.25) + (v * 12);
-                if (i === 0) eegCtx.moveTo(x, y); else eegCtx.lineTo(x, y);
-            });
-            eegCtx.stroke();
-
-            // Cz
-            eegCtx.strokeStyle = "#34d399";
-            eegCtx.beginPath();
-            eegCz.forEach((v, i) => {
-                const x = i * (ew / (eegCz.length - 1));
-                const y = (eh * 0.50) + (v * 12);
-                if (i === 0) eegCtx.moveTo(x, y); else eegCtx.lineTo(x, y);
-            });
-            eegCtx.stroke();
-
-            // C4
-            eegCtx.strokeStyle = "#fbbf24";
-            eegCtx.beginPath();
-            eegC4.forEach((v, i) => {
-                const x = i * (ew / (eegC4.length - 1));
-                const y = (eh * 0.75) + (v * 12);
-                if (i === 0) eegCtx.moveTo(x, y); else eegCtx.lineTo(x, y);
-            });
-            eegCtx.stroke();
-
-            eegCtx.fillStyle = "#9ca3af";
-            eegCtx.font = "11px monospace";
-            eegCtx.fillText("C3 (Left Motor)", 12, (eh * 0.25) - 8);
-            eegCtx.fillText("Cz (Midline)", 12, (eh * 0.50) - 8);
-            eegCtx.fillText("C4 (Right Motor)", 12, (eh * 0.75) - 8);
-
-            const pw = probCanvas.width;
-            const ph = probCanvas.height;
-            probCtx.clearRect(0, 0, pw, ph);
-            probCtx.fillStyle = "#151922";
-            probCtx.fillRect(0, 0, pw, ph);
-
-            probCtx.strokeStyle = "rgba(45, 51, 66, 0.6)";
-            probCtx.lineWidth = 1;
-            probCtx.beginPath();
-            for (let y = 0.25; y < 1.0; y += 0.25) {
-                probCtx.moveTo(0, ph * (1 - y));
-                probCtx.lineTo(pw, ph * (1 - y));
-            }
-            probCtx.stroke();
-
-            const thY = ph * (1 - currentTh);
-            probCtx.strokeStyle = "#f87171";
-            probCtx.lineWidth = 2;
-            probCtx.setLineDash([6, 6]);
-            probCtx.beginPath();
-            probCtx.moveTo(0, thY);
-            probCtx.lineTo(pw, thY);
-            probCtx.stroke();
-            probCtx.setLineDash([]);
-
-            probCtx.fillStyle = "rgba(56, 189, 248, 0.2)";
-            probCtx.beginPath();
-            probCtx.moveTo(0, ph);
-            const stepW = pw / (probHist.length - 1);
-            probHist.forEach((v, i) => {
-                const x = i * stepW;
-                const y = ph * (1 - Math.max(0, Math.min(1, v)));
-                probCtx.lineTo(x, y);
-            });
-            probCtx.lineTo(pw, ph);
-            probCtx.closePath();
-            probCtx.fill();
-
-            probCtx.strokeStyle = "#38bdf8";
-            probCtx.lineWidth = 3;
-            probCtx.beginPath();
-            emaHist.forEach((v, i) => {
-                const x = i * stepW;
-                const y = ph * (1 - Math.max(0, Math.min(1, v)));
-                if (i === 0) probCtx.moveTo(x, y); else probCtx.lineTo(x, y);
-            });
-            probCtx.stroke();
-        }
-
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/state');
-                const d = await res.json();
-
-                eegC3 = d.eeg_c3;
-                eegCz = d.eeg_cz;
-                eegC4 = d.eeg_c4;
-                probHist = d.prob_history;
-                emaHist = d.ema_history;
-                currentTh = d.threshold;
-
-                const connBadge = document.getElementById('conn-badge');
-                const connText = document.getElementById('conn-text');
-                const footerStatus = document.getElementById('footer-status');
-                const btnStream = document.getElementById('btn-stream-toggle');
-                const valStreamStatus = document.getElementById('val-stream-status');
-
-                if (d.is_streaming) {
-                    btnStream.className = "btn btn-stream-stop";
-                    btnStream.innerText = "⏸ Pause Stream";
-                    valStreamStatus.innerText = "Active Streaming in Progress";
-                    valStreamStatus.style.color = "var(--accent-green)";
-                } else {
-                    btnStream.className = "btn btn-stream";
-                    btnStream.innerText = "▶ Start Stream";
-                    valStreamStatus.innerText = "Stream Paused / Standby";
-                    valStreamStatus.style.color = "var(--text-muted)";
-                }
-
-                if (d.demo_mode) {
-                    connBadge.className = "conn-badge conn-demo";
-                    connText.innerText = "DEMO SIMULATION";
-                    footerStatus.innerText = "🟡 Demo Simulation Mode";
-                } else if (d.is_connected) {
-                    connBadge.className = "conn-badge conn-connected";
-                    connText.innerText = "HARDWARE CONNECTED";
-                    footerStatus.innerText = `🟢 Live (${d.stream_name})`;
-                } else {
-                    connBadge.className = "conn-badge conn-disconnected";
-                    connText.innerText = "DISCONNECTED";
-                    footerStatus.innerText = "🔴 Disconnected — Start Amplifier LSL";
-                }
-
-                const isAction = d.grasp_command === 1;
-                const cmdText = document.getElementById('cmd-state-text');
-                const cmdPill = document.getElementById('cmd-pill');
-
-                if (!d.is_streaming) {
-                    cmdText.innerText = "STANDBY (PAUSED)";
-                    cmdText.style.color = "var(--text-muted)";
-                    cmdPill.className = "cmd-pill cmd-rest";
-                    cmdPill.innerText = "PAUSED";
-                } else {
-                    cmdText.innerText = isAction ? "ACTION (GRASP)" : "REST (OPEN)";
-                    cmdText.style.color = isAction ? "var(--accent-red)" : "var(--accent-green)";
-                    cmdPill.className = isAction ? "cmd-pill cmd-action" : "cmd-pill cmd-rest";
-                    cmdPill.innerText = isAction ? "ACTION [1]" : "REST [0]";
-                }
-
-                document.getElementById('flex-bar').style.width = `${d.continuous_flex * 100}%`;
-                document.getElementById('flex-val-text').innerText = `${d.continuous_flex.toFixed(2)} (${Math.round(d.continuous_flex * 100)}%)`;
-                document.getElementById('prob-badge').innerText = `p = ${d.p_smooth.toFixed(2)}`;
-
-                document.getElementById('json-monitor').innerText = 
-                    JSON.stringify({"p_smooth": Number(d.p_smooth.toFixed(3)), "grasp_command": d.grasp_command, "continuous_flex": Number(d.continuous_flex.toFixed(3)), "state": isAction ? "ACTION" : "REST"});
-
-                document.getElementById('val-lat').innerText = `${d.latency_ms.toFixed(1)} ms`;
-                document.getElementById('val-steps').innerText = d.step_count;
-                document.getElementById('val-pkts').innerText = d.packets_sent;
-                if (d.calib_acc > 0) {
-                    document.getElementById('val-calib-acc').innerText = `${(d.calib_acc * 100).toFixed(1)}%`;
-                    document.getElementById('calib-status-badge').innerText = `Calibrated (${(d.calib_acc * 100).toFixed(1)}%)`;
-                }
-
-                // ─── DYNAMIC CALIBRATION RING & STEPPER LOGIC ───
-                const modal = document.getElementById('calib-modal');
-                if (d.is_calibrating) {
-                    modal.style.display = "flex";
-                    document.getElementById('calib-countdown').innerText = d.calib_timer.toFixed(1);
-                    
-                    // Smoothly drain the SVG circle
-                    const offset = circumference * (1 - d.calib_progress);
-                    calibCircle.style.strokeDashoffset = offset;
-
-                    // Update Stepper Pills
-                    for (let i = 1; i <= 3; i++) {
-                        const pill = document.getElementById(`pill-t${i}`);
-                        if (i === d.calib_trial) pill.className = "stepper-pill active";
-                        else pill.className = "stepper-pill";
-                    }
-
-                    if (d.calib_phase === "rest") {
-                        calibCircle.style.stroke = "var(--accent-green)";
-                        document.getElementById('calib-icon').innerText = "🧠";
-                        document.getElementById('calib-title').innerText = `🟢 TRIAL ${d.calib_trial}/${d.total_trials}: REST`;
-                        document.getElementById('calib-title').style.color = "var(--accent-green)";
-                        document.getElementById('calib-sub').innerText = "Sit comfortably, breathe naturally, and relax your hands completely.";
-                    } else if (d.calib_phase === "action") {
-                        calibCircle.style.stroke = "var(--accent-red)";
-                        document.getElementById('calib-icon').innerText = "✊";
-                        document.getElementById('calib-title').innerText = `🔴 TRIAL ${d.calib_trial}/${d.total_trials}: IMAGINE GRASP`;
-                        document.getElementById('calib-title').style.color = "var(--accent-red)";
-                        document.getElementById('calib-sub').innerText = "Imagine closing your right hand firmly into a fist.";
-                    }
-                } else {
-                    modal.style.display = "none";
-                }
-
-                renderCharts();
-            } catch (e) {}
-        }, 50);
-
-        function toggleStreamingState() {
-            fetch('/api/toggle_stream');
-        }
-
-        function updateThreshold(val) {
-            document.getElementById('th-display').innerText = parseFloat(val).toFixed(2);
-            fetch(`/api/set_threshold?val=${val}`);
-        }
-
-        function triggerCalibration() {
-            fetch('/api/calibrate');
-        }
-
-        function toggleDemo() {
-            fetch('/api/toggle_demo').then(r => r.json()).then(d => {
-                document.getElementById('btn-demo').innerText = d.demo_mode ? "🧪 Demo Mode: ON" : "🧪 Demo Mode: OFF";
-            });
-        }
-
-        function resetSession() {
-            if (confirm("Reset current session? This will flush all buffers and step counters.")) {
-                fetch('/api/reset').then(() => {
-                    document.getElementById('th-slider').value = 0.32;
-                    document.getElementById('th-display').innerText = "0.32";
-                });
-            }
-        }
-
-        function exportFigure() {
-            fetch('/api/export_figure').then(r => r.json()).then(data => {
-                const toast = document.getElementById('toast-msg');
-                toast.innerHTML = `✅ <strong>Session Report Saved:</strong><br><code>${data.filename_png}</code><br><code>${data.filename_csv}</code><br><span style='font-size:0.78rem; opacity:0.85;'>Stream paused & reset. Click 'Start Stream' for next run.</span>`;
-                toast.style.display = "block";
-                setTimeout(() => { toast.style.display = "none"; }, 6000);
-            });
-        }
-    </script>
-</body>
-</html>
-"""
-
-def generate_session_report():
-    ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    fname_base = f"session_{ts_str}"
-    
-    import pandas as pd
-    n_pts = len(state["session_time"])
-    if n_pts > 0:
-        df = pd.DataFrame({
-            "time_s": state["session_time"],
-            "p_raw": state["session_p_raw"],
-            "p_smooth": state["session_p_smooth"],
-            "decision": state["session_decisions"],
-            "continuous_flex": state["session_flex"],
-            "cz_uv": state["session_cz_uv"],
-            "c3_uv": state["session_c3_uv"],
-            "c4_uv": state["session_c4_uv"],
-            "threshold": state["threshold"]
-        })
-    else:
-        df = pd.DataFrame({"step": [0], "p_smooth": [0.0], "threshold": [state["threshold"]]})
-
-    csv_main = REPORTS_DIR / f"{fname_base}_data.csv"
-    df.to_csv(csv_main, index=False)
-    for ed in EXTRA_REPORT_DIRS:
+import torch
+from realtime_bci_decoder import RealtimeBCIDecoder,load_contract
+from lsl_acquisition import connect
+from protocols import CueProtocol
+
+ROOT=Path(__file__).resolve().parent
+
+def clock_now():
+    from pylsl import local_clock
+    return local_clock()
+
+class Studio:
+    def __init__(self,config,root=ROOT,clock=clock_now):
+        self.root=Path(root);self.config=dict(config);self.clock=clock
+        self.lock=threading.RLock();self.stop=threading.Event()
+        self.inlet=self.adapter=self.decoder=self.protocol=None
+        self.checkpoint=(self.root/config['checkpoint']).resolve()
+        self.base_checkpoint=self.checkpoint
+        self.contract=load_contract(self.checkpoint,config.get('contract'))
+        self.reports=(self.root/config.get('reports_dir','session_reports')).resolve()
+        self.reports.mkdir(parents=True,exist_ok=True)
+        self.state=dict(is_connected=False,is_streaming=False,demo_mode=False,is_calibrating=False,
+            calib_phase='idle',calib_timer=0.,calib_progress=0.,calib_trial=0,total_trials=0,
+            calib_acc=None,calib_th=.5,threshold=float(config.get('threshold',self.contract.get('threshold',.5))),p_raw=0.,p_smooth=0.,
+            grasp_command=0,continuous_flex=0.,latency_ms=0.,step_count=0,stream_name='No EEG stream',
+            udp_target=f"{config.get('udp_host','127.0.0.1')}:{config.get('udp_port',5005)}",packets_sent=0,
+            error='',quality='warming_up',model_verified=bool(self.contract['verified']),validation_result=None,
+            calibration_result=None,protocol_kind='',source='live',sample_age_s=None)
+        self.state['window_s']=self.contract['n_times']/self.contract['sfreq']
+        self.state.update(is_training=False,training_status='',personalized=False,
+                          participant_id=config.get('participant_id','self'),model_path=str(self.checkpoint),
+                          personalization_enabled=config.get('personalize_on_calibration',False),
+                          calibration_cues=2*int(config.get('personal_calibration_pairs',9)))
+        self.state.update(model_role=self.contract.get('role','trained_classifier'),
+                          trial_duration_s=float(config.get('trial_duration_s',8.)))
+        self.hist={key:deque([0.]*60,maxlen=60) for key in ['eeg_c3','eeg_cz','eeg_c4','prob_history','ema_history']}
+        self.scope={key:deque([0.]*512,maxlen=512) for key in ['wave_c3','wave_cz','wave_c4']}
+        self.rows=[];self.raw=[];self.timestamps=[];self.events=[];self.results=[]
+        self.raw_segments=[];self.raw_sample_count=0
+        self.training_cancel=threading.Event();self.training_thread=None
+        self.started_at=None;self.last_data=None;self.segment=0;self.rng=np.random.default_rng(42)
+        self.replay_data=None;self.replay_events=[];self.replay_position=0;self.replay_next=0.;self.replay_anchor=None
+        if config.get('replay_edf'):
+            import mne
+            recording=Path(config['replay_edf']).resolve()
+            raw=mne.io.read_raw_edf(recording,preload=False,verbose=False)
+            if not np.isclose(raw.info['sfreq'],self.contract['sfreq']): raise ValueError('Replay sample rate differs from model.')
+            self.replay_data=raw.get_data(picks=self.contract['channels']).astype(np.float32)
+            events=recording.with_name(recording.name.replace('_eeg.edf','_events.tsv'))
+            if events.exists():
+                import pandas as pd
+                self.replay_events=pd.read_csv(events,sep='\t').to_dict('records')
+            self.state.update(source='recorded_replay',stream_name=recording.name,is_connected=True,recorded_cue='unlabeled')
+        self.load_decoder(False)
+    def load_decoder(self,demo):
+        if self.decoder: self.decoder.close()
+        self.decoder=None
         try:
-            df.to_csv(ed / f"{fname_base}_data.csv", index=False)
-        except Exception:
-            pass
-
-    fig, axes = plt.subplots(3, 1, figsize=(15, 8), sharex=True)
-    fig.suptitle(f"Real-Time BCI Motor Imagery Session Report — {ts_str}\n(Decoded Steps: {state['step_count']} | Threshold: {state['threshold']:.2f})", fontsize=13, fontweight='bold')
-
-    t_arr = np.array(state["session_time"]) if n_pts > 0 else np.array([0, 1])
-    cz_arr = np.array(state["session_cz_uv"]) if n_pts > 0 else np.array([0, 0])
-    p_raw_arr = np.array(state["session_p_raw"]) if n_pts > 0 else np.array([0, 0])
-    p_smo_arr = np.array(state["session_p_smooth"]) if n_pts > 0 else np.array([0, 0])
-    dec_arr = np.array(state["session_decisions"]) if n_pts > 0 else np.array([0, 0])
-
-    axes[0].plot(t_arr, cz_arr, color='#222222', lw=0.6)
-    axes[0].set_ylabel('Cz (µV)', fontsize=10, fontweight='bold')
-    axes[0].set_title('Continuous Motor Cortex EEG (Filtered 8.0–30.0 Hz)', fontsize=11)
-    axes[0].grid(True, linestyle=':', alpha=0.6)
-
-    axes[1].fill_between(t_arr, p_raw_arr, alpha=0.25, color='#7FC8F8', label='Raw p(Action)')
-    axes[1].plot(t_arr, p_smo_arr, color='#1B6CA8', lw=2.0, label='EMA Smoothed Probability')
-    axes[1].axhline(state["threshold"], color='#D62728', ls='--', lw=1.5, label=f'Decision Threshold ({state["threshold"]:.2f})')
-    axes[1].set_ylim(-0.05, 1.05)
-    axes[1].set_ylabel('p(Action)', fontsize=10, fontweight='bold')
-    axes[1].set_title('Classification Probability & Decision Boundary', fontsize=11)
-    axes[1].legend(loc='upper right', fontsize=8)
-    axes[1].grid(True, linestyle=':', alpha=0.6)
-
-    axes[2].step(t_arr, dec_arr, color='#D62728', lw=1.8, where='post', label='Real-Time Hand Trigger (1=Grasp, 0=Rest)')
-    axes[2].set_ylim(-0.15, 1.35)
-    axes[2].set_yticks([0, 1])
-    axes[2].set_yticklabels(['REST (OPEN)', 'ACTION (GRASP)'], fontweight='bold')
-    axes[2].set_xlabel('Elapsed Time (seconds)', fontsize=10, fontweight='bold')
-    axes[2].set_title('Output Trigger Signals Transmitted to Virtual Hand', fontsize=11)
-    axes[2].legend(loc='upper right', fontsize=8)
-    axes[2].grid(True, linestyle=':', alpha=0.6)
-
-    plt.tight_layout()
-    png_main = REPORTS_DIR / f"{fname_base}_plot.png"
-    plt.savefig(png_main, dpi=150, bbox_inches='tight')
-    for ed in EXTRA_REPORT_DIRS:
-        try:
-            plt.savefig(ed / f"{fname_base}_plot.png", dpi=150, bbox_inches='tight')
-        except Exception:
-            pass
-    plt.close(fig)
-
-    print(f"[Session Saved] Reports written to:\n  - {png_main}\n  - {csv_main}")
-    return f"{fname_base}_plot.png", f"{fname_base}_data.csv"
-
-class BCIConsoleHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        return
-
-    def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html")
-            self.end_headers()
-            self.wfile.write(HTML_UI.encode("utf-8"))
-        elif self.path == "/api/state":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(state).encode("utf-8"))
-        elif self.path.startswith("/api/set_threshold"):
-            val = float(self.path.split("=")[1])
-            state["threshold"] = val
-            self.send_response(200)
-            self.end_headers()
-        elif self.path == "/api/calibrate":
-            threading.Thread(target=run_calibration_thread, daemon=True).start()
-            self.send_response(200)
-            self.end_headers()
-        elif self.path == "/api/toggle_stream":
-            state["is_streaming"] = not state["is_streaming"]
-            self.send_response(200)
-            self.end_headers()
-        elif self.path == "/api/toggle_demo":
-            state["demo_mode"] = not state["demo_mode"]
-            if not state["demo_mode"] and not state["is_connected"]:
-                state["p_raw"] = 0.0
-                state["p_smooth"] = 0.0
-                state["continuous_flex"] = 0.0
-                state["grasp_command"] = 0
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"demo_mode": state["demo_mode"]}).encode("utf-8"))
-        elif self.path == "/api/reset":
-            self.perform_reset()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "reset_complete"}).encode("utf-8"))
-        elif self.path == "/api/export_figure":
-            png_name, csv_name = generate_session_report()
-            state["is_streaming"] = False
-            self.perform_reset()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "saved", "filename_png": png_name, "filename_csv": csv_name}).encode("utf-8"))
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def perform_reset(self):
-        state["reset_flag"] = True
-        state["step_count"] = 0
-        state["packets_sent"] = 0
-        state["p_raw"] = 0.0
-        state["p_smooth"] = 0.0
-        state["continuous_flex"] = 0.0
-        state["grasp_command"] = 0
-        state["eeg_c3"] = [0.0] * 60
-        state["eeg_cz"] = [0.0] * 60
-        state["eeg_c4"] = [0.0] * 60
-        state["prob_history"] = [0.0] * 60
-        state["ema_history"] = [0.0] * 60
-        state["session_time"] = []
-        state["session_p_raw"] = []
-        state["session_p_smooth"] = []
-        state["session_decisions"] = []
-        state["session_flex"] = []
-        state["session_cz_uv"] = []
-        state["session_c3_uv"] = []
-        state["session_c4_uv"] = []
-
-def run_calibration_thread():
-    """Smooth 10 Hz calibration countdown loop with dynamic circular progress."""
-    state["is_calibrating"] = True
-    trial_duration = 8.0 # seconds per phase (8.0s Rest + 8.0s Action per trial)
-    
-    for trial in range(1, state["total_trials"] + 1):
-        state["calib_trial"] = trial
-        
-        # 1. Rest Phase (8.0 seconds)
-        state["calib_phase"] = "rest"
-        steps = int(trial_duration * 10)
-        for s in range(steps, 0, -1):
-            state["calib_timer"] = s / 10.0
-            state["calib_progress"] = s / float(steps)
-            time.sleep(0.1)
-
-        # 2. Action Phase (8.0 seconds)
-        state["calib_phase"] = "action"
-        for s in range(steps, 0, -1):
-            state["calib_timer"] = s / 10.0
-            state["calib_progress"] = s / float(steps)
-            time.sleep(0.1)
-    
-    state["is_calibrating"] = False
-    state["calib_phase"] = "idle"
-    state["threshold"] = 0.30
-    state["calib_acc"] = 0.865
-
-def decoder_worker_thread():
-    ckpt_candidates = [
-        SCRIPT_DIR / "decoder_and_models" / "eegnet_master_live.pt",
-        SCRIPT_DIR / "checkpoints" / "eegnet_master_live.pt",
-        SCRIPT_DIR / "eegnet_master_live.pt",
-        Path(r"C:\Users\giaco\.gemini\antigravity\brain\1d373d7a-b1fe-46d1-8b53-b128fc406f00\checkpoints\eegnet_master_live.pt"),
-        Path(r"C:\Users\giaco\Box\EEGMI_Personal\decoder_and_models\eegnet_master_live.pt")
-    ]
-    ckpt_path = None
-    for c in ckpt_candidates:
-        if c.exists():
-            ckpt_path = c
-            break
-
-    decoder = None
-    if ckpt_path is not None and ckpt_path.exists():
-        try:
-            decoder = RealtimeBCIDecoder(str(ckpt_path), sfreq=256, epoch_len_s=4.0, step_len_s=0.25, threshold=0.32)
-        except Exception as e:
-            print(f"[Warning] Could not initialize decoder from {ckpt_path}: {e}")
-
-    inlet = None
-    step = 0
-    t_start = time.time()
-
-    while True:
-        if state["reset_flag"]:
-            if decoder:
-                decoder.reset_state()
-            step = 0
-            t_start = time.time()
-            state["reset_flag"] = False
-
-        if inlet is None:
-            try:
-                from pylsl import StreamInlet, resolve_byprop
-                streams = resolve_byprop('type', 'EEG', timeout=1.0)
-                if streams:
-                    inlet = StreamInlet(streams[0], max_buflen=360)
-                    state["is_connected"] = True
-                    state["stream_name"] = streams[0].name()
+            self.decoder=RealtimeBCIDecoder(self.checkpoint,threshold=self.state['threshold'],
+                udp_host=self.config.get('udp_host','127.0.0.1'),udp_port=self.config.get('udp_port',5005),
+                contract_path=self.config.get('contract'),
+                allow_unverified=demo or self.config.get('allow_unverified_model',False),send_udp=not demo and self.replay_data is None)
+            self.state['error']=''
+        except Exception as exc: self.state['error']=str(exc)
+    def snapshot(self):
+        with self.lock: return dict(self.state,**{k:list(v) for k,v in self.hist.items()},**{k:list(v) for k,v in self.scope.items()})
+    def neutral(self,reason):
+        self.state.update(grasp_command=0,continuous_flex=0.,p_raw=0.,p_smooth=0.,quality=reason)
+        if self.decoder:
+            self.decoder.send_rest(reason);self.state['packets_sent']=self.decoder.packets_sent
+    def cancel_protocol(self,reason):
+        if self.protocol:
+            event=dict(self.protocol.events[-1]);event['end']=self.clock();event['aborted']=reason
+            self.events.extend(self.protocol.events[:-1]+[event])
+            self.protocol=None
+        self.state.update(is_calibrating=False,calib_phase='idle',protocol_kind='')
+    def pause(self,reason='paused'):
+        self.state['is_streaming']=False
+        self.cancel_protocol(reason)
+        self.neutral(reason)
+        if self.decoder: self.decoder.reset_state()
+    def reset(self):
+        self.pause('reset')
+        self.rows.clear();self.raw.clear();self.timestamps.clear();self.events.clear();self.results.clear()
+        self.raw_segments.clear();self.raw_sample_count=0
+        self.started_at=None;self.segment=0
+        for history in self.hist.values(): history.clear();history.extend([0.]*60)
+        for history in self.scope.values(): history.clear();history.extend([0.]*512)
+        self.replay_position=0;self.replay_anchor=None;self.replay_next=0.
+        self.state.update(step_count=0,validation_result=None)
+        if not self.state['personalized']: self.state.update(calib_acc=None,calibration_result=None)
+    def action(self,path,query):
+        with self.lock:
+            if path=='/api/toggle_stream':
+                if self.state['is_training']: raise ValueError('Personal model fitting is in progress. Wait or cancel first.')
+                if self.protocol: raise ValueError('Stop the cue run using Stop / Cancel first.')
+                if self.state['is_streaming']: self.pause()
                 else:
-                    state["is_connected"] = False
-            except Exception:
-                state["is_connected"] = False
-
-        if state["is_streaming"] and state["is_connected"] and inlet is not None:
+                    if self.decoder is None: raise ValueError(self.state['error'] or 'No model loaded.')
+                    if not self.state['demo_mode'] and not self.state['is_connected']: raise ValueError('No fresh, compatible EEG stream.')
+                    self.decoder.reset_state();self.segment+=1;self.state['is_streaming']=True
+                    self.raw_segments.append(dict(segment=self.segment,raw_start=self.raw_sample_count))
+                    self.replay_anchor=None;self.replay_next=0.
+            elif path=='/api/stop':
+                self.training_cancel.set();self.pause('cancelled')
+            elif path=='/api/reset':
+                if self.state['is_training']: raise ValueError('Cancel personal model fitting before resetting.')
+                self.reset()
+            elif path=='/api/toggle_demo':
+                if self.state['is_training']: raise ValueError('Cancel personal fitting before switching source.')
+                if self.replay_data is not None: raise ValueError('This studio is replaying a recording. Restart without --replay-edf for live/demo input.')
+                if self.rows or self.state['is_streaming']: raise ValueError('Save or reset the current session before switching data source.')
+                self.state['demo_mode']=not self.state['demo_mode']
+                self.state['source']='synthetic_demo' if self.state['demo_mode'] else 'live'
+                if self.inlet: self.inlet.close_stream()
+                self.inlet=self.adapter=None
+                self.state['is_connected']=False
+                self.load_decoder(self.state['demo_mode'])
+            elif path=='/api/set_threshold':
+                if self.protocol or self.state['is_training']: raise ValueError('Threshold is frozen during cue runs and model fitting.')
+                value=float(query.get('val',[''])[0])
+                if not np.isfinite(value) or not .01<=value<=.99: raise ValueError('Threshold must be between .01 and .99.')
+                self.state['threshold']=value
+                if self.decoder:
+                    self.decoder.threshold=value;self.decoder.dwell_counter=0
+            elif path in ('/api/calibrate','/api/validate'):
+                if self.state['is_training']: raise ValueError('A personal model is already being fitted.')
+                if self.protocol: raise ValueError('A cue run is already in progress.')
+                if not self.state['is_streaming'] or self.decoder is None: raise ValueError('Start a compatible stream first.')
+                if path=='/api/validate' and self.state['demo_mode']: raise ValueError('Synthetic demo cannot validate the NN.')
+                if self.replay_data is not None: raise ValueError('Recorded replay cannot run prospective cues. Restart without --replay-edf for your live self-test.')
+                kind='calibration' if path=='/api/calibrate' else 'validation'
+                if kind=='validation' and self.contract.get('role')=='personal_training_template':
+                    raise ValueError('Run personal calibration first. The architecture template has no fitted classifier.')
+                if kind=='validation' and self.config.get('require_personal_calibration',False) and not self.state['personalized']:
+                    raise ValueError('Run personal calibration first. Validation must use a frozen personal model.')
+                personal=kind=='calibration' and self.config.get('personalize_on_calibration',False) and not self.state['demo_mode']
+                if personal:
+                    import re
+                    participant=query.get('participant',[self.state['participant_id']])[0]
+                    if re.fullmatch(r'[A-Za-z0-9_-]{1,40}',participant) is None: raise ValueError('Use a short pseudonymous participant ID: letters, digits, underscore or hyphen.')
+                    if self.rows: self.pause('new_personal_calibration');self.save();self.reset()
+                    self.state.update(participant_id=participant,personalized=False,threshold=float(self.config.get('threshold',.5)),error='')
+                    self.state.update(calib_acc=None,calibration_result=None,validation_result=None)
+                    self.checkpoint=self.base_checkpoint;self.contract=load_contract(self.checkpoint)
+                    self.state['model_path']=str(self.checkpoint)
+                    self.state['model_role']=self.contract.get('role','trained_classifier')
+                    self.load_decoder(False)
+                    if self.decoder is None: raise ValueError(self.state['error'])
+                    self.state['is_streaming']=True;self.segment+=1
+                    self.raw_segments.append(dict(segment=self.segment,raw_start=self.raw_sample_count))
+                pairs=int(self.config.get('personal_calibration_pairs',9) if personal else self.config.get('calibration_pairs',3) if kind=='calibration' else self.config.get('validation_pairs',10))
+                self.protocol=CueProtocol(kind,self.clock(),self.decoder.window_samples/self.decoder.sfreq,
+                    trials_per_class=pairs,duration=float(self.config.get('trial_duration_s',8.)),
+                    seed=int(self.config.get('seed',42))+len(self.results))
+                self.state.update(is_calibrating=True,protocol_kind=kind,total_trials=2*pairs)
+                self.neutral('cue_run_started')
+                self.refresh_protocol(self.clock())
+            elif path=='/api/export_figure':
+                if self.state['is_training']: raise ValueError('Calibration data are already saved. Wait for fitting or cancel before exporting.')
+                self.pause('saved')
+                return self.save()
+            else: raise ValueError('Unknown operation.')
+            return self.snapshot()
+    def refresh_protocol(self,now):
+        if not self.protocol: return
+        p=self.protocol;p.advance(now)
+        if p.done:
+            self.events.extend(p.events)
+            protocol_success=False
+            personal=p.kind=='calibration' and self.config.get('personalize_on_calibration',False) and self.state['source']=='live'
             try:
-                chunk, _ = inlet.pull_chunk(timeout=0.25, max_samples=decoder.step_samples if decoder else 64)
-                if chunk:
-                    t0 = time.perf_counter()
-                    out = decoder.process_chunk(np.array(chunk, dtype=np.float32))
-                    latency = (time.perf_counter() - t0) * 1000.0
-                    if out is not None:
-                        step += 1
-                        cur_t = time.time() - t_start
-                        state["step_count"] = step
-                        state["packets_sent"] += 1
-                        state["p_raw"] = out["p_raw"]
-                        state["p_smooth"] = out["p_smooth"]
-                        state["grasp_command"] = out["grasp_command"]
-                        state["continuous_flex"] = out["continuous_flex"]
-                        state["latency_ms"] = latency
-                        state["prob_history"].append(out["p_raw"])
-                        state["ema_history"].append(out["p_smooth"])
-                        
-                        ch_len = len(chunk[0])
-                        c3_val = float(chunk[0][min(5, ch_len-1)] * 1e6)
-                        cz_val = float(chunk[0][min(7, ch_len-1)] * 1e6)
-                        c4_val = float(chunk[0][min(9, ch_len-1)] * 1e6)
+                if personal:
+                    # Fit the NN from raw calibration EEG below. Random template
+                    # probabilities are not a person's calibration score.
+                    result=dict(kind='personal_eeg_collection',n_trials=len(p.events),
+                                warning='EEG collected. Personal NN fitting and tuning are pending.')
+                else: result=p.finish(self.state['threshold'])
+                protocol_success=True
+                result['run_id']=p.run_id
+                result['source']=self.state['source'];result['model_verified']=self.contract['verified']
+                result['scope']='exploratory_self_test' if not self.contract['verified'] else 'prospective_cue_test'
+                self.results.append(result)
+                if p.kind=='calibration' and not personal:
+                    self.state.update(threshold=result['threshold'],calib_th=result['threshold'],
+                        calib_acc=result['fit_balanced_accuracy'],calibration_result=result)
+                    self.decoder.threshold=result['threshold'];self.decoder.dwell_counter=0
+                elif p.kind=='validation': self.state['validation_result']=result
+            except ValueError as exc: self.state['error']=str(exc)
+            self.protocol=None;self.state.update(is_calibrating=False,calib_phase='idle',protocol_kind='')
+            self.pause('cue_run_complete')
+            saved=self.save()
+            if protocol_success and personal:
+                self.start_personal_training(saved['base'],p.run_id)
+            return
+        remaining=max(0.,p.duration-(now-p.start))
+        self.state.update(calib_trial=p.index+1,calib_phase='action' if p.labels[p.index] else 'rest',
+                          calib_timer=remaining,calib_progress=remaining/p.duration)
+    def ingest(self,raw,ts,now):
+        # Caller holds the lock; reports and control changes cannot split a row.
+        if not self.state['is_streaming']: return
+        if self.started_at is None: self.started_at=float(ts[0])
+        self.raw.append(raw.copy());self.timestamps.append(np.asarray(ts).copy())
+        self.raw_sample_count+=raw.shape[1]
+        before=self.decoder.samples_seen;t0=time.perf_counter()
+        output_ready=self.state['personalized'] or not self.config.get('require_personal_calibration',False)
+        protocol_output=self.protocol is None or (self.protocol.kind=='validation' and self.config.get('validation_udp_output',True))
+        outputs=self.decoder.process_chunk_all(raw,emit=self.state['source']=='live' and protocol_output and output_ready)
+        for ch,key in [('C3','wave_c3'),('Cz','wave_cz'),('C4','wave_c4')]:
+            idx=next((i for i,n in enumerate(self.decoder.channels) if n.casefold()==ch.casefold()),None)
+            if idx is not None: self.scope[key].extend((self.decoder.last_chunk_filtered[idx]*1e6).tolist())
+        latency=(time.perf_counter()-t0)*1000
+        self.state['latency_ms']=latency
+        for packet in outputs:
+            offset=packet['sample_end']-before-1
+            sample_time=float(ts[offset])
+            if self.protocol: self.protocol.add(packet,sample_time)
+            row=dict(packet,lsl_time=sample_time,time_s=sample_time-self.started_at,segment=self.segment,
+                     participant_id=self.state['participant_id'],model_sha256=self.contract['sha256'],
+                     source=self.state['source'],latency_ms=latency,protocol=self.protocol.kind if self.protocol else '',
+                     protocol_run_id=self.protocol.run_id if self.protocol else None,
+                     trial=self.protocol.index+1 if self.protocol else None,
+                     cue=int(self.protocol.labels[self.protocol.index]) if self.protocol else None)
+            self.rows.append(row)
+            for key in ('p_raw','p_smooth','grasp_command','continuous_flex','quality'): self.state[key]=packet[key]
+            self.state['step_count']+=1
+            self.hist['prob_history'].append(packet['p_raw']);self.hist['ema_history'].append(packet['p_smooth'])
+            for ch,key in [('C3','eeg_c3'),('Cz','eeg_cz'),('C4','eeg_c4')]:
+                idx=next((i for i,n in enumerate(self.decoder.channels) if n.casefold()==ch.casefold()),None)
+                value=float(np.sqrt(np.mean(self.decoder.last_filtered[idx]**2))*1e6) if idx is not None else 0.
+                self.hist[key].append(value);row[ch+'_rms_uv']=value if idx is not None else None
+        self.state['packets_sent']=self.decoder.packets_sent
+    def save(self):
+        import pandas as pd
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        name='session_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        base=self.reports/name
+        pd.DataFrame(self.rows).to_csv(str(base)+'_predictions.csv',index=False)
+        pd.DataFrame(self.events).to_csv(str(base)+'_events.csv',index=False)
+        data=np.concatenate(self.raw,axis=1) if self.raw else np.empty((len(self.contract['channels']),0),np.float32)
+        times=np.concatenate(self.timestamps) if self.timestamps else np.empty(0)
+        np.savez_compressed(str(base)+'_raw.npz',eeg_volts=data,lsl_timestamps=times,channels=np.array(self.contract['channels']),sfreq=self.contract['sfreq'])
+        meta=dict(created_utc=datetime.now(timezone.utc).isoformat(),source=self.state['source'],config=self.config,
+                  participant_id=self.state['participant_id'],raw_segments=self.raw_segments,
+                  personal_calibration=self.state['calibration_result'],
+                  model_contract=self.contract,stream=self.adapter.metadata if self.adapter and not self.state['demo_mode'] else None,
+                  results=self.results,n_predictions=len(self.rows),n_raw_samples=data.shape[1],
+                  calibration_is_validation=False,error=self.state['error'])
+        Path(str(base)+'_metadata.json').write_text(json.dumps(meta,indent=2,allow_nan=False),encoding='utf-8')
+        fig,axes=plt.subplots(2,1,figsize=(11,6),sharex=True)
+        if self.rows:
+            t=[r['time_s'] for r in self.rows]
+            axes[0].plot(t,[r['p_raw'] for r in self.rows],label='p(action)')
+            axes[0].plot(t,[r['p_smooth'] for r in self.rows],label='EMA')
+            axes[0].plot(t,[r['threshold'] for r in self.rows],'--',label='Threshold at prediction')
+            axes[0].legend()
+            axes[1].step(t,[r['grasp_command'] for r in self.rows],where='post')
+        axes[0].set_ylim(0,1);axes[0].set_ylabel('Probability')
+        axes[1].set_ylabel('Decision');axes[1].set_xlabel('Seconds from first recorded sample')
+        fig.suptitle('SYNTHETIC DEMO - NOT VALIDATION' if self.state['demo_mode'] else 'EEG cue session - see metadata for measured results')
+        fig.tight_layout();fig.savefig(str(base)+'_plot.png',dpi=130);plt.close(fig)
+        self.state['last_saved']=str(base)
+        return dict(status='saved',base=str(base),filename_png=name+'_plot.png',filename_csv=name+'_predictions.csv',folder=str(self.reports))
 
-                        state["eeg_c3"].append(c3_val)
-                        state["eeg_cz"].append(cz_val)
-                        state["eeg_c4"].append(c4_val)
+    def start_personal_training(self,snapshot_base,run_id):
+        self.training_cancel=threading.Event()
+        cancel=self.training_cancel
+        participant=self.state['participant_id']
+        self.state.update(is_training=True,training_status='Preparing personal calibration EEG',calib_acc=None,error='')
+        output=self.reports/'personal_models'/f'{participant}_{run_id}.pt'
+        def progress(row):
+            with self.lock:
+                self.state['training_status']=f"Fitting personal NN, epoch {row['epoch']}, tuning score {row['validation_balanced_accuracy']:.1%} (not final validation)"
+        def fit_personal():
+            try:
+                from train_personal_model import load_personal
+                from train_lab_model import train_export
+                if self.config.get('personal_initialization','scratch')=='pretrained' and load_contract(self.base_checkpoint).get('role')=='personal_training_template':
+                    raise ValueError('Choose scratch initialization for an untrained architecture template.')
+                X,y,groups,records,channels=load_personal(snapshot_base,self.base_checkpoint,run_ids=[run_id])
+                result=train_export(X,y,groups,records,output,channels,
+                    epochs=int(self.config.get('personal_training_epochs',60)),patience=12,batch_size=16,
+                    initial_checkpoint=self.base_checkpoint if self.config.get('personal_initialization','scratch')=='pretrained' else None,
+                    freeze_backbone=self.config.get('personal_initialization','scratch')=='pretrained' and not self.config.get('personal_unfreeze',False),
+                    progress_callback=progress,stop_event=cancel)
+                with self.lock:
+                    if cancel.is_set() or self.stop.is_set(): raise InterruptedError('Personal calibration cancelled.')
+                    contract_path=Path(str(output)+'.json')
+                    personal_contract=json.loads(contract_path.read_text(encoding='utf-8'))
+                    personal_contract.update(personal_model=True,participant_id=participant,calibration_run_id=run_id,
+                        initialization=self.config.get('personal_initialization','scratch'))
+                    contract_path.write_text(json.dumps(personal_contract,indent=2),encoding='utf-8')
+                    self.checkpoint=output;self.contract=load_contract(output)
+                    self.state['threshold']=self.contract['threshold']
+                    self.load_decoder(False)
+                    if self.decoder is None: raise ValueError(self.state['error'])
+                    calibration=dict(kind='personal_nn_calibration',run_id=run_id,participant_id=participant,
+                        model_path=str(output),model_sha256=self.contract['sha256'],threshold=self.contract['threshold'],
+                        tuning_balanced_accuracy=result['validation_balanced_accuracy_at_threshold'],
+                        internal_test_balanced_accuracy=result['test_balanced_accuracy'],
+                        warning='Personal fitting and tuning completed. Record new validation cues to evaluate performance.')
+                    self.results.append(calibration)
+                    self.state.update(personalized=True,model_path=str(output),calibration_result=calibration,
+                        model_role='trained_classifier',
+                        calib_acc=calibration['tuning_balanced_accuracy'],training_status='Personal model ready. Start Stream, then Validate on new cues.',error='')
+                    self.save()
+            except Exception as exc:
+                with self.lock:
+                    self.state.update(error=str(exc),training_status='Personal model fitting failed or was cancelled.',personalized=False)
+            finally:
+                with self.lock: self.state['is_training']=False
+        self.training_thread=threading.Thread(target=fit_personal,daemon=True)
+        self.training_thread.start()
+    def worker(self):
+        retry_at=0.;demo_end=None;demo_next=0.
+        while not self.stop.is_set():
+            now=self.clock()
+            with self.lock:
+                self.refresh_protocol(now)
+                demo=self.state['demo_mode']
+            if demo:
+                with self.lock:
+                    if self.state['is_streaming'] and self.decoder and now>=demo_next:
+                        n=self.decoder.step_samples
+                        end=now;ts=end-np.arange(n-1,-1,-1)/self.decoder.sfreq
+                        raw=self.rng.normal(0,5e-6,(self.decoder.n_ch,n)).astype(np.float32)
+                        self.ingest(raw,ts,now);demo_next=now+n/self.decoder.sfreq
+                self.stop.wait(.01);continue
+            if self.replay_data is not None:
+                with self.lock:
+                    if self.state['is_streaming'] and now>=self.replay_next:
+                        start=self.replay_position;end=min(start+self.decoder.step_samples,self.replay_data.shape[1])
+                        if start==end: self.pause('recording_complete')
+                        else:
+                            if self.replay_anchor is None: self.replay_anchor=now-(end-1)/self.decoder.sfreq
+                            ts=self.replay_anchor+np.arange(start,end)/self.decoder.sfreq
+                            self.ingest(self.replay_data[:,start:end],ts,now)
+                            self.replay_position=end;self.replay_next=max(self.replay_next,now)+(end-start)/self.decoder.sfreq
+                            cue=next((r['trial_type'] for r in self.replay_events if r['sample']<=end-1<r['sample']+r['duration']*self.decoder.sfreq),'unlabeled')
+                            self.state.update(recorded_cue=cue,replay_time_s=end/self.decoder.sfreq)
+                self.stop.wait(.01);continue
+            if self.inlet is None:
+                if now<retry_at: self.stop.wait(.05);continue
+                try:
+                    inlet,adapter=connect(self.config,self.contract)
+                    with self.lock:
+                        self.inlet,self.adapter=inlet,adapter
+                        self.state['stream_name']=adapter.metadata['name'];self.last_data=self.clock()
+                        if self.decoder: self.state['error']=''
+                except Exception as exc:
+                    with self.lock:
+                        self.state['is_connected']=False;self.state['error']=str(exc)
+                    retry_at=self.clock()+2.
+                    continue
+            try:
+                chunk,ts=self.inlet.pull_chunk(timeout=.05,max_samples=64)
+                now=self.clock()
+                with self.lock:
+                    now=self.clock()
+                    if self.state['demo_mode']: continue
+                    if chunk:
+                        if not self.state['is_streaming'] and now-ts[-1]>self.adapter.max_age:
+                            self.inlet.flush();self.adapter.reset_timestamps()
+                            self.state['is_connected']=False;self.last_data=now
+                            continue
+                        raw,ts=self.adapter.transform(chunk,ts,now)
+                        self.last_data=now;self.state['is_connected']=True;self.state['sample_age_s']=max(0.,now-ts[-1])
+                        self.ingest(raw,ts,now)
+                    elif self.last_data is not None and now-self.last_data>1.:
+                        raise ValueError('EEG stream timed out; commands stopped. Reconnect and start again.')
+            except Exception as exc:
+                with self.lock:
+                    self.state['error']=str(exc);self.state['is_connected']=False;self.pause('stream_error')
+                    if self.inlet: self.inlet.close_stream()
+                    self.inlet=None;self.adapter=None;retry_at=self.clock()+1.
+        with self.lock:
+            self.pause('shutdown')
+            if self.decoder: self.decoder.close()
+            if self.inlet: self.inlet.close_stream()
 
-                        state["session_time"].append(round(cur_t, 2))
-                        state["session_p_raw"].append(round(out["p_raw"], 4))
-                        state["session_p_smooth"].append(round(out["p_smooth"], 4))
-                        state["session_decisions"].append(out["grasp_command"])
-                        state["session_flex"].append(round(out["continuous_flex"], 4))
-                        state["session_cz_uv"].append(round(cz_val, 2))
-                        state["session_c3_uv"].append(round(c3_val, 2))
-                        state["session_c4_uv"].append(round(c4_val, 2))
+class Handler(BaseHTTPRequestHandler):
+    studio=None
+    def log_message(self,*args): pass
+    def respond(self,status,value,content_type='application/json'):
+        body=json.dumps(value,allow_nan=False).encode() if content_type=='application/json' else value.encode()
+        self.send_response(status);self.send_header('Content-Type',content_type+'; charset=utf-8')
+        self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+    def do_GET(self):
+        if self.path in ('/','/index.html'): self.respond(200,(ROOT/'studio.html').read_text(encoding='utf-8'),'text/html')
+        elif self.path=='/api/state': self.respond(200,self.studio.snapshot())
+        else: self.respond(404,dict(error='Not found'))
+    def do_POST(self):
+        origin=self.headers.get('Origin')
+        if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}',f'http://localhost:{self.server.server_port}'):
+            self.respond(403,dict(error='Local console origin required.'));return
+        try:
+            url=urlparse(self.path)
+            result=self.studio.action(url.path,parse_qs(url.query))
+            self.respond(200,result)
+        except (ValueError,RuntimeError) as exc:
+            with self.studio.lock: self.studio.state['error']=str(exc)
+            self.respond(409,dict(error=str(exc)))
+        except Exception as exc: self.respond(500,dict(error=str(exc)))
 
-                        if len(state["prob_history"]) > 60: state["prob_history"].pop(0)
-                        if len(state["ema_history"]) > 60: state["ema_history"].pop(0)
-                        if len(state["eeg_c3"]) > 60: state["eeg_c3"].pop(0)
-                        if len(state["eeg_cz"]) > 60: state["eeg_cz"].pop(0)
-                        if len(state["eeg_c4"]) > 60: state["eeg_c4"].pop(0)
-            except Exception:
-                inlet = None
-                state["is_connected"] = False
-
-        elif state["is_streaming"] and state["demo_mode"]:
-            time.sleep(0.05)
-            step += 1
-            cur_t = time.time() - t_start
-            state["step_count"] = step
-            state["packets_sent"] += 1
-
-            is_action_cue = (step % 80) > 40
-            target_prob = 0.85 if is_action_cue else 0.12
-            state["p_raw"] = float(np.clip(target_prob + np.random.normal(0, 0.05), 0.0, 1.0))
-            state["p_smooth"] = float(0.25 * state["p_raw"] + 0.75 * state["p_smooth"])
-
-            decision = 1 if state["p_smooth"] >= state["threshold"] else 0
-            flex = float(np.clip((state["p_smooth"] - (state["threshold"] - 0.15)) / 0.40, 0.0, 1.0))
-
-            state["grasp_command"] = decision
-            state["continuous_flex"] = flex
-            state["latency_ms"] = 5.2
-
-            state["prob_history"].append(state["p_raw"])
-            state["ema_history"].append(state["p_smooth"])
-            
-            c3_val = float(np.sin(cur_t * 10) * (0.9 if not is_action_cue else 0.2) + np.random.normal(0, 0.1))
-            cz_val = float(np.sin(cur_t * 9.5) * (0.8 if not is_action_cue else 0.2) + np.random.normal(0, 0.1))
-            c4_val = float(np.sin(cur_t * 10.2) * (0.85 if not is_action_cue else 0.2) + np.random.normal(0, 0.1))
-
-            state["eeg_c3"].append(c3_val)
-            state["eeg_cz"].append(cz_val)
-            state["eeg_c4"].append(c4_val)
-
-            state["session_time"].append(round(cur_t, 2))
-            state["session_p_raw"].append(round(state["p_raw"], 4))
-            state["session_p_smooth"].append(round(state["p_smooth"], 4))
-            state["session_decisions"].append(decision)
-            state["session_flex"].append(round(flex, 4))
-            state["session_cz_uv"].append(round(cz_val, 2))
-            state["session_c3_uv"].append(round(c3_val, 2))
-            state["session_c4_uv"].append(round(c4_val, 2))
-
-            if len(state["prob_history"]) > 60: state["prob_history"].pop(0)
-            if len(state["ema_history"]) > 60: state["ema_history"].pop(0)
-            if len(state["eeg_c3"]) > 60: state["eeg_c3"].pop(0)
-            if len(state["eeg_cz"]) > 60: state["eeg_cz"].pop(0)
-            if len(state["eeg_c4"]) > 60: state["eeg_c4"].pop(0)
-
-        else:
-            time.sleep(0.1)
-
-def main():
-    print("=" * 70)
-    print("   STARTING BCI NEURO-ENGINEERING CONSOLE (LAB EXPERIMENTER GUI)")
-    print("=" * 70)
-    print("  • Calibration Engine        : Dynamic SVG Circular Countdown Ring")
-    print("  • Saved Reports Folder      : C:\\Users\\giaco\\Box\\EEGMI_Personal\\session_reports")
-    print("  • External Target Socket    : UDP 127.0.0.1:5005 (PhD Virtual Hand)")
-    print("  • Local Console Server      : http://127.0.0.1:8050")
-    print("-" * 70)
-
-    threading.Thread(target=decoder_worker_thread, daemon=True).start()
-
-    server = HTTPServer(("127.0.0.1", 8050), BCIConsoleHandler)
-    print("[Server Active] Launching Console in browser...")
-    webbrowser.open("http://127.0.0.1:8050")
-
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down BCI Console.")
-        server.server_close()
-
-if __name__ == "__main__":
-    main()
+def main(default_protocol=None):
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--config',type=Path,default=ROOT/'lab_config.json');p.add_argument('--port',type=int,default=8050)
+    p.add_argument('--demo',action='store_true');p.add_argument('--no-browser',action='store_true')
+    p.add_argument('--mode',choices=['lsl','calibrate','simulate'],default='lsl')
+    p.add_argument('--ckpt');p.add_argument('--trials',type=int);p.add_argument('--trial-dur',type=float)
+    p.add_argument('--udp-host');p.add_argument('--udp-port',type=int);p.add_argument('--threshold',type=float)
+    p.add_argument('--lsl-stream');p.add_argument('--allow-unverified-model',action='store_true')
+    p.add_argument('--replay-edf',type=Path,help='Paced recorded-data visualization; sends no hand commands and cannot run prospective validation.')
+    args=p.parse_args();config=json.loads(args.config.read_text(encoding='utf-8-sig'))
+    for key,value in [('checkpoint',args.ckpt),('calibration_pairs',args.trials),('trial_duration_s',args.trial_dur),('udp_host',args.udp_host),('udp_port',args.udp_port),('threshold',args.threshold),('stream_name',args.lsl_stream)]:
+        if value is not None: config[key]=value
+    if args.allow_unverified_model: config['allow_unverified_model']=True
+    if args.replay_edf: config['replay_edf']=str(args.replay_edf.resolve())
+    torch.set_num_threads(int(config.get('torch_threads',1)))
+    studio=Studio(config)
+    if args.demo or args.mode=='simulate': studio.action('/api/toggle_demo',{})
+    if default_protocol or args.mode=='calibrate': print('Open the studio, Start Stream, then select Calibrate. Calibration requires visible cues.')
+    handler=type('StudioHandler',(Handler,),{'studio':studio})
+    server=ThreadingHTTPServer(('127.0.0.1',args.port),handler)
+    worker=threading.Thread(target=studio.worker,daemon=True);worker.start()
+    url=f'http://127.0.0.1:{args.port}'
+    print(f'BCI Studio: {url}\nReports: {studio.reports}\nModel: {studio.checkpoint}\n{studio.state["error"]}',flush=True)
+    if not args.no_browser: webbrowser.open(url)
+    try: server.serve_forever(poll_interval=.2)
+    except KeyboardInterrupt: pass
+    finally:
+        studio.training_cancel.set();studio.stop.set();worker.join(timeout=5.);server.server_close()
+        if studio.training_thread: studio.training_thread.join(timeout=10.)
+        if studio.rows:
+            with studio.lock: studio.save()
+if __name__=='__main__': main()

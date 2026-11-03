@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BCI Neuro-Engineering Console & Lab Calibration</title>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --panel: #151922;
+            --panel-card: #1c212c;
+            --border: #2d3342;
+            --accent-cyan: #38bdf8;
+            --accent-green: #34d399;
+            --accent-red: #f87171;
+            --accent-yellow: #fbbf24;
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+            height: 56px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            flex-shrink: 0;
+            gap: 16px;
+        }
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .brand-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .conn-badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .conn-disconnected { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border: 1px solid rgba(248, 113, 113, 0.4); }
+        .conn-connected { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); border: 1px solid rgba(52, 211, 153, 0.4); }
+        .conn-demo { background: rgba(251, 191, 36, 0.15); color: var(--accent-yellow); border: 1px solid rgba(251, 191, 36, 0.4); }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .btn {
+            background: var(--panel-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            height: 36px;
+            padding: 0 13px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .btn:hover { background: #262c3a; border-color: var(--accent-cyan); }
+        .btn-stream { background: #166534; border-color: #22c55e; color: #f0fdf4; }
+        .btn-stream:hover { background: #15803d; }
+        .btn-stream-stop { background: #991b1b; border-color: #ef4444; color: #fef2f2; }
+        .btn-stream-stop:hover { background: #b91c1c; }
+        .btn-reset { background: #374151; border-color: #4b5563; color: #e5e7eb; }
+        .btn-reset:hover { background: #4b5563; border-color: var(--accent-yellow); color: var(--accent-yellow); }
+        .btn-calib { background: #0284c7; border-color: #38bdf8; color: white; }
+        .btn-calib:hover { background: #0369a1; }
+        .btn-export { background: #047857; border-color: #34d399; color: white; }
+        .btn-export:hover { background: #065f46; }
+
+        /* Workspace Grid */
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+            grid-template-rows: 1fr 1fr;
+            gap: 14px;
+            padding: 14px 18px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .card {
+            min-width: 0;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            min-height: 0;
+        }
+        .card-header {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            border-bottom: 1px solid rgba(45, 51, 66, 0.6);
+            padding-bottom: 6px;
+            flex-shrink: 0;
+        }
+        .card-body {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .metric-box {
+            background: var(--panel-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .metric-title {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            font-family: monospace;
+        }
+
+        .hand-command-banner {
+            background: var(--panel-card);
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .cmd-pill {
+            font-size: 1.05rem;
+            font-weight: 900;
+            padding: 4px 14px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+        .cmd-rest { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .cmd-action { background: rgba(248, 113, 113, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); box-shadow: 0 0 16px rgba(248, 113, 113, 0.4); }
+
+        .progress-bar-bg {
+            background: #262c3a;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #38bdf8, #34d399);
+            transition: width 0.08s linear;
+        }
+
+        .slider-wrap {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        .json-box {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #7ee787;
+            margin-top: 8px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* ─── DYNAMIC ANIMATED CALIBRATION OVERLAY ─── */
+        .calib-modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(11, 14, 20, 0.95);
+            backdrop-filter: blur(16px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            text-align: center;
+        }
+        .calib-card {
+            background: #151922;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            max-width: 540px;
+        }
+        .calib-ring-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-ring-track {
+            stroke: #21262d;
+        }
+        .progress-ring-indicator {
+            stroke-dasharray: 565.48; /* 2 * PI * 90 */
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+        }
+        .calib-center-content {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .calib-icon {
+            font-size: 2.2rem;
+            margin-bottom: 2px;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .calib-count-num {
+            font-size: 3.2rem;
+            font-weight: 900;
+            font-family: monospace;
+            line-height: 1;
+            color: var(--text);
+        }
+        .calib-count-sec {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .calib-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        .calib-sub {
+            font-size: 1rem;
+            color: var(--text-muted);
+            max-width: 440px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        .calib-stepper {
+            display: flex;
+            gap: 8px;
+        }
+        .stepper-pill {
+            background: #1c212c;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            transition: all 0.2s ease;
+        }
+        .stepper-pill.active {
+            background: #0284c7;
+            border-color: #38bdf8;
+            color: white;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 35px;
+            right: 25px;
+            background: #065f46;
+            color: #ecfdf5;
+            border: 1px solid #34d399;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: none;
+            z-index: 300;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        footer {
+            background: #090c10;
+            border-top: 1px solid var(--border);
+            padding: 6px 20px;
+            height: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-family: monospace;
+            flex-shrink: 0;
+        }
+    header { height:auto; min-height:56px; flex-wrap:wrap; padding:8px 18px; }
+        .header-controls { flex-wrap:wrap; white-space:normal; max-width:100%; flex:1 1 100%; }
+        .brand-section { flex-wrap:wrap; }
+        @media (max-width:900px) { body { overflow:auto; height:auto; min-height:100vh; } .workspace { grid-template-columns:1fr; grid-template-rows:repeat(4,minmax(280px,auto)); overflow:visible; } }
+        button:disabled { opacity: .45; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand-section">
+            <div class="brand-title">
+                <span>⚡ BCI NEURO-ENGINEERING CONSOLE</span>
+            </div>
+            <div id="conn-badge" class="conn-badge conn-disconnected">
+                <span id="conn-dot">●</span>
+                <span id="conn-text">DISCONNECTED</span>
+            </div>
+        </div>
+        <div class="header-controls"><label style="font-size:12px">Participant ID <input id="participant-id" type="text" maxlength="40" value="self" style="width:110px;margin:4px;padding:7px;background:#1c212c;color:white;border:1px solid #4b5563"></label>
+            <button class="btn btn-stream" id="btn-stream-toggle" onclick="toggleStreamingState()">▶ Start Stream</button>
+            <button class="btn btn-reset" onclick="resetSession()">🔄 Reset Session</button>
+            <button class="btn" id="btn-demo" onclick="toggleDemo()">🧪 Demo Mode: OFF</button>
+            <button class="btn btn-calib" id="btn-calib" onclick="triggerCalibration()">🎯 Calibrate (6 × 8s)</button>
+            <button class="btn btn-calib" id="btn-validate" onclick="api('/api/validate').catch(()=>{})">Validate (20 × 8s)</button><button class="btn btn-reset" onclick="api('/api/stop').catch(()=>{})">Stop / Cancel</button><button class="btn btn-export" onclick="exportFigure()">💾 Save Session & Stop</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <!-- Top Left: Live EEG Scope -->
+        <div class="card">
+            <div class="card-header">
+                <span>Filtered EEG waveform (C3, Cz, C4; last 2s)</span>
+                <span style="color: var(--accent-green);">Bandpass: 8.0 – 30.0 Hz</span>
+            </div>
+            <div class="card-body">
+                <canvas id="eeg-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Right: Real-Time Model Probability -->
+        <div class="card">
+            <div class="card-header">
+                <span>p(Action): raw (light) / EMA (blue) / threshold (dashed)</span>
+                <span style="color: var(--accent-cyan);" id="prob-badge">p = 0.00</span>
+            </div>
+            <div class="card-body">
+                <canvas id="prob-canvas"></canvas>
+            </div>
+            <div class="slider-wrap">
+                <div class="slider-label">
+                    <span>Calibrated Decision Threshold (Sensitivity)</span>
+                    <strong id="th-display" style="color: var(--accent-red);">0.50</strong>
+                </div>
+                <input type="range" id="th-slider" min="0.01" max="0.99" step="0.01" value="0.50" oninput="updateThreshold(this.value)">
+            </div>
+        </div>
+
+        <!-- Bottom Left: Output Signal to External Hand (Port 5005) -->
+        <div class="card">
+            <div class="card-header">
+                <span id="output-card-title">External Hand Controller Output (UDP Port 5005)</span>
+                <span style="color: var(--accent-cyan);"><span id="window-duration">4 Hz decisions after model warmup</span></span>
+            </div>
+            <div class="card-body" style="justify-content: center;">
+                <div class="hand-command-banner">
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Command State:</div>
+                        <div id="cmd-state-text" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-green); margin-top: 2px;">REST (OPEN)</div>
+                    </div>
+                    <div id="cmd-pill" class="cmd-pill cmd-rest">VALUE: 0</div>
+                </div>
+
+                <div class="slider-label">
+                    <span>Continuous Finger Flexion Parameter (0.00 → 1.00)</span>
+                    <strong id="flex-val-text" style="color: var(--accent-cyan);">0.00 (0%)</strong>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="flex-bar"></div>
+                </div>
+
+                <div class="json-box" id="json-monitor">
+                    {"grasp_command": 0, "continuous_flex": 0.000, "state_label": "REST"}
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Right: Performance Metrics & Storage Info -->
+        <div class="card">
+            <div class="card-header">
+                <span>Session Metrics & Reports Storage</span>
+                <span style="color: var(--accent-yellow);" id="calib-status-badge">Default Threshold</span>
+            </div>
+            <div class="card-body">
+                <div class="metric-grid">
+                    <div class="metric-box">
+                        <div class="metric-title">Inference Latency</div>
+                        <div class="metric-value" id="val-lat" style="color: var(--accent-cyan);">0.0 ms</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-title">Decoded Stream Steps</div>
+                        <div class="metric-value" id="val-steps">0</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-title">Calibration fit only</div>
+                        <div class="metric-value" id="val-calib-acc" style="color: var(--accent-green);">-- %</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-title">Packets Broadcasted</div>
+                        <div class="metric-value" id="val-pkts" style="color: var(--text);">0</div>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                    📁 <strong>Saved Reports Folder:</strong> <span style="color: var(--accent-cyan);">session_reports/ (beside this application)</span><br>
+                    • <strong>Status:</strong> <span id="val-stream-status" style="color: var(--text);">Stream Paused. Start a compatible stream.</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ─── DYNAMIC ANIMATED CALIBRATION MODAL ─── -->
+    <div class="calib-modal" id="calib-modal">
+        <div class="calib-card">
+            <div class="calib-ring-container">
+                <svg class="progress-ring" width="200" height="200">
+                    <circle class="progress-ring-track" stroke-width="10" fill="transparent" r="85" cx="100" cy="100"/>
+                    <circle id="calib-ring-circle" class="progress-ring-indicator" stroke="#34d399" stroke-width="10" stroke-linecap="round" fill="transparent" r="85" cx="100" cy="100"/>
+                </svg>
+                <div class="calib-center-content">
+                    <div class="calib-icon" id="calib-icon">🧠</div>
+                    <div class="calib-count-num" id="calib-countdown">8.0</div>
+                    <div class="calib-count-sec">SECONDS</div>
+                </div>
+            </div>
+            <div class="calib-title" id="calib-title">RELAX & REST</div>
+            <div class="calib-sub" id="calib-sub">Sit comfortably, breathe naturally, and relax your hands completely.</div>
+            <button class="btn btn-reset" onclick="api('/api/stop').catch(()=>{})">Stop / Cancel cue run</button><div class="calib-stepper" style="display:none">
+                <div class="stepper-pill" id="pill-t1">TRIAL 1/3</div>
+                <div class="stepper-pill" id="pill-t2">TRIAL 2/3</div>
+                <div class="stepper-pill" id="pill-t3">TRIAL 3/3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast-msg">
+        ✅ Session Report Saved to <code>session_reports/</code><br>
+        <span style="font-size: 0.78rem; opacity: 0.85;">Stream reset and paused. Reset Session before a new recording.</span>
+    </div>
+
+    <div id="diagnostics" style="padding:8px 20px;color:#fbbf24;background:#151922;white-space:normal;font-size:13px"></div>
+<footer>
+        <span id="footer-lsl">LSL Status: Searching for type='EEG'...</span>
+        <span id="footer-udp">Destination: External Virtual Hand Socket (127.0.0.1:5005)</span>
+        <span id="footer-status">🔴 Disconnected</span>
+    </footer>
+
+    <script>
+        const eegCanvas = document.getElementById('eeg-canvas');
+        const eegCtx = eegCanvas.getContext('2d');
+        const probCanvas = document.getElementById('prob-canvas');
+        const probCtx = probCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            eegCanvas.width = eegCanvas.clientWidth * window.devicePixelRatio;
+            eegCanvas.height = eegCanvas.clientHeight * window.devicePixelRatio;
+            probCanvas.width = probCanvas.clientWidth * window.devicePixelRatio;
+            probCanvas.height = probCanvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        let eegC3 = new Array(60).fill(0);
+        let eegCz = new Array(60).fill(0);
+        let eegC4 = new Array(60).fill(0);
+        let probHist = new Array(60).fill(0.0);
+        let emaHist = new Array(60).fill(0.0);
+        let currentTh = 0.50;
+
+        async function api(path) {
+            const r=await fetch(path,{method:'POST'}); const d=await r.json();
+            if (!r.ok) { document.getElementById('diagnostics').innerText=d.error; throw new Error(d.error); }
+            return d;
+        }
+        const circumference = 2 * Math.PI * 85; // ~534.07
+        const calibCircle = document.getElementById('calib-ring-circle');
+        calibCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+
+        function renderCharts() {
+            const ew = eegCanvas.width;
+            const eh = eegCanvas.height;
+            eegCtx.clearRect(0, 0, ew, eh);
+            eegCtx.fillStyle = "#151922";
+            eegCtx.fillRect(0, 0, ew, eh);
+
+            eegCtx.strokeStyle = "rgba(45, 51, 66, 0.6)";
+            eegCtx.lineWidth = 1;
+            eegCtx.beginPath();
+            [0.25, 0.5, 0.75].forEach(yPos => {
+                eegCtx.moveTo(0, eh * yPos);
+                eegCtx.lineTo(ew, eh * yPos);
+            });
+            eegCtx.stroke();
+
+            const scopeMax=Math.max(10,...eegC3.map(Math.abs),...eegCz.map(Math.abs),...eegC4.map(Math.abs));
+            // C3
+            eegCtx.lineWidth = 2;
+            eegCtx.strokeStyle = "#38bdf8";
+            eegCtx.beginPath();
+            eegC3.forEach((v, i) => {
+                const x = i * (ew / (eegC3.length - 1));
+                const y = (eh * 0.25) + (v * (eh * 0.18 / scopeMax));
+                if (i === 0) eegCtx.moveTo(x, y); else eegCtx.lineTo(x, y);
+            });
+            eegCtx.stroke();
+
+            // Cz
+            eegCtx.strokeStyle = "#34d399";
+            eegCtx.beginPath();
+            eegCz.forEach((v, i) => {
+                const x = i * (ew / (eegCz.length - 1));
+                const y = (eh * 0.50) + (v * (eh * 0.18 / scopeMax));
+                if (i === 0) eegCtx.moveTo(x, y); else eegCtx.lineTo(x, y);
+            });
+            eegCtx.stroke();
+
+            // C4
+            eegCtx.strokeStyle = "#fbbf24";
+            eegCtx.beginPath();
+            eegC4.forEach((v, i) => {
+                const x = i * (ew / (eegC4.length - 1));
+                const y = (eh * 0.75) + (v * (eh * 0.18 / scopeMax));
+                if (i === 0) eegCtx.moveTo(x, y); else eegCtx.lineTo(x, y);
+            });
+            eegCtx.stroke();
+
+            eegCtx.fillStyle = "#9ca3af";
+            eegCtx.font = "11px monospace";
+            eegCtx.fillText("C3 (Left Motor, µV)", 12, (eh * 0.25) - 8);
+            eegCtx.fillText("Cz (Midline, µV)", 12, (eh * 0.50) - 8);
+            eegCtx.fillText("C4 (Right Motor, µV)", 12, (eh * 0.75) - 8);
+
+            eegCtx.fillText(`last 2s | amplitude scale ±${scopeMax.toFixed(1)} µV`,Math.max(12,ew-340),20);
+            const pw = probCanvas.width;
+            const ph = probCanvas.height;
+            probCtx.clearRect(0, 0, pw, ph);
+            probCtx.fillStyle = "#151922";
+            probCtx.fillRect(0, 0, pw, ph);
+
+            probCtx.strokeStyle = "rgba(45, 51, 66, 0.6)";
+            probCtx.lineWidth = 1;
+            probCtx.beginPath();
+            for (let y = 0.25; y < 1.0; y += 0.25) {
+                probCtx.moveTo(0, ph * (1 - y));
+                probCtx.lineTo(pw, ph * (1 - y));
+            }
+            probCtx.stroke();
+
+            probCtx.fillStyle='#9ca3af'; probCtx.font='11px monospace';
+            [0,.25,.5,.75,1].forEach(v=>probCtx.fillText(v.toFixed(2),5,Math.max(12,Math.min(ph-3,ph*(1-v)))));
+            const thY = ph * (1 - currentTh);
+            probCtx.strokeStyle = "#f87171";
+            probCtx.lineWidth = 2;
+            probCtx.setLineDash([6, 6]);
+            probCtx.beginPath();
+            probCtx.moveTo(0, thY);
+            probCtx.lineTo(pw, thY);
+            probCtx.stroke();
+            probCtx.setLineDash([]);
+
+            probCtx.fillStyle = "rgba(56, 189, 248, 0.2)";
+            probCtx.beginPath();
+            probCtx.moveTo(0, ph);
+            const stepW = pw / (probHist.length - 1);
+            probHist.forEach((v, i) => {
+                const x = i * stepW;
+                const y = ph * (1 - Math.max(0, Math.min(1, v)));
+                probCtx.lineTo(x, y);
+            });
+            probCtx.lineTo(pw, ph);
+            probCtx.closePath();
+            probCtx.fill();
+
+            probCtx.strokeStyle='#93c5fd'; probCtx.lineWidth=1;
+            probCtx.beginPath();
+            probHist.forEach((v,i)=>{ const x=i*stepW,y=ph*(1-Math.max(0,Math.min(1,v))); if(i===0)probCtx.moveTo(x,y);else probCtx.lineTo(x,y); });
+            probCtx.stroke();
+            probCtx.strokeStyle = "#38bdf8";
+            probCtx.lineWidth = 3;
+            probCtx.beginPath();
+            emaHist.forEach((v, i) => {
+                const x = i * stepW;
+                const y = ph * (1 - Math.max(0, Math.min(1, v)));
+                if (i === 0) probCtx.moveTo(x, y); else probCtx.lineTo(x, y);
+            });
+            probCtx.stroke();
+        }
+
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/state');
+                const d = await res.json();
+
+                eegC3 = d.wave_c3;
+                eegCz = d.wave_cz;
+                eegC4 = d.wave_c4;
+                probHist = d.prob_history;
+                emaHist = d.ema_history;
+                currentTh = d.threshold;
+                document.getElementById('window-duration').innerText=`4 Hz decisions after ${d.window_s.toFixed(1)}s warmup`;
+                document.getElementById('th-display').innerText=d.threshold.toFixed(2);
+                if (document.activeElement.id !== 'th-slider') document.getElementById('th-slider').value=d.threshold;
+                const result=d.validation_result;
+                const replay=d.source==='recorded_replay';
+                document.getElementById('btn-calib').innerText=d.personalization_enabled&&!d.demo_mode ? `Personal calibration (${d.calibration_cues} × ${d.trial_duration_s}s)`:`Fit threshold (cued ${d.trial_duration_s}s trials)`;
+                if(document.activeElement.id!=='participant-id')document.getElementById('participant-id').value=d.participant_id;
+                document.getElementById('btn-demo').disabled=replay;
+                document.getElementById('btn-calib').disabled=replay;
+                document.getElementById('btn-validate').disabled=replay || d.demo_mode;
+                document.getElementById('output-card-title').innerText=replay?'Predicted hand state (UDP disabled in replay)':'Hand controller output';
+                document.getElementById('footer-udp').innerText=(replay || d.demo_mode)?'UDP output disabled for recorded/synthetic data':`UDP destination: ${d.udp_target}`;
+                const measured=result ? ` | Held-out trials: ${(100*result.balanced_accuracy).toFixed(1)}% balanced accuracy, permutation p=${result.permutation_p.toFixed(4)}, n=${result.n_trials}` : '';
+                document.getElementById('diagnostics').innerText=(d.error || (replay ? `RECORDED EEG REPLAY | ${d.stream_name} | time ${(d.replay_time_s||0).toFixed(1)}s | cue: ${d.recorded_cue} | no live participant` : d.demo_mode ? 'SYNTHETIC DEMO: no hardware or NN validation.' : d.model_verified ? 'Preprocessing contract recorded. Model performance requires prospective testing.' : 'LEGACY MODEL: preprocessing assumptions unverified; exploratory use only.'))+measured;
+                if (!d.error && !replay && !d.demo_mode && d.model_role==='personal_training_template') document.getElementById('diagnostics').innerText='UNTRAINED TEMPLATE: verify the physical montage, then collect personal calibration. Probabilities have no learned meaning; hand commands are withheld.';
+                document.getElementById('btn-demo').innerText=d.demo_mode?'🧪 Demo Mode: ON':'🧪 Demo Mode: OFF';
+                document.getElementById('footer-lsl').innerText=`${d.stream_name} | quality: ${d.quality}`;
+
+                const connBadge = document.getElementById('conn-badge');
+                const connText = document.getElementById('conn-text');
+                const footerStatus = document.getElementById('footer-status');
+                const btnStream = document.getElementById('btn-stream-toggle');
+                const valStreamStatus = document.getElementById('val-stream-status');
+
+                if (d.is_streaming) {
+                    btnStream.className = "btn btn-stream-stop";
+                    btnStream.innerText = "⏸ Pause Stream";
+                    valStreamStatus.innerText = "Active Streaming in Progress";
+                    valStreamStatus.style.color = "var(--accent-green)";
+                } else {
+                    btnStream.className = "btn btn-stream";
+                    btnStream.innerText = "▶ Start Stream";
+                    valStreamStatus.innerText = "Stream Paused / Standby";
+                    valStreamStatus.style.color = "var(--text-muted)";
+                }
+
+                if (replay) {
+                    connBadge.className='conn-badge conn-demo';
+                    connText.innerText='RECORDED EEG REPLAY';
+                    footerStatus.innerText=`Replay: ${d.recorded_cue}`;
+                } else if (d.demo_mode) {
+                    connBadge.className = "conn-badge conn-demo";
+                    connText.innerText = "DEMO SIMULATION";
+                    footerStatus.innerText = "🟡 Demo Simulation Mode";
+                } else if (d.is_connected) {
+                    connBadge.className = "conn-badge conn-connected";
+                    connText.innerText = "HARDWARE CONNECTED";
+                    footerStatus.innerText = `🟢 Live (${d.stream_name})`;
+                } else {
+                    connBadge.className = "conn-badge conn-disconnected";
+                    connText.innerText = "DISCONNECTED";
+                    footerStatus.innerText = "🔴 Disconnected — Start Amplifier LSL";
+                }
+
+                const isAction = d.grasp_command === 1;
+                const cmdText = document.getElementById('cmd-state-text');
+                const cmdPill = document.getElementById('cmd-pill');
+
+                if (!d.is_streaming) {
+                    cmdText.innerText = "STANDBY (PAUSED)";
+                    cmdText.style.color = "var(--text-muted)";
+                    cmdPill.className = "cmd-pill cmd-rest";
+                    cmdPill.innerText = "PAUSED";
+                } else if (!d.demo_mode && !replay && !d.personalized && d.personalization_enabled) {
+                    cmdText.innerText='CALIBRATION REQUIRED';
+                    cmdText.style.color='var(--text-muted)';
+                    cmdPill.className='cmd-pill cmd-rest';
+                    cmdPill.innerText='OUTPUT WITHHELD';
+                } else {
+                    cmdText.innerText = isAction ? "ACTION (GRASP)" : "REST (OPEN)";
+                    cmdText.style.color = isAction ? "var(--accent-red)" : "var(--accent-green)";
+                    cmdPill.className = isAction ? "cmd-pill cmd-action" : "cmd-pill cmd-rest";
+                    cmdPill.innerText = isAction ? "ACTION [1]" : "REST [0]";
+                }
+
+                const flex=(!d.demo_mode && !replay && !d.personalized && d.personalization_enabled)?0:d.continuous_flex;
+                document.getElementById('flex-bar').style.width = `${flex * 100}%`;
+                document.getElementById('flex-val-text').innerText = `${flex.toFixed(2)} (${Math.round(flex * 100)}%)`;
+                document.getElementById('prob-badge').innerText = `raw = ${d.p_raw.toFixed(2)} | EMA = ${d.p_smooth.toFixed(2)}`;
+
+                document.getElementById('json-monitor').innerText =
+                    JSON.stringify({"p_smooth": Number(d.p_smooth.toFixed(3)), "grasp_command": d.grasp_command, "continuous_flex": Number(d.continuous_flex.toFixed(3)), "state": isAction ? "ACTION" : "REST"});
+
+                document.getElementById('val-lat').innerText = `${d.latency_ms.toFixed(1)} ms`;
+                document.getElementById('val-steps').innerText = d.step_count;
+                document.getElementById('val-pkts').innerText = d.packets_sent;
+                document.getElementById('val-calib-acc').innerText=d.calib_acc == null ? '—' : `${(100*d.calib_acc).toFixed(1)}% fit only`;
+                document.getElementById('calib-status-badge').innerText=d.is_training ? d.training_status : d.calib_acc == null ? 'Not calibrated' : d.personalized ? 'Personal model ready (tuning score)' : 'Threshold fit (not validation)';
+                // ─── DYNAMIC CALIBRATION RING & STEPPER LOGIC ───
+                const modal = document.getElementById('calib-modal');
+                if (d.is_calibrating || d.is_training) {
+                    modal.style.display = "flex";
+                    document.getElementById('calib-countdown').innerText = d.is_training ? '…' : d.calib_timer.toFixed(1);
+
+                    // Smoothly drain the SVG circle
+                    const offset = circumference * (1 - d.calib_progress);
+                    calibCircle.style.strokeDashoffset = offset;
+
+                    // Update Stepper Pills
+                    for (let i = 1; i <= 3; i++) {
+                        const pill = document.getElementById(`pill-t${i}`);
+                        if (i === d.calib_trial) pill.className = "stepper-pill active";
+                        else pill.className = "stepper-pill";
+                    }
+
+                    if (d.is_training) {
+                        document.getElementById('calib-title').innerText='Fitting your personal NN';
+                        document.getElementById('calib-sub').innerText=d.training_status;
+                        document.getElementById('calib-icon').innerText='🧠';
+                    } else if (d.calib_phase === "rest") {
+                        calibCircle.style.stroke = "var(--accent-green)";
+                        document.getElementById('calib-icon').innerText = "🧠";
+                        document.getElementById('calib-title').innerText = `${d.protocol_kind.toUpperCase()} ${d.calib_trial}/${d.total_trials}: REST`;
+                        document.getElementById('calib-title').style.color = "var(--accent-green)";
+                        document.getElementById('calib-sub').innerText = "Sit comfortably, breathe naturally, and relax your hands completely.";
+                    } else if (d.calib_phase === "action") {
+                        calibCircle.style.stroke = "var(--accent-red)";
+                        document.getElementById('calib-icon').innerText = "✊";
+                        document.getElementById('calib-title').innerText = `${d.protocol_kind.toUpperCase()} ${d.calib_trial}/${d.total_trials}: IMAGINE GRASP`;
+                        document.getElementById('calib-title').style.color = "var(--accent-red)";
+                        document.getElementById('calib-sub').innerText = "Imagine the feeling of closing your right hand. Keep your fingers, jaw and shoulders still.";
+                    }
+                } else {
+                    modal.style.display = "none";
+                }
+
+                renderCharts();
+            } catch (e) { console.error('BCI display update failed:',e); document.getElementById('diagnostics').innerText='Display update failed: '+e.message; }
+        }, 100);
+
+        function toggleStreamingState() {
+            api('/api/toggle_stream').catch(()=>{});
+        }
+
+        function updateThreshold(val) {
+            document.getElementById('th-display').innerText = parseFloat(val).toFixed(2);
+            api(`/api/set_threshold?val=${val}`).catch(()=>{});
+        }
+
+        function triggerCalibration() {
+            api('/api/calibrate?participant='+encodeURIComponent(document.getElementById('participant-id').value)).catch(()=>{});
+        }
+
+        function toggleDemo() {
+            api('/api/toggle_demo').then(d => {
+                document.getElementById('btn-demo').innerText = d.demo_mode ? "🧪 Demo Mode: ON" : "🧪 Demo Mode: OFF";
+            });
+        }
+
+        function resetSession() {
+            if (confirm("Reset current session? This will flush all buffers and step counters.")) {
+                api('/api/reset').then(d => {
+                    document.getElementById('th-slider').value = d.threshold;
+                    document.getElementById('th-display').innerText = d.threshold.toFixed(2);
+                });
+            }
+        }
+
+        function exportFigure() {
+            api('/api/export_figure').then(data => {
+                const toast = document.getElementById('toast-msg');
+                toast.innerHTML = `✅ <strong>Session Report Saved:</strong><br><code>${data.filename_png}</code><br><code>${data.filename_csv}</code><br><span style='font-size:0.78rem; opacity:0.85;'>Stream paused; data retained. Reset Session before a new recording.</span>`;
+                toast.style.display = "block";
+                setTimeout(() => { toast.style.display = "none"; }, 6000);
+            });
+        }
+    </script>
+</body>
+</html>

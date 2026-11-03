@@ -1,407 +1,178 @@
-"""
-Real-Time EEG Motor Imagery Decoder for Closed-Loop BCI & Virtual Hand Control
-==============================================================================
-Standalone, production-ready decoder engine designed for live lab testing on user.
-
-Features:
-1. Multi-Subject Pre-Trained Master Model (`eegnet_master_live.pt`).
-2. Online IIR Bandpass Filtering (8-30 Hz Butterworth) with state preservation (`sosfilt` + `zi`).
-3. Continuous Circular Ring-Buffering (1024 samples = 4.0s @ 256 Hz).
-4. Exponential Moving Average (EMA) smoothing (alpha = 0.3).
-5. Dwell-Time / Hysteresis trigger (2 consecutive steps = 500 ms) to suppress false positives.
-6. Real-Time UDP JSON packet transmission to Virtual Hand on port 5005.
-7. Built-in 60-second Fast Calibration Mode (`--mode calibrate`) to calibrate the user's
-   personal baseline and optimal decision threshold before live streaming (`--mode lsl`).
-"""
-
-import os
-import sys
-import time
+"""Causal EEGNet decoder. Input is strictly channels x samples in volts."""
+from pathlib import Path
+import hashlib
 import json
 import socket
-import argparse
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
-
+import time
 import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import mne
-from scipy.signal import butter, sosfilt, sosfilt_zi
-from sklearn.metrics import balanced_accuracy_score, confusion_matrix, classification_report
-
-
-# ─── 1. NEURAL NETWORK ARCHITECTURES ──────────────────────────────────────────
-
-class EEGNet(nn.Module):
-    """
-    Compact Convolutional Neural Network for EEG decoding.
-    Reference: Lawhern et al., 2018.
-    """
-    def __init__(self, n_ch: int = 20, n_t: int = 1024, n_cls: int = 2,
-                 F1: int = 8, D: int = 2, F2: int = 16, kern: int = 128, drop: float = 0.5):
-        super().__init__()
-        self.block1 = nn.Sequential(
-            nn.Conv2d(1, F1, (1, kern), padding=(0, kern // 2), bias=False),
-            nn.BatchNorm2d(F1),
-            nn.Conv2d(F1, F1 * D, (n_ch, 1), groups=F1, bias=False),
-            nn.BatchNorm2d(F1 * D),
-            nn.ELU(),
-            nn.AvgPool2d((1, 4)),
-            nn.Dropout(drop)
-        )
-        self.block2 = nn.Sequential(
-            nn.Conv2d(F1 * D, F1 * D, (1, 16), padding=(0, 8), groups=F1 * D, bias=False),
-            nn.Conv2d(F1 * D, F2, (1, 1), bias=False),
-            nn.BatchNorm2d(F2),
-            nn.ELU(),
-            nn.AvgPool2d((1, 8)),
-            nn.Dropout(drop)
-        )
-        flat_size = self._get_flat_dim(n_ch, n_t)
-        self.fc = nn.Linear(flat_size, n_cls)
-
-    def _get_flat_dim(self, c: int, t: int) -> int:
-        self.block1.eval()
-        self.block2.eval()
-        with torch.no_grad():
-            dummy = torch.zeros(1, 1, c, t)
-            out = self.block2(self.block1(dummy))
-            return out.numel()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.ndim == 3:
-            x = x.unsqueeze(1)
-        x = self.block1(x)
-        x = self.block2(x)
-        return self.fc(x.flatten(1))
-
-
-# ─── 2. STREAMING RING BUFFER ─────────────────────────────────────────────────
+from scipy.signal import butter, sosfilt
+from networks import EEGNet
 
 class RingBuffer:
-    """Circular FIFO buffer for continuous multi-channel streaming data."""
-    def __init__(self, n_ch: int, n_samples: int):
-        self.n_ch = n_ch
-        self.n_samples = n_samples
+    def __init__(self, n_ch, n_samples):
+        self.n_ch, self.n_samples = n_ch, n_samples
         self.buf = np.zeros((n_ch, n_samples), dtype=np.float32)
         self.idx = 0
-
-    def push(self, sample: np.ndarray):
-        self.buf[:, self.idx % self.n_samples] = sample
-        self.idx += 1
-
-    def push_chunk(self, chunk: np.ndarray):
-        if chunk.shape[0] != self.n_ch and chunk.shape[1] == self.n_ch:
-            chunk = chunk.T
-        n_incoming = chunk.shape[1]
-        for s in range(n_incoming):
-            self.buf[:, self.idx % self.n_samples] = chunk[:, s]
-            self.idx += 1
-
-    def get(self) -> np.ndarray:
+    def push_chunk(self, chunk):
+        chunk = np.asarray(chunk)
+        if chunk.ndim != 2 or chunk.shape[0] != self.n_ch:
+            raise ValueError('Expected channels x samples; transpose at the source adapter.')
+        n = chunk.shape[1]
+        if n >= self.n_samples:
+            self.idx += n
+            self.buf[:] = np.roll(chunk[:, -self.n_samples:], self.idx % self.n_samples, axis=1)
+            return
         i = self.idx % self.n_samples
-        return np.concatenate([self.buf[:, i:], self.buf[:, :i]], axis=1)
-
+        first = min(n, self.n_samples-i)
+        self.buf[:, i:i+first] = chunk[:, :first]
+        self.buf[:, :n-first] = chunk[:, first:]
+        self.idx += n
+    def push(self, sample): self.push_chunk(np.asarray(sample)[:, None])
+    def get(self):
+        i = self.idx % self.n_samples
+        return np.concatenate((self.buf[:, i:], self.buf[:, :i]), axis=1)
     @property
-    def is_full(self) -> bool:
-        return self.idx >= self.n_samples
+    def is_full(self): return self.idx >= self.n_samples
 
-
-# ─── 3. REAL-TIME BCI DECODER ENGINE ──────────────────────────────────────────
+def load_contract(checkpoint, contract_path=None):
+    path = Path(contract_path or str(checkpoint)+'.json')
+    if not path.exists():
+        raise ValueError(f'Missing model contract: {path}. See README_LAB_GUIDE.md.')
+    c = json.loads(path.read_text(encoding='utf-8-sig'))
+    for key in ['channels','sfreq','n_times','normalization','filter','classes','verified']:
+        if key not in c: raise ValueError(f'Model contract is missing {key}')
+    if c.get('sha256') != hashlib.sha256(Path(checkpoint).read_bytes()).hexdigest():
+        raise ValueError('Checkpoint SHA256 does not match its model contract.')
+    if c['classes'] != ['rest','action']: raise ValueError('Expected output classes [rest, action].')
+    if not c['channels'] or len(set(x.casefold() for x in c['channels'])) != len(c['channels']):
+        raise ValueError('Model channel names must be unique and nonempty.')
+    if c['normalization'] not in ('per_window','fixed'): raise ValueError('Invalid normalization mode.')
+    if c['sfreq'] <= 0 or c['n_times'] < 32: raise ValueError('Invalid sample rate or window length.')
+    return c
 
 class RealtimeBCIDecoder:
-    def __init__(self, ckpt_path: str,
-                 sfreq: int = 256,
-                 epoch_len_s: float = 4.0,
-                 step_len_s: float = 0.25,
-                 threshold: float = 0.35,
-                 ema_alpha: float = 0.3,
-                 dwell_steps: int = 2,
-                 fmin: float = 8.0,
-                 fmax: float = 30.0,
-                 udp_host: str = "127.0.0.1",
-                 udp_port: int = 5005,
-                 device: str = "cpu"):
-        
-        self.sfreq = sfreq
-        self.window_samples = int(epoch_len_s * sfreq)   # 1024 samples
-        self.step_samples = int(step_len_s * sfreq)      # 64 samples (4 Hz)
-        self.ema_alpha = ema_alpha
-        self.dwell_steps = dwell_steps
+    def __init__(self, ckpt_path, sfreq=None, epoch_len_s=None, step_len_s=.25,
+                 threshold=None, ema_alpha=.3, dwell_steps=2, fmin=8., fmax=30.,
+                 udp_host='127.0.0.1', udp_port=5005, device='cpu',
+                 contract_path=None, allow_unverified=False, send_udp=True):
+        self.ckpt_path = Path(ckpt_path).resolve()
+        self.contract = load_contract(self.ckpt_path, contract_path)
+        if threshold is None: threshold=float(self.contract.get('threshold',.5))
+        if not self.contract['verified'] and not allow_unverified:
+            raise ValueError('Legacy model preprocessing/provenance is unverified. Use a newly trained '
+                             'contract or set allow_unverified_model for exploration only.')
+        self.channels = self.contract['channels']
+        self.sfreq = float(self.contract['sfreq'])
+        self.window_samples = int(self.contract['n_times'])
+        if sfreq is not None and not np.isclose(sfreq, self.sfreq): raise ValueError('Sample rate differs from contract; no implicit resampling.')
+        if epoch_len_s is not None and round(epoch_len_s*self.sfreq) != self.window_samples: raise ValueError('Window length differs from contract.')
+        if not 0 < ema_alpha <= 1 or dwell_steps < 1 or not 0 < threshold < 1: raise ValueError('Invalid decoder parameters.')
+        self.step_samples = round(step_len_s*self.sfreq)
+        if not 1 <= self.step_samples <= self.window_samples: raise ValueError('Invalid step length.')
+        self.ema_alpha, self.dwell_steps, self.threshold = ema_alpha, dwell_steps, float(threshold)
         self.device = torch.device(device)
-        self.threshold = threshold
-
-        # Load Checkpoint
-        self.ckpt_path = Path(ckpt_path)
-        if not self.ckpt_path.exists():
-            raise FileNotFoundError(f"Checkpoint not found: {self.ckpt_path.resolve()}")
-
+        # User-supplied trusted local checkpoints contain numpy arrays.
         ckpt = torch.load(self.ckpt_path, map_location=self.device, weights_only=False)
-        self.n_ch = ckpt.get('n_channels', 20)
-        self.train_mean = ckpt.get('train_mean', np.zeros(self.n_ch, dtype=np.float32))
-        self.train_std = ckpt.get('train_std', np.ones(self.n_ch, dtype=np.float32))
-
+        self.n_ch = int(ckpt['n_channels'])
+        if self.n_ch != len(self.channels) or int(ckpt['n_times']) != self.window_samples: raise ValueError('Checkpoint dimensions differ from contract.')
+        if ckpt.get('arch','eegnet') != 'eegnet': raise ValueError('Live engine supports EEGNet; export an EEGNet checkpoint.')
+        weights = dict(ckpt['model_state'])
+        for key in ('weight','bias'):
+            if f'classifier.{key}' in weights: weights[f'fc.{key}'] = weights.pop(f'classifier.{key}')
         self.model = EEGNet(n_ch=self.n_ch, n_t=self.window_samples).to(self.device)
-        self.model.load_state_dict(ckpt['model_state'])
+        self.model.load_state_dict(weights)
         self.model.eval()
-
-        # Online Filter: 4th order Butterworth bandpass (8-30 Hz)
-        self.sos = butter(4, [fmin, fmax], btype='bandpass', fs=sfreq, output='sos')
-        self.zi = np.zeros((self.sos.shape[0], self.n_ch, 2), dtype=np.float32)
-
-        # Streaming State
-        self.ring = RingBuffer(self.n_ch, self.window_samples)
-        self.ema_prob = 0.5
-        self.dwell_counter = 0
-        self.step_counter = 0
-
-        # UDP Socket for Virtual Hand
-        self.udp_target = (udp_host, udp_port)
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
+        self.train_mean = np.asarray(ckpt.get('train_mean',np.zeros(self.n_ch)),dtype=np.float32)
+        self.train_std = np.asarray(ckpt.get('train_std',np.ones(self.n_ch)),dtype=np.float32)
+        if self.train_mean.shape != (self.n_ch,) or self.train_std.shape != (self.n_ch,): raise ValueError('Normalization shape mismatch.')
+        if not np.isfinite(self.train_mean).all() or not np.isfinite(self.train_std).all() or np.any(self.train_std <= 0): raise ValueError('Invalid normalization statistics.')
+        filt = self.contract['filter']
+        if filt['mode'] != 'causal' and not allow_unverified: raise ValueError('Model was not trained with causal preprocessing.')
+        self.sos = butter(int(filt.get('order',4)),[filt['fmin'],filt['fmax']],btype='bandpass',fs=self.sfreq,output='sos')
+        self.artifact_limit = float(self.contract.get('artifact_limit_v',100e-6))
+        self.min_signal_std = float(self.contract.get('min_signal_std_v',1e-9))
+        self.sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) if send_udp else None
+        self.udp_target = (udp_host,int(udp_port))
+        self.packets_sent = 0
+        self.reset_state()
     def reset_state(self):
-        self.ring = RingBuffer(self.n_ch, self.window_samples)
-        self.zi = np.zeros((self.sos.shape[0], self.n_ch, 2), dtype=np.float32)
-        self.ema_prob = 0.5
-        self.dwell_counter = 0
-        self.step_counter = 0
-
-    def set_user_baseline(self, mean: np.ndarray, std: np.ndarray, threshold: float):
-        """Update normalisation stats and decision threshold from user calibration."""
-        self.train_mean = mean.astype(np.float32)
-        self.train_std = std.astype(np.float32)
-        self.threshold = float(threshold)
-        print(f"[Decoder] Updated User Calibration: Threshold = {self.threshold:.2f}")
-
-    def process_chunk(self, raw_chunk: np.ndarray) -> Optional[Dict[str, Any]]:
-        """
-        Processes incoming streaming EEG chunk:
-        1. Online IIR filter with state preservation
-        2. Push to circular buffer
-        3. Neural network inference (EEGNet)
-        4. EMA probability smoothing & dwell-time hysteresis
-        5. UDP transmission to virtual hand
-        """
-        if raw_chunk.shape[0] != self.n_ch and raw_chunk.shape[1] == self.n_ch:
-            raw_chunk = raw_chunk.T
-
-        n_samples_in = raw_chunk.shape[1]
-
-        # Artifact Guard: soft clamp voltage spikes > 100 uV (e.g. blinks/EMG)
-        raw_chunk = np.clip(raw_chunk, -100e-6, 100e-6)
-
-        # 1. Online IIR Bandpass Filtering (8-30 Hz)
-        filtered_chunk, self.zi = sosfilt(self.sos, raw_chunk, axis=1, zi=self.zi)
-
-        # 2. Push to circular ring buffer
-        self.ring.push_chunk(filtered_chunk)
-        self.step_counter += n_samples_in
-
-        # 3. Check if step deadline reached and buffer is warm
-        if self.ring.is_full and self.step_counter >= self.step_samples:
-            self.step_counter = 0
-
-            # 4. Extract latest window & Normalize
-            X_win = self.ring.get()
-            X_norm = (X_win - self.train_mean[:, None]) / (self.train_std[:, None] + 1e-8)
-
-            # 5. Forward Inference through EEGNet
-            with torch.no_grad():
-                tensor_in = torch.tensor(X_norm, dtype=torch.float32).unsqueeze(0).to(self.device)
-                logits = self.model(tensor_in)
-                probs = F.softmax(logits, dim=1).cpu().numpy()[0]
-                p_action = float(probs[1])
-
-            # 6. Exponential Moving Average (EMA) Smoothing
-            self.ema_prob = (self.ema_alpha * p_action) + ((1.0 - self.ema_alpha) * self.ema_prob)
-
-            # 7. Dwell Time Hysteresis Logic
-            if self.ema_prob >= self.threshold:
-                self.dwell_counter += 1
-            else:
-                self.dwell_counter = 0
-
-            decision = 1 if self.dwell_counter >= self.dwell_steps else 0
-            
-            # Continuous grasp flexion mapped cleanly [0.0 = fully open, 1.0 = fully closed]
-            continuous_flex = float(np.clip((self.ema_prob - (self.threshold - 0.15)) / 0.40, 0.0, 1.0))
-
-            packet = {
-                "timestamp": time.time(),
-                "p_raw": round(p_action, 4),
-                "p_smooth": round(self.ema_prob, 4),
-                "grasp_command": decision,
-                "continuous_flex": round(continuous_flex, 4),
-                "state_label": "ACTION" if decision == 1 else "REST"
-            }
-
-            # 8. Transmit UDP packet to Virtual Hand
-            try:
-                msg = json.dumps(packet).encode('utf-8')
-                self.sock.sendto(msg, self.udp_target)
-            except Exception:
-                pass
-
-            return packet
-
-        return None
-
-
-# ─── 4. FAST 60-SECOND USER CALIBRATION ROUTINE ───────────────────────────────
-
-def run_fast_lab_calibration(inlet, decoder: RealtimeBCIDecoder, trials_per_class: int = 3, trial_dur_s: float = 5.0):
-    """
-    Guides the user through a 60-second calibration protocol in the lab:
-    - 3 Rest trials (5s each)
-    - 3 Right-Hand Imagery trials (5s each)
-    Calculates the user's specific baseline mean/std and optimal decision threshold.
-    """
-    print("\n" + "=" * 65)
-    print("      LIVE LAB CALIBRATION ROUTINE (60 SECONDS)")
-    print("=" * 65)
-    print("  You will be prompted to alternate between REST and RIGHT-HAND IMAGERY.")
-    print("  Keep head and jaw relaxed to avoid EMG artifact.")
-    print("=" * 65)
-    time.sleep(2.0)
-
-    calib_windows = []
-    calib_labels = []
-    
-    # 3 Alternating pairs of Rest and Action
-    for t in range(trials_per_class):
-        # 1. Rest Phase
-        print(f"\n[Trial {t+1}/{trials_per_class}] ---> RELAX / REST (Do not imagine movement) <---")
-        t_end = time.time() + trial_dur_s
-        while time.time() < t_end:
-            chunk, _ = inlet.pull_chunk(timeout=1.0, max_samples=decoder.step_samples)
-            if chunk:
-                raw_chunk = np.array(chunk, dtype=np.float32).T
-                filtered_chunk, decoder.zi = sosfilt(decoder.sos, raw_chunk, axis=1, zi=decoder.zi)
-                decoder.ring.push_chunk(filtered_chunk)
-                if decoder.ring.is_full:
-                    calib_windows.append(decoder.ring.get())
-                    calib_labels.append(0)
-            time.sleep(decoder.step_samples / decoder.sfreq)
-
-        # 2. Action / Imagery Phase
-        print(f"[Trial {t+1}/{trials_per_class}] >>> IMAGINE RIGHT HAND GRASP / CLOSING <<<")
-        t_end = time.time() + trial_dur_s
-        while time.time() < t_end:
-            chunk, _ = inlet.pull_chunk(timeout=1.0, max_samples=decoder.step_samples)
-            if chunk:
-                raw_chunk = np.array(chunk, dtype=np.float32).T
-                filtered_chunk, decoder.zi = sosfilt(decoder.sos, raw_chunk, axis=1, zi=decoder.zi)
-                decoder.ring.push_chunk(filtered_chunk)
-                if decoder.ring.is_full:
-                    calib_windows.append(decoder.ring.get())
-                    calib_labels.append(1)
-            time.sleep(decoder.step_samples / decoder.sfreq)
-
-    print("\n[Calibration Complete] Computing optimal user threshold...")
-    calib_X = np.array(calib_windows)  # (n_win, n_ch, n_t)
-    calib_y = np.array(calib_labels)
-
-    flat = calib_X.reshape(calib_X.shape[0], calib_X.shape[1], -1)
-    user_mean = flat.mean(axis=(0, 2)).astype(np.float32)
-    user_std = (flat.std(axis=(0, 2)) + 1e-8).astype(np.float32)
-
-    # Score probabilities across calibration data
-    X_norm = (calib_X - user_mean[None, :, None]) / user_std[None, :, None]
-    with torch.no_grad():
-        t_in = torch.tensor(X_norm, dtype=torch.float32).to(decoder.device)
-        logits = decoder.model(t_in)
-        raw_probs = F.softmax(logits, dim=1)[:, 1].cpu().numpy()
-
-    # Find optimal threshold via ROC sweep
-    best_th, best_bal = 0.35, 0.0
-    for th in np.arange(0.15, 0.75, 0.02):
-        preds = (raw_probs >= th).astype(int)
-        bal = balanced_accuracy_score(calib_y, preds)
-        if bal > best_bal:
-            best_bal = bal
-            best_th = th
-
-    decoder.set_user_baseline(user_mean, user_std, best_th)
-    print(f"  Calibrated Threshold: {best_th:.2f} | Calibration Balanced Acc: {best_bal*100:.1f}%")
-    print("=" * 65)
-    return best_th
-
-
-# ─── 5. MAIN ENTRY POINT ──────────────────────────────────────────────────────
+        self.ring = RingBuffer(self.n_ch,self.window_samples)
+        self.quality_ring = RingBuffer(1,self.window_samples)
+        self.zi = np.zeros((len(self.sos),self.n_ch,2))
+        self.samples_seen = 0
+        self.next_prediction = self.window_samples
+        self.ema_prob, self.ema_ready, self.dwell_counter = 0.,False,0
+        self.last_filtered = None
+        self.last_chunk_filtered = None
+    def normalize_window(self, window):
+        if self.contract['normalization'] == 'per_window':
+            return (window-window.mean(axis=-1,keepdims=True))/(window.std(axis=-1,keepdims=True)+1e-8)
+        return (window-self.train_mean[:,None])/(self.train_std[:,None]+1e-8)
+    def set_user_baseline(self, mean, std, threshold):
+        raise ValueError('Normalization belongs to the trained checkpoint. Fit a personal model using labeled calibration cues.')
+    def send(self, packet):
+        if self.sock is not None:
+            self.sock.sendto(json.dumps(packet,allow_nan=False).encode(),self.udp_target)
+            self.packets_sent += 1
+    def send_rest(self, reason='paused'):
+        self.send(dict(timestamp=time.time(),p_raw=0.,p_smooth=0.,grasp_command=0,continuous_flex=0.,state_label='REST',quality=reason))
+    def process_chunk_all(self, raw_chunk, emit=True):
+        # A random architecture template can collect EEG, but cannot control a hand.
+        emit = emit and self.contract.get('role') != 'personal_training_template'
+        raw = np.asarray(raw_chunk,dtype=np.float32)
+        if raw.ndim != 2 or raw.shape[0] != self.n_ch: raise ValueError(f'Expected ({self.n_ch}, samples) volts; got {raw.shape}.')
+        if not np.isfinite(raw).all():
+            self.reset_state()
+            if emit: self.send_rest('nonfinite_input')
+            raise ValueError('Nonfinite EEG samples; stream reset.')
+        outputs, pos, filter_parts = [],0,[]
+        while pos < raw.shape[1]:
+            count = min(raw.shape[1]-pos,self.next_prediction-self.samples_seen)
+            part = raw[:,pos:pos+count]
+            # Reject artifacts in the same band used by training. Clipping raw
+            # offsets before the high-pass destroys otherwise usable EEG.
+            filtered,self.zi = sosfilt(self.sos,part,axis=1,zi=self.zi)
+            filter_parts.append(filtered.astype(np.float32))
+            bad = (np.abs(filtered)>self.artifact_limit).any(axis=0).astype(np.float32)
+            self.ring.push_chunk(filtered)
+            self.quality_ring.push_chunk(bad[None,:])
+            self.samples_seen += count
+            pos += count
+            if self.samples_seen != self.next_prediction: continue
+            self.next_prediction += self.step_samples
+            window = self.ring.get()
+            self.last_filtered = window
+            quality = 'artifact' if self.quality_ring.get().any() else 'flat_signal' if np.any(window.std(axis=1)<self.min_signal_std) else 'ok'
+            p_action = 0.
+            if quality == 'ok':
+                with torch.inference_mode():
+                    tensor=torch.from_numpy(self.normalize_window(window)).unsqueeze(0).to(self.device)
+                    p_action=float(torch.softmax(self.model(tensor),dim=1)[0,1].cpu())
+                if not np.isfinite(p_action): raise ValueError('Model returned nonfinite probability.')
+                self.ema_prob=self.ema_alpha*p_action+(1-self.ema_alpha)*self.ema_prob if self.ema_ready else p_action
+                self.ema_ready=True
+                self.dwell_counter=self.dwell_counter+1 if self.ema_prob>=self.threshold else 0
+            else: self.ema_prob,self.dwell_counter,self.ema_ready=0.,0,False
+            decision=int(quality=='ok' and self.dwell_counter>=self.dwell_steps)
+            packet=dict(timestamp=time.time(),sample_end=self.samples_seen,p_raw=p_action,p_smooth=self.ema_prob,
+                        grasp_command=decision,continuous_flex=float(np.clip((self.ema_prob-self.threshold)/(1-self.threshold),0,1)) if decision else 0.,
+                        state_label='ACTION' if decision else 'REST',quality=quality,threshold=self.threshold)
+            if emit: self.send(packet)
+            outputs.append(packet)
+        self.last_chunk_filtered=np.concatenate(filter_parts,axis=1) if filter_parts else np.empty((self.n_ch,0),np.float32)
+        return outputs
+    def process_chunk(self,raw_chunk):
+        outputs=self.process_chunk_all(raw_chunk)
+        return outputs[-1] if outputs else None
+    def close(self):
+        if self.sock is not None:
+            try: self.send_rest('shutdown')
+            finally:
+                self.sock.close()
+                self.sock=None
 
 def main():
-    parser = argparse.ArgumentParser(description="Real-Time BCI Motor Imagery Decoder")
-    parser.add_argument("--mode", type=str, choices=['lsl', 'calibrate', 'simulate'], default='lsl',
-                        help="Mode: 'lsl' (live streaming), 'calibrate' (60s lab calibration then live), 'simulate' (offline test)")
-    parser.add_argument("--threshold", type=float, default=0.32, help="Decision threshold")
-    parser.add_argument("--udp-host", type=str, default="127.0.0.1", help="Virtual Hand UDP Host")
-    parser.add_argument("--udp-port", type=int, default=5005, help="Virtual Hand UDP Port")
-    args = parser.parse_args()
-
-    # Locate Master Trained Model Checkpoint
-    ckpt_candidates = [
-        Path(__file__).resolve().parent / "decoder_and_models" / "eegnet_master_live.pt",
-        Path(__file__).resolve().parent / "checkpoints" / "eegnet_master_live.pt",
-        Path(__file__).resolve().parent / "eegnet_master_live.pt",
-        Path(r"C:\Users\giaco\.gemini\antigravity\brain\1d373d7a-b1fe-46d1-8b53-b128fc406f00\checkpoints\eegnet_master_live.pt"),
-        Path(__file__).resolve().parent / "results_v2" / "checkpoints" / "eegnet_master_live.pt"
-    ]
-    ckpt_path = None
-    for c in ckpt_candidates:
-        if c.exists():
-            ckpt_path = c
-            break
-    if ckpt_path is None:
-        ckpt_path = Path(__file__).resolve().parent / "decoder_and_models" / "eegnet_master_live.pt"
-
-    decoder = RealtimeBCIDecoder(
-        ckpt_path=str(ckpt_path),
-        sfreq=256,
-        epoch_len_s=4.0,
-        step_len_s=0.25,
-        threshold=args.threshold,
-        ema_alpha=0.3,
-        dwell_steps=2,
-        udp_host=args.udp_host,
-        udp_port=args.udp_port
-    )
-
-    if args.mode in ['lsl', 'calibrate']:
-        try:
-            from pylsl import StreamInlet, resolve_byprop
-        except ImportError:
-            print("[Error] 'pylsl' library is required for live lab testing. Run: pip install pylsl")
-            return
-
-        print("\nSearching for live EEG stream on LabStreamingLayer (LSL)...")
-        streams = resolve_byprop('type', 'EEG', timeout=5.0)
-        if not streams:
-            print("[Error] No LSL EEG stream found! Please verify amplifier is broadcasting.")
-            return
-
-        inlet = StreamInlet(streams[0], max_buflen=360)
-        print(f"[Connected] LSL Stream: '{streams[0].name()}'. Target Hand UDP: {args.udp_host}:{args.udp_port}")
-
-        if args.mode == 'calibrate':
-            run_fast_lab_calibration(inlet, decoder)
-
-        print("\n>>> LIVE DECODER ACTIVE - STREAMING COMMANDS TO VIRTUAL HAND <<<")
-        print("    Press Ctrl+C to stop.\n")
-        step_num = 0
-        while True:
-            chunk, _ = inlet.pull_chunk(timeout=1.0, max_samples=decoder.step_samples)
-            if chunk:
-                t0 = time.perf_counter()
-                out = decoder.process_chunk(np.array(chunk, dtype=np.float32))
-                latency_ms = (time.perf_counter() - t0) * 1000.0
-                if out is not None:
-                    step_num += 1
-                    bar = "█" * int(out['continuous_flex'] * 10) + "░" * (10 - int(out['continuous_flex'] * 10))
-                    print(f"\r[LIVE] Step: {step_num:05d} | Latency: {latency_ms:4.1f}ms | p(EMA): {out['p_smooth']:.2f} | Hand: {out['state_label']:<6} [{bar}]", end="", flush=True)
-
-
-if __name__ == "__main__":
-    main()
+    from bci_studio_gui import main as studio_main
+    studio_main()
+if __name__=='__main__': main()

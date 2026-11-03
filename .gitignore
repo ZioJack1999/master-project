@@ -18,3 +18,15 @@ desktop.ini
 ~$*
 .DS_Store
 Thumbs.db
+# Local recordings, backups, and intermediate EEG-derived predictions
+backups/
+*.predictions.csv
+*.test_predictions.csv
+*.npz
+lab_config.local.json
+audit/*_source.txt
+audit/originals/
+audit/studio_script.js
+decoder_and_models/eegnet_personal*
+audit/*.local.json
+RESUME_NOTES.md
