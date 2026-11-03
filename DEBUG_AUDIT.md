@@ -74,6 +74,14 @@ python audit\inventory_multiclass.py --root "C:\path\to\BCIFEST\bids"
 
 Training regeneration overwrites the chosen output; use another output name to preserve supplied weights. Scores need not be bit-identical across different dependency/CPU versions. Keep split and seed fixed; do not repeatedly choose models based on the held-out test.
 
+## Multiclass extension completed after the binary release
+
+The separate three-class pipeline now prepares BCIFEST Rest / Volar Grasp / Finger Extension recordings, fits an EEGNet and fixed bandpower baseline, freezes the artifacts and tests whole held-out sessions. All 96 selected EDF/event pairs passed automated timing/annotation, rate, montage and duplicate checks. The full suite has 47 tests, including multiclass session isolation, weights per cue/class, rejection/dwell, chunk invariance and hash/one-time-test safeguards.
+
+Participant 08 sessions 21–25 train, 26–27 tune, 28–29 test: NN cue balanced accuracy **59.43%**, baseline **65.46%**, exact continuous NN replay **57.68%**, with chance 33.33%. Finger Extension NN recall is 26.3%. This first experiment supports recorded discrimination but not reliable three-class control. The test is now exposed and must not select further model changes. These are BCIFEST results, distinct from the EEGMI binary results above.
+
+[MULTICLASS_RESULTS.md](MULTICLASS_RESULTS.md) contains confusion matrices, uncertainty, exclusion counts and reproduction commands. Prospective personal multiclass GUI calibration/receiver integration remain future work. The binary studio retains its existing flow; the multiclass replay engine emits no actuator commands.
+
 ## Remaining lab checks
 
 Identify the installed acquisition/SDK and matching x86/x64 route; verify cap sites/reference and raw units; establish fresh clock-correct LSL transport; collect a personal fit and independent new-cue self-test; test virtual-hand UDP/Unity and timeout. [The lab guide](README_LAB_GUIDE.md) gives the operator procedure and primary acquisition references. Every compatible acquisition program does not automatically support the studio; an unverified producer requires a bridge/check first.

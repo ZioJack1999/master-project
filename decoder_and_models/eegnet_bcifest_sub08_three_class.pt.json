@@ -1,0 +1,99 @@
+{
+  "schema_version": 2,
+  "task_mode": "multiclass",
+  "role": "recorded_within_person_reference",
+  "classes": [
+    "rest",
+    "volar_grasp",
+    "finger_extension"
+  ],
+  "channels": [
+    "Fp1",
+    "Fp2",
+    "F7",
+    "F3",
+    "Fz",
+    "F4",
+    "F8",
+    "T3",
+    "C3",
+    "Cz",
+    "C4",
+    "T4",
+    "T5",
+    "P3",
+    "Pz",
+    "P4",
+    "T6",
+    "O1",
+    "POz",
+    "O2"
+  ],
+  "sfreq": 256,
+  "n_times": 512,
+  "normalization": "fixed",
+  "filter": {
+    "mode": "causal",
+    "fmin": 8.0,
+    "fmax": 30.0,
+    "order": 4
+  },
+  "artifact_limit_v": 0.0001,
+  "min_signal_std_v": 1e-09,
+  "sha256": "720fd3fc49e92c6053ee2fc9ab95e1947570b09a2c00ef8505398a705da8ea5b",
+  "prepared_manifest_sha256": "42f50e94adb76a6221fceba6c9d05f5623b4184bd0e6972dfcaa091a03a36f71",
+  "experiment": {
+    "experiment_id": "bcifest_sub08_three_class_v1",
+    "declared_date": "2026-11-03",
+    "subject": "08",
+    "task": "olrandmcmitrain",
+    "classes": [
+      "rest",
+      "volar_grasp",
+      "finger_extension"
+    ],
+    "train_sessions": [
+      21,
+      22,
+      23,
+      24,
+      25
+    ],
+    "validation_sessions": [
+      26,
+      27
+    ],
+    "test_sessions": [
+      28,
+      29
+    ],
+    "montage": "x24_stock20",
+    "sfreq": 256,
+    "window_s": 2.0,
+    "stride_s": 0.25,
+    "settle_s": 0.5,
+    "artifact_limit_v": 0.0001,
+    "min_signal_std_v": 1e-09,
+    "min_windows_per_cue": 4,
+    "seed": 42,
+    "epochs": 80,
+    "patience": 15,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "dropout": 0.5,
+    "threads": 2,
+    "primary_model": "eegnet",
+    "baseline": "fixed_C1_log_bandpower_logistic_regression",
+    "primary_metric": "balanced_accuracy_of_mean_probability_per_cue",
+    "notes": "Within-person; later cohort only. Split and classes fixed before fitting. Test sessions cannot choose settings. Imagery instructions are supported by task source; actual movement/EMG and physical reference are not established by EDF labels."
+  },
+  "verified": true,
+  "verified_meaning": "Reproducible preprocessing and split; not live biological validation.",
+  "policy": {
+    "ema_alpha": 0.3,
+    "dwell_updates": 2,
+    "min_confidence": 0.4,
+    "min_margin": 0.0,
+    "validation_tuned": true
+  }
+}

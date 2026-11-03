@@ -1,6 +1,6 @@
 # Separate multiclass NN plan — 2026-11-03
 
-This is the requested next stage after binary validation. Multiclass training/control is **not implemented** in the binary studio. The primary objective remains within-person learning and testing, with calibration for each wearer.
+Stage 1 has now been implemented: a separate three-class trainer, baseline, frozen test and continuous replay engine. Read [MULTICLASS_RESULTS.md](MULTICLASS_RESULTS.md) for the first recorded-data experiment. Prospective personal multiclass calibration/control is **not implemented** in the binary studio. The primary objective remains within-person learning and testing, with calibration for each wearer.
 
 ## Classes established from Box
 

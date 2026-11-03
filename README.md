@@ -33,6 +33,20 @@ Real EEGMI subject 08: sessions 1–4 train, 5 tune, 6 test; custom 20 sites. Co
 
 Legacy weights are retained with unverified contracts. The default template has random weights: its probabilities have no learned meaning and cannot emit hand predictions. The trained subject-08 checkpoint is a reference for its montage, not a model for an arbitrary wearer.
 
+## Three-class recorded-data pipeline
+
+`train_multiclass.py` trains **Rest / Volar Grasp / Finger Extension** from the BCIFEST random multiclass recordings, within one person. The fixed experiment uses participant 08, sessions 21–25 for training, 26–27 for tuning and 28–29 for test. Whole sessions stay separate; normalization and cue-balanced sampling use training data only. `replay_multiclass.py` tunes EMA/dwell/rejection on tuning recordings before a one-time frozen test. It emits no actuator commands.
+
+```powershell
+python train_multiclass.py prepare --root "C:\path\to\BCIFEST\bids"
+python train_multiclass.py fit
+python replay_multiclass.py --root "C:\path\to\BCIFEST\bids"
+python train_multiclass.py test --root "C:\path\to\BCIFEST\bids"
+python report_multiclass.py
+```
+
+See [multiclass results](MULTICLASS_RESULTS.md) for measured results and limitations. This recorded-data stage provides a separate multiclass model/engine; prospective personal multiclass calibration and GUI/receiver integration remain a subsequent stage. The binary studio retains its existing personal rest/action workflow.
+
 ## Demo, replay and tests
 
 ```powershell
