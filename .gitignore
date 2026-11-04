@@ -32,3 +32,4 @@ decoder_and_models/eegnet_personal*
 audit/*.local.json
 RESUME_NOTES.md
 lab_packages/
+audit/multiclass_v4_sourceonly.json

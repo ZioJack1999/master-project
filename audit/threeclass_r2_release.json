@@ -1,0 +1,18 @@
+{
+  "package": "BCI_ThreeClass_Lab_2026-11-05_r2.zip",
+  "sha256": "9591ad580b4005324410595ac2c4c5b0b454371471e88ee945ab288bd59babfa",
+  "bytes": 400051,
+  "zip_files": 26,
+  "source_tests": {
+    "passed": 143,
+    "skipped": 1,
+    "skip_reason": "Windows symlink creation unavailable",
+    "log": "audit/tests_threeclass_r2_final.log"
+  },
+  "source_only_models_fitted": 96,
+  "no_new_historical_target_scores": true,
+  "binary_changed": false,
+  "binary_zip_sha256": "309078cd78be411332e7f54336529e4aacca3356f1e53a16eba3595c0ba397af",
+  "extracted_smoke_passed": true,
+  "scope": "Software/data-collection improvements, no prospective accuracy claim."
+}

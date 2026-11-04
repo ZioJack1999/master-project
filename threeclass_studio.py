@@ -11,9 +11,13 @@ import uuid
 import webbrowser
 import numpy as np
 from scipy.signal import butter, sosfilt
-from lsl_acquisition import connect
+from threeclass_acquisition import connect
 from multiclass_decoder import MulticlassDecoder
 from multiclass_data import digest
+from realtime_bci_decoder import RingBuffer
+from threeclass_cues import ThreeClassProtocol
+from threeclass_model_store import list_personal_models, validate_personal_model
+from threeclass_decisions import cue_decision
 
 ROOT = Path(__file__).resolve().parent
 CLASSES = ['rest', 'volar_grasp', 'finger_extension']
@@ -25,61 +29,19 @@ def clock_now():
     return local_clock()
 
 
-class ThreeClassProtocol:
-    def __init__(self, kind, now, per_class, duration=8., seed=42):
-        if kind not in ('calibration', 'validation') or per_class < 1 or duration < 7.:
-            raise ValueError('Use calibration/validation, positive cue counts and cues of at least seven seconds.')
-        self.kind, self.duration = kind, float(duration)
-        self.run_id = uuid.uuid4().hex
-        self.labels = np.tile(np.arange(3), per_class)
-        np.random.default_rng(seed).shuffle(self.labels)
-        self.index, self.done = 0, False
-        self.events, self.predictions = [], []
-        self._new_event(now)
-
-    def _new_event(self, now):
-        self.events.append(dict(trial=self.index+1, label=CLASSES[self.labels[self.index]],
-            onset=float(now), end=None, complete=False, run_id=self.run_id, kind=self.kind))
-
-    def advance(self, now):
-        if self.done or now-self.events[-1]['onset'] < self.duration:
-            return
-        # Actual transitions follow the cue clock; a delayed worker never invents
-        # cues that the display could not have presented.
-        self.events[-1].update(end=float(now), complete=True)
-        self.index += 1
-        if self.index == len(self.labels):
-            self.done = True
-        else:
-            self._new_event(now)
-
-    def add(self, packet, timestamp):
-        if self.done:
-            return
-        event = self.events[-1]
-        if timestamp-4. < event['onset']+.5 or timestamp > event['onset']+self.duration:
-            return
-        self.predictions.append(dict(packet, trial=event['trial'], timestamp=float(timestamp),
-                                     truth=event['label']))
-
-
 def score_validation(protocol, permutations=2000, seed=42):
     if not protocol.done or protocol.kind != 'validation' or not all(e['complete'] for e in protocol.events):
         raise ValueError('Only complete fresh validation runs can be scored.')
     truth, decisions, details = [], [], []
     for event in protocol.events:
         rows = [r for r in protocol.predictions if r['trial'] == event['trial']]
-        accepted = [r for r in rows if r['quality'] == 'ok' and r['class_id'] >= 0]
-        decision = -1
-        if len(accepted) >= 4 and len(accepted) >= .5*len(rows):
-            counts = np.bincount([r['class_id'] for r in accepted], minlength=3)
-            if np.sum(counts == counts.max()) == 1:
-                decision = int(counts.argmax())
+        outcome = cue_decision(rows)
+        decision = outcome['class_id']
         truth.append(CLASSES.index(event['label']))
         decisions.append(decision)
         details.append(dict(trial=event['trial'], truth=event['label'],
             decision=CLASSES[decision] if decision >= 0 else 'rejected',
-            eligible_updates=len(rows), accepted_updates=len(accepted)))
+            eligible_updates=outcome['eligible_updates'], accepted_updates=outcome['accepted_updates']))
     y, pred = np.array(truth), np.array(decisions)
     recall = {c:float(np.mean(pred[y == i] == i)) for i, c in enumerate(CLASSES)}
     ba = float(np.mean(list(recall.values())))
@@ -112,8 +74,10 @@ class ThreeClassStudio:
     def __init__(self, config, root=ROOT, clock=clock_now):
         self.root, self.config, self.clock = Path(root), dict(config), clock
         self.channels = list(config['channels'])
-        if len(self.channels) != 20 or len({c.casefold() for c in self.channels}) != 20:
+        if (len(self.channels) != 20 or any(not isinstance(c, str) or not c or c != c.strip() for c in self.channels)
+                or len({c.casefold() for c in self.channels}) != 20):
             raise ValueError('Select twenty unique actual electrode sites.')
+        self.channel_indices = {c.casefold():i for i, c in enumerate(self.channels)}
         if config.get('sfreq', 256) != 256 or config.get('window_s', 4.) != 4. or config.get('stride_s', .25) != .25:
             raise ValueError('Three-class studio requires 256 Hz, four-second windows and .25-second stride.')
         self.metadata_contract = dict(channels=self.channels, sfreq=256)
@@ -135,12 +99,36 @@ class ThreeClassStudio:
             cue='', cue_index=0, cue_total=0, cue_remaining_s=0., raw_probabilities=[0.]*3,
             ema_probabilities=[0.]*3, decision='uncertain', quality='warming_up', result=None,
             last_saved='', window_s=4., stride_s=.25,
-            model_scope='Personal calibration is required before fresh validation.')
+            model_scope='Personal calibration is required before fresh validation.',
+            cue_run_id='', awaiting_cue_ack=False, model_choices=[], rejected_models=[],
+            calibration_diagnostics=None)
+        self.state['quality_details'] = {}
         if re.fullmatch(r'[A-Za-z0-9_-]{1,40}', self.state['participant']) is None:
             raise ValueError('Use a short pseudonymous participant ID: letters, digits, underscore or hyphen.')
         self.results = []
         self._load_reference()
         self._clear_recording()
+        self._refresh_models()
+
+    def _refresh_models(self):
+        found = list_personal_models(self.reports, self.state['participant'], self.channels)
+        self.state.update(model_choices=found['models'], rejected_models=found['rejected'])
+        return found
+
+    @staticmethod
+    def _calibration_summary(diagnostics):
+        train, tune = diagnostics.get('training', {}), diagnostics.get('tuning', {})
+        deployed = tune.get('deployment_policy', {})
+        return dict(scope='Calibration tuning only; collect a fresh frozen validation block.',
+            train_raw_cue_ba=train.get('cue_trials', {}).get('balanced_accuracy'),
+            tuning_raw_cue_ba=tune.get('cue_trials', {}).get('balanced_accuracy'),
+            tuning_deployed_cue_ba=deployed.get('balanced_accuracy'),
+            tuning_deployed_coverage=deployed.get('coverage'),
+            tuning_deployed_recall=deployed.get('recall', {}),
+            clean_cues=diagnostics.get('counts', {}).get('clean_cues'),
+            complete_cues=diagnostics.get('counts', {}).get('complete_cues'),
+            training_cues=len(diagnostics.get('train_cues', [])), tuning_cues=len(diagnostics.get('tuning_cues', [])),
+            split_scope=diagnostics.get('split_scope', 'Saved calibration split.'))
 
     def _load_reference(self):
         self.decoder = None
@@ -148,7 +136,8 @@ class ThreeClassStudio:
         if reference.classes != CLASSES:
             raise ValueError('Expected Rest, Volar Grasp and Finger Extension in that order.')
         self.state.update(model_ready=False, model_role='untrained', model_sha256='')
-        if reference.channels == self.channels:
+        self.state['calibration_diagnostics'] = None
+        if [c.casefold() for c in reference.channels] == [c.casefold() for c in self.channels]:
             self.decoder = reference
             self.state.update(model_role='recorded_reference', model_sha256=reference.contract['sha256'],
                 model_scope='Recorded participant08 reference only. Fit your own calibration before validation.')
@@ -170,12 +159,13 @@ class ThreeClassStudio:
         self.segment += 1
         self.plot_sos = butter(4, [8, 30], fs=256, btype='bandpass', output='sos')
         self.plot_zi = np.zeros((len(self.plot_sos), 20, 2))
+        self.quality_buffer = RingBuffer(20, 1024)
         if self.decoder:
             self.decoder.reset()
         if self.adapter:
             self.adapter.reset_timestamps()
         self.state.update(quality='warming_up', decision='uncertain', raw_probabilities=[0.]*3,
-                          ema_probabilities=[0.]*3)
+                          ema_probabilities=[0.]*3, quality_details={})
 
     def snapshot(self, seen=False):
         with self.lock:
@@ -187,13 +177,14 @@ class ThreeClassStudio:
     def _abort(self, reason):
         if self.protocol:
             now = self.clock()
-            self.protocol.events[-1].update(end=now, complete=False)
+            self.protocol.abort(now)
             self.events.extend(self.protocol.events)
             self.results.append(dict(kind=self.protocol.kind, status='aborted', reason=reason,
                                      run_id=self.protocol.run_id))
             self.protocol = None
             self.state['result'] = self.results[-1]
-        self.state.update(streaming=False, protocol_kind='', cue='', cue_remaining_s=0., status=reason)
+        self.state.update(streaming=False, protocol_kind='', cue='', cue_remaining_s=0., status=reason,
+                          cue_run_id='', awaiting_cue_ack=False)
         self._reset_segment()
 
     def save(self):
@@ -209,7 +200,7 @@ class ThreeClassStudio:
             session_started=self.session_started, model_path=str(self.checkpoint),
             model_sha256=self.state['model_sha256'], model_role=self.state['model_role'],
             reference_sha256=digest(self.reference_checkpoint), config=self.config,
-            timing='LSL/worker cue clock; browser/display latency unmeasured.',
+            timing='Cue clock begins at matching browser-render acknowledgement receipt; physical display latency remains unmeasured.',
             classes=CLASSES, results=self.results, protocol_in_progress=self.protocol is not None,
             active_frozen=getattr(self.protocol, 'frozen', None))
         active_events = self.protocol.events if self.protocol else []
@@ -238,6 +229,31 @@ class ThreeClassStudio:
                 self.save()
             elif self.state['training']:
                 raise ValueError('Wait for personal fitting or stop it before changing the session.')
+            elif path == '/api/cue-presented':
+                if not self.protocol or not self.state['streaming'] or self.state['mode'] != 'live':
+                    raise ValueError('No live cue is awaiting display acknowledgement.')
+                self.protocol.acknowledge(body.get('run_id'), body.get('trial'), self.clock())
+                self._refresh(self.clock())
+            elif path in ('/api/models', '/api/load-model'):
+                if self.protocol or self.state['streaming']:
+                    raise ValueError('Stop and save the current recording before selecting a saved personal model.')
+                if body.get('participant', self.state['participant']) != self.state['participant']:
+                    raise ValueError('Apply the participant ID before selecting their saved model.')
+                self._refresh_models()
+                if path == '/api/load-model':
+                    candidate = validate_personal_model(body.get('model_id'), self.state['participant'], self.channels, self.reports)
+                    decoder = MulticlassDecoder(candidate['checkpoint'])
+                    if [c.casefold() for c in decoder.channels] != [c.casefold() for c in self.channels] or decoder.classes != CLASSES:
+                        raise ValueError('Saved model channels/classes do not match the selected profile.')
+                    self.save()
+                    self.decoder, self.checkpoint = decoder, Path(candidate['checkpoint'])
+                    self._clear_recording()
+                    diagnostics_path = self.checkpoint.parent/'training.json'
+                    summary = self._calibration_summary(json.loads(diagnostics_path.read_text())) if diagnostics_path.exists() else None
+                    self.state.update(model_ready=True, model_role='personal', model_sha256=candidate['sha256'],
+                        result=None, calibration_diagnostics=summary,
+                        model_scope='Saved personal model loaded. Validate on new cues; cap/reference changes may require recalibration.',
+                        status='Personal model loaded. Connect EEG and collect a fresh validation block.', error='')
             elif path == '/api/connect':
                 if self.protocol or self.state['streaming']:
                     raise ValueError('Stop and save the active recording before reconnecting.')
@@ -251,6 +267,7 @@ class ThreeClassStudio:
                     self.state['result'] = None
                     self._load_reference()
                     self._clear_recording()
+                    self._refresh_models()
                 if self.inlet:
                     self.inlet.close_stream()
                 self.inlet = self.adapter = None
@@ -301,7 +318,8 @@ class ThreeClassStudio:
                 count = int(self.config.get('calibration_cues_per_class', 12) if kind == 'calibration'
                             else self.config.get('validation_cues_per_class', 10))
                 self.protocol = ThreeClassProtocol(kind, self.clock(), count,
-                    float(self.config.get('cue_duration_s', 8.)), int(self.config.get('seed', 42))+self.run_serial)
+                    float(self.config.get('cue_duration_s', 8.)), int(self.config.get('seed', 42))+self.run_serial,
+                    require_ack=True)
                 self.run_serial += 1
                 self.protocol.frozen = dict(model_sha256=self.state['model_sha256'],
                     contract_sha256=digest(str(self.checkpoint)+'.json'),
@@ -332,14 +350,22 @@ class ThreeClassStudio:
             self._abort('Cue display connection timed out; run aborted.')
             self.save()
             return
-        p.advance(now)
+        try:
+            p.advance(now)
+        except ValueError as exc:
+            self._abort(str(exc)+' Run aborted.')
+            self.state['error'] = str(exc)
+            self.save()
+            return
         if not p.done:
             self.state.update(cue=CLASSES[p.labels[p.index]], cue_index=p.index+1,
-                cue_total=len(p.labels), cue_remaining_s=max(0., p.duration-now+p.events[-1]['onset']))
+                cue_total=len(p.labels), cue_run_id=p.run_id, awaiting_cue_ack=p.awaiting_ack,
+                cue_remaining_s=p.duration if p.awaiting_ack else max(0., p.duration-now+p.events[-1]['onset']))
             return
         self.events.extend(p.events)
         self.protocol = None
-        self.state.update(streaming=False, protocol_kind='', cue='', cue_remaining_s=0.)
+        self.state.update(streaming=False, protocol_kind='', cue='', cue_remaining_s=0.,
+                          cue_run_id='', awaiting_cue_ack=False)
         if p.kind == 'validation':
             try:
                 if digest(self.checkpoint) != p.frozen['model_sha256'] or digest(str(self.checkpoint)+'.json') != p.frozen['contract_sha256']:
@@ -385,7 +411,9 @@ class ThreeClassStudio:
                     self.decoder, self.checkpoint = decoder, Path(result['checkpoint'])
                     self.state.update(model_ready=True, model_role='personal', model_sha256=decoder.contract['sha256'],
                         model_scope='Personal model. Validate on NEW cues with weights/settings frozen.',
-                        training_progress='Personal model ready.', status='Personal model ready. Start a fresh validation block.', error='')
+                        training_progress='Personal model ready.', status='Personal model ready. Start a fresh validation block.', error='',
+                        calibration_diagnostics=self._calibration_summary(result['diagnostics']))
+                    self._refresh_models()
                     self.results.append(dict(kind='personal_calibration_fit', diagnostics=result['diagnostics'], checkpoint=str(self.checkpoint)))
                     self.save()
             except Exception as exc:
@@ -416,11 +444,28 @@ class ThreeClassStudio:
         self.times.append(ts.copy())
         self.segment_ids.append(np.full(len(ts), self.segment, np.int32))
         filtered, self.plot_zi = sosfilt(self.plot_sos, raw, axis=1, zi=self.plot_zi)
+        self.quality_buffer.push_chunk(filtered)
+        if self.quality_buffer.is_full:
+            current = self.quality_buffer.get()
+            peaks = np.max(np.abs(current), axis=1)
+            std = np.std(current, axis=1)
+            artifact_limit = self.decoder.contract['artifact_limit_v'] if self.decoder else float(self.config.get('artifact_limit_v', 100e-6))
+            flat_limit = self.decoder.contract['min_signal_std_v'] if self.decoder else float(self.config.get('min_signal_std_v', 1e-9))
+            self.state['quality_details'] = dict(
+                artifact_channels=[ch for ch, peak in zip(self.channels, peaks) if peak > artifact_limit],
+                flat_channels=[ch for ch, value in zip(self.channels, std) if value < flat_limit],
+                peak_uV={ch:float(value*1e6) for ch, value in zip(self.channels, peaks)},
+                scope='Current four-second filtered EEG window across all selected sites.')
         self.waves['time'].extend(ts.tolist())
         for c in ['C3', 'Cz', 'C4']:
-            self.waves[c].extend((filtered[self.channels.index(c)]*1e6).tolist() if c in self.channels else [None]*len(ts))
+            self.waves[c].extend((filtered[self.channel_indices[c.casefold()]]*1e6).tolist()
+                                 if c.casefold() in self.channel_indices else [None]*len(ts))
         if not self.decoder:
-            self.state.update(quality='recording_untrained', decision='uncertain')
+            details = self.state['quality_details']
+            quality = ('artifact' if details.get('artifact_channels') else
+                       'flat_signal' if details.get('flat_channels') else
+                       'recording_untrained' if self.quality_buffer.is_full else 'warming_up')
+            self.state.update(quality=quality, decision='uncertain')
             return
         before = self.decoder.samples_seen
         packets = self.decoder.process_chunk_all(raw)
@@ -444,8 +489,8 @@ class ThreeClassStudio:
         rng = np.random.default_rng(42)
         next_demo = 0.
         while not self.stop_event.is_set():
-            now = self.clock()
             with self.lock:
+                now = self.clock()
                 try:
                     self._refresh(now)
                 except Exception as exc:

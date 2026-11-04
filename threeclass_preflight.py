@@ -60,9 +60,10 @@ def inspect(config, root=ROOT, inspect_lsl=False):
         return result
     if inspect_lsl:
         try:
-            from pylsl import StreamInlet, local_clock, proc_clocksync, resolve_byprop
+            from pylsl import StreamInlet, local_clock, proc_clocksync
             from lsl_acquisition import StreamAdapter, stream_metadata
-            streams = resolve_byprop('type', 'EEG', timeout=1.)
+            from threeclass_acquisition import discover_eeg_streams
+            streams = discover_eeg_streams(config)
             selected = [s for s in streams
                         if (not config.get('stream_name') or s.name() == config['stream_name'])
                         and (not config.get('source_id') or s.source_id() == config['source_id'])]

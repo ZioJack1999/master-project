@@ -1,5 +1,7 @@
 # Separate multiclass NN plan — 2026-11-03
 
+November 4: use [three-class revision 2](THREECLASS_R2_IMPROVEMENTS.md) for improved timing, chronological tuning and personal-model reuse. The separate [96-fit source-only study](MULTICLASS_V4_SOURCE_RESULTS.md) did not justify replacing the established neural architecture; no historical target scores were computed. New live accuracy still requires the lab recording.
+
 The [separate three-class lab package](THREECLASS_LAB_README.md) now includes live LSL acquisition, imagery cues, fresh personal covariance-NN fitting and frozen validation. It is downloadable separately from binary in [the package guide](LAB_PACKAGES.md). Its software checks do not establish physical X24 compatibility or new-wearer accuracy. Five/nine-class development and cross-person studies remain separate offline experiments; no actuator integration is added.
 
 The [v3 development study](MULTICLASS_V3_RESULTS.md) now tests independent-cue loss, smaller neural heads, stronger regularization and separately labeled past-prefix alignment. All 14 cases and negative results are retained. Fine five/nine-class performance remains below 70%; all historical tests are exposed. New code/configs live in `experiments/multiclass_v3/`, with weights private under `session_reports/multiclass/`. The 36-file binary release is frozen and checked by `verify_binary_release.py`; [Thursday November 5](THURSDAY_BINARY_VALIDATION.md) is for independent binary lab validation.

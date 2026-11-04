@@ -38,5 +38,5 @@ def build(output, root=ROOT):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--output', type=Path, default=ROOT/'lab_packages/BCI_ThreeClass_Lab_2026-11-05.zip')
+    p.add_argument('--output', type=Path, default=ROOT/'lab_packages/BCI_ThreeClass_Lab_2026-11-05_r2.zip')
     build(p.parse_args().output)

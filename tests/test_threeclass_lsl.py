@@ -28,6 +28,9 @@ def test_real_lsl_threeclass_http_warmup_and_partial_calibration_disconnect(tmp_
     sender = subprocess.Popen([sys.executable, str(Path(__file__).with_name('mock_threeclass_lsl.py')), name],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    other = subprocess.Popen([sys.executable, str(Path(__file__).with_name('mock_threeclass_lsl.py')), 'Unrelated_'+name],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     ready = queue.Queue()
     threading.Thread(target=lambda:ready.put(sender.stdout.readline().strip()), daemon=True).start()
     studio = ThreeClassStudio(config, root=ROOT)
@@ -90,6 +93,9 @@ def test_real_lsl_threeclass_http_warmup_and_partial_calibration_disconnect(tmp_
         # Begin a real cue collection, then remove the outlet before it finishes.
         state = api('/api/calibrate', {})
         assert state['protocol_kind'] == 'calibration' and state['cue'] in CLASSES
+        assert state['awaiting_cue_ack'] and not studio.protocol.events
+        state = api('/api/cue-presented', dict(run_id=state['cue_run_id'], trial=state['cue_index']))
+        assert not state['awaiting_cue_ack']
         deadline = time.monotonic()+2.
         while not studio.raw and time.monotonic() < deadline:
             time.sleep(.05)
@@ -135,3 +141,6 @@ def test_real_lsl_threeclass_http_warmup_and_partial_calibration_disconnect(tmp_
             sender.terminate()
             sender.wait(timeout=5.)
         sender.stdout.close()
+        if other.poll() is None:
+            other.terminate()
+            other.wait(timeout=5.)

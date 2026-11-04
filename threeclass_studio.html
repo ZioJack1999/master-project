@@ -75,6 +75,10 @@
     pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:280px; overflow:auto; background:#0e1723; border-radius:8px; padding:12px; }
     footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px 20px; margin-top:17px; font-size:12px; color:var(--muted); }
     #saved { overflow-wrap:anywhere; }
+    .model-tools { display:flex; align-items:end; flex-wrap:wrap; gap:9px; margin-top:13px; }
+    .model-tools label { display:grid; gap:5px; font-size:12px; color:var(--muted); }
+    select { background:#101b29; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; max-width:100%; min-width:240px; }
+    #modelStoreStatus,#calibrationSummary { font-size:12px; color:var(--muted); margin-top:10px; }
     @media(max-width:920px) { .workspace,.plots { grid-template-columns:1fr; } main { padding:18px 15px; } .toolbar .grow { display:none; } .cue-panel { min-height:268px; } }
     @media(max-width:520px) { header { align-items:start; } .badge { white-space:normal; max-width:125px; } .panel { padding:16px; } .toolbar button { flex:1; } .toolbar label { flex:1; } input { width:100%; } .section-heading { flex-wrap:wrap; } }
   </style>
@@ -98,6 +102,12 @@
       <button id="demoBtn" type="button">Synthetic demo</button>
     </div>
     <div class="model"><strong id="modelTitle">Loading model status…</strong><span id="modelScope" class="muted small"></span><span id="modelHash" class="muted small"></span></div>
+    <div class="model-tools">
+      <label>Saved personal model<select id="savedModel" aria-label="Saved personal model"><option value="">No saved models</option></select></label>
+      <button id="refreshModelsBtn" type="button">Refresh saved models</button>
+      <button id="loadModelBtn" type="button">Load selected model</button>
+    </div>
+    <p id="modelStoreStatus"></p><p id="calibrationSummary" hidden></p>
     <div id="error" role="alert"></div>
     <div id="demoNotice" class="notice">Synthetic demo — these waveforms do not demonstrate EEG decoding. Personal calibration and validation require live EEG.</div>
   </section>
@@ -157,7 +167,8 @@ const NAMES = {rest:'Rest',volar_grasp:'Volar Grasp',finger_extension:'Finger Ex
 const COLORS = ['#71c8f6','#f3b653','#ad97f6'];
 const INSTRUCTIONS = {rest:'Rest naturally. Stay still and let your hand relax.',volar_grasp:'Imagine the feeling of closing your hand around an object. Keep your actual hand still.',finger_extension:'Imagine the feeling of straightening your fingers. Keep your actual fingers still.'};
 const $ = id => document.getElementById(id);
-let latest = null, busy = false, uiError = '', pollError='', lastCue = '', lastResult = '', visibilityAborted=false, participantDirty=false;
+let latest = null, busy = false, uiError = '', pollError='', lastCue = '', lastResult = '', visibilityAborted=false, participantDirty=false, lastModels='';
+const pendingCueAcks=new Set();
 $('participant').addEventListener('input',()=>{participantDirty=true;updateControls();});
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const percent = x => finite(x) ? (x*100).toFixed(1)+'%' : '—';
@@ -177,7 +188,7 @@ async function action(path, body={}) {
   finally { busy=false; updateControls(); }
 }
 const participantBody=()=>({participant:$('participant').value.trim()});
-const actions={connectBtn:()=>action('/api/connect',participantBody()),startBtn:()=>action('/api/start',participantBody()),stopBtn:()=>action('/api/stop'),saveBtn:()=>action('/api/save'),resetBtn:()=>action('/api/reset'),demoBtn:()=>action('/api/demo'),calibrateBtn:()=>action('/api/calibrate',participantBody()),validateBtn:()=>action('/api/validate',participantBody())};
+const actions={connectBtn:()=>action('/api/connect',participantBody()),startBtn:()=>action('/api/start',participantBody()),stopBtn:()=>action('/api/stop'),saveBtn:()=>action('/api/save'),resetBtn:()=>action('/api/reset'),demoBtn:()=>action('/api/demo'),calibrateBtn:()=>action('/api/calibrate',participantBody()),validateBtn:()=>action('/api/validate',participantBody()),refreshModelsBtn:()=>action('/api/models',participantBody()),loadModelBtn:()=>action('/api/load-model',{...participantBody(),model_id:$('savedModel').value})};
 for (const [id,fn] of Object.entries(actions)) $(id).addEventListener('click',fn);
 
 function showError() {
@@ -197,10 +208,43 @@ function updateControls() {
   $('saveBtn').disabled=busy || Boolean(s.training) || protocol;
   $('resetBtn').disabled=blocked || Boolean(s.streaming);
   $('demoBtn').disabled=blocked || Boolean(s.streaming);
+  $('savedModel').disabled=blocked || Boolean(s.streaming) || idChanged;
+  $('refreshModelsBtn').disabled=blocked || Boolean(s.streaming) || idChanged;
+  $('loadModelBtn').disabled=blocked || Boolean(s.streaming) || idChanged || !$('savedModel').value;
   $('demoBtn').textContent=s.mode==='demo'?'Return to live EEG':'Synthetic demo';
   $('connectBtn').textContent=idChanged?'Apply participant ID':connected?'Reconnect EEG':'Connect EEG';
   $('calibrateBtn').title=idChanged?'Apply the participant ID first.':live?'Collect your own labeled Rest/Grasp/Extension cues.':'Live EEG is required for calibration.';
   $('validateBtn').title=idChanged?'Apply the participant ID first.':s.model_ready?'Collect new cues with the personal model frozen.':'Complete personal calibration first.';
+}
+function renderModels(s) {
+  const models=Array.isArray(s.model_choices)?s.model_choices:[], key=JSON.stringify(models.map(m=>[m.model_id,m.sha256]));
+  if(key!==lastModels) {
+    lastModels=key;const chosen=$('savedModel').value;$('savedModel').replaceChildren();
+    for(const m of models) {const option=document.createElement('option');option.value=m.model_id;option.textContent=m.calibration_run_id.slice(0,10)+' · '+m.sha256.slice(0,10)+' · '+m.training_cues+' train / '+m.tuning_cues+' tuning cues';$('savedModel').append(option);}
+    if(!models.length) {const option=document.createElement('option');option.value='';option.textContent='No compatible saved models';$('savedModel').append(option);}
+    else if(models.some(m=>m.model_id===chosen)) $('savedModel').value=chosen;
+  }
+  const rejected=(s.rejected_models||[]).length;
+  $('modelStoreStatus').textContent=models.length?models.length+' compatible model(s), newest first. Load explicitly, then validate on new cues.':rejected?rejected+' saved model(s) did not match this participant, montage or integrity checks.':'No saved personal model for this participant and cap profile.';
+  if(rejected) $('modelStoreStatus').textContent+=' '+rejected+' incompatible or damaged model(s) excluded.';
+  const d=s.calibration_diagnostics;
+  $('calibrationSummary').hidden=!d;
+  if(d) $('calibrationSummary').textContent='Calibration tuning only · '+d.training_cues+' training / '+d.tuning_cues+' tuning cues. '+(finite(d.clean_cues)&&finite(d.complete_cues)?d.clean_cues+' / '+d.complete_cues+' clean collected cues. ':'')+'Raw cue BA '+percent(d.tuning_raw_cue_ba)+'; decision-policy estimate '+percent(d.tuning_deployed_cue_ba)+'; confidence coverage on clean tuning windows '+percent(d.tuning_deployed_coverage)+'. Fresh validation is still required.';
+}
+function acknowledgeRenderedCue(s) {
+  if(!s.protocol_kind||!s.awaiting_cue_ack||!s.cue_run_id||document.hidden) return;
+  const run=s.cue_run_id,trial=s.cue_index,key=run+':'+trial;
+  if(pendingCueAcks.has(key)) return;
+  pendingCueAcks.add(key);
+  requestAnimationFrame(()=>requestAnimationFrame(async()=>{
+    try {
+      if(document.hidden||!latest||latest.cue_run_id!==run||latest.cue_index!==trial||!latest.awaiting_cue_ack) return;
+      const response=await fetch('/api/cue-presented',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:run,trial}),keepalive:true});
+      if(!response.ok&&response.status!==409) throw new Error('Cue display acknowledgement failed.');
+      await poll();
+    } catch(err) {pollError=err.message;showError();}
+    finally {pendingCueAcks.delete(key);}
+  }));
 }
 function render(s) {
   latest=s;
@@ -228,22 +272,25 @@ function render(s) {
   $('cue').style.color=protocol&&CLASSES.includes(cue)?COLORS[CLASSES.indexOf(cue)]:'var(--text)';
   $('cueInstruction').textContent=instruction;
   $('cueCount').textContent=protocol?'Cue '+(s.cue_index||0)+' of '+(s.cue_total||0):'';
-  $('cueTime').textContent=protocol&&finite(s.cue_remaining_s)?Math.max(0,s.cue_remaining_s).toFixed(1)+' s remaining':'';
+  $('cueTime').textContent=protocol?(s.awaiting_cue_ack?'Starting after display confirmation…':finite(s.cue_remaining_s)?Math.max(0,s.cue_remaining_s).toFixed(1)+' s remaining':''):'';
   $('cueProgress').style.width=protocol&&finite(s.cue_remaining_s)?Math.max(0,Math.min(100,100*(1-s.cue_remaining_s/8)))+'%':'0%';
-  const raw=s.raw_probabilities||[], ema=s.ema_probabilities||[], clean=s.quality==='ok'&&Boolean(s.streaming);
+  const raw=s.raw_probabilities||[], ema=s.ema_probabilities||[], clean=s.quality==='ok'&&Boolean(s.streaming)&&s.model_role!=='untrained';
   for (let i=0;i<3;i++) {
     const id=['Rest','Grasp','Extension'][i];
     $('p'+id).textContent=(clean?percent(raw[i]):'—')+' / '+(clean?percent(ema[i]):'—');
     $('bar'+id).style.width=clean&&finite(ema[i])?Math.max(0,Math.min(100,100*ema[i]))+'%':'0%';
   }
   $('decision').textContent=protocol==='calibration'?'Calibration in progress':training?'Fitting model':!s.streaming?'Paused':!clean?'No clean decision':label(s.decision);
-  $('quality').textContent=String(s.quality||'No signal').replace(/_/g,' ');
+  const q=s.quality_details||{}, badSites=[...(q.artifact_channels||[]),...(q.flat_channels||[])];
+  const sites=[...new Set(badSites)];
+  $('quality').textContent=String(s.quality||'No signal').replace(/_/g,' ')+(sites.length?' · '+sites.slice(0,4).join(', ')+(sites.length>4?' +'+(sites.length-4):''):'');
+  $('quality').title=sites.length?'Check these sites in acquisition software: '+sites.join(', '):'';
   $('quality').style.color=clean?'var(--good)':'var(--muted)';
   $('status').textContent=s.status || '4-second warm-up · updates every 0.25 seconds';
   $('saved').textContent=s.last_saved?'Saved: '+s.last_saved:'Session files remain private.';
   if (!protocol) visibilityAborted=false;
   abortHiddenProtocol();
-  showError(); updateControls(); drawPlots(); renderResult(s.result);
+  renderModels(s);showError(); updateControls(); drawPlots(); renderResult(s.result);acknowledgeRenderedCue(s);
 }
 
 function abortHiddenProtocol() {

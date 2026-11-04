@@ -18,6 +18,7 @@ from scipy.signal import butter, sosfilt
 from multiclass_features import (band_covariances, FeaturePreprocessor,
                                  FeatureNetwork, FeatureEnsembleRunner)
 from multiclass_metrics import evaluate, cue_probabilities, trial_class_weights
+from threeclass_decisions import diagnostic_from_probabilities
 
 CLASSES = ['rest', 'volar_grasp', 'finger_extension']
 POLICY = dict(ema_alpha=1., dwell_updates=1, min_confidence=.5, min_margin=.05)
@@ -141,7 +142,8 @@ def prepare_calibration(raw, timestamps, events, channels, config=None, segments
             windows.append(w.copy())
             rows.append(dict(trial=trial, label=CLASSES.index(label), run='personal_calibration',
                              start=start, end=finish, segment=int(blocks[start]),
-                             onset=onset, cue_end=end))
+                             onset=onset, cue_end=end,
+                             **({'calibration_block':event['calibration_block']} if 'calibration_block' in event else {})))
         if 0 < len(windows)-first < c['min_windows_per_cue']:
             counts['insufficient_clean_windows_cues'] += 1
             del windows[first:]
@@ -157,8 +159,16 @@ def prepare_calibration(raw, timestamps, events, channels, config=None, segments
     return np.stack(windows), rows, dict(counts)
 
 
-def split_cues(records, seed=42, min_cues_per_class=8, tuning_fraction=.25):
-    """Stratify independent cues; every overlapping copy stays in one partition."""
+def split_cues(records, seed=42, min_cues_per_class=8, tuning_fraction=.25, events=None):
+    """Reserve later cues/blocks for tuning, retaining every overlapping copy.
+
+    Block boundaries are determined from the ORIGINAL cue plan before quality
+    filtering. Failed later tuning cues never move earlier data into tuning or
+    later data into training. ``seed`` is retained for API compatibility; the
+    split itself is chronological and does not shuffle calibration trials.
+    """
+    if min_cues_per_class < 8 or not 0 < tuning_fraction < .5:
+        raise ValueError('Use at least eight clean independent cues per class and a valid tuning fraction.')
     groups = defaultdict(list)
     for i, row in enumerate(records):
         groups[row['trial']].append(i)
@@ -168,18 +178,78 @@ def split_cues(records, seed=42, min_cues_per_class=8, tuning_fraction=.25):
         if len(values) != 1 or values.pop() not in range(3):
             raise ValueError('One calibration cue has conflicting/unknown class labels.')
         labels[trial] = records[indices[0]]['label']
-    rng = np.random.default_rng(seed)
-    train, tuning = [], []
     for label in range(3):
         trials = sorted(t for t, y in labels.items() if y == label)
         if len(trials) < min_cues_per_class:
             raise ValueError(f'{CLASSES[label]}: need at least {min_cues_per_class} clean independent calibration cues; found {len(trials)}.')
-        order = rng.permutation(trials)
-        n_tune = max(2, round(len(trials)*tuning_fraction))
-        if len(trials)-n_tune < 4:
-            raise ValueError('Insufficient training cues after whole-cue tuning split.')
-        tuning.extend(i for t in order[:n_tune] for i in groups[t])
-        train.extend(i for t in order[n_tune:] for i in groups[t])
+    block_events = events is not None and any('calibration_block' in e for e in events)
+    if block_events:
+        plan = {}
+        for event in events:
+            block = event.get('calibration_block')
+            if isinstance(block, bool) or not isinstance(block, (int, np.integer)) or block < 0:
+                raise ValueError('Every calibration event needs a nonnegative integer calibration block.')
+            trial = str(event.get('trial', '')).strip()
+            if not trial or trial in plan:
+                raise ValueError('Original calibration plan has missing or duplicate cue IDs.')
+            onset = float(event['onset'])
+            if not np.isfinite(onset):
+                raise ValueError('Original calibration cue onsets must be finite.')
+            label = _canonical(event.get('label', ''))
+            if label not in CLASSES:
+                raise ValueError('Original calibration plan contains an unknown class.')
+            plan[trial] = dict(block=int(block), onset=onset, label=CLASSES.index(label))
+        ordered = sorted(plan.values(), key=lambda item:item['onset'])
+        if any(a['block'] > b['block'] for a, b in zip(ordered, ordered[1:])):
+            raise ValueError('Calibration blocks must follow recorded cue order.')
+        blocks = sorted({item['block'] for item in plan.values()})
+        for block in blocks:
+            if Counter(item['label'] for item in plan.values() if item['block'] == block) != Counter({0:1, 1:1, 2:1}):
+                raise ValueError('Each original calibration block must contain exactly one cue of each class.')
+        n_tune_blocks = max(2, int(np.ceil(len(blocks)*tuning_fraction)))
+        if n_tune_blocks >= len(blocks):
+            raise ValueError('Not enough earlier calibration blocks remain for training.')
+        tuning_blocks = set(blocks[-n_tune_blocks:])
+        train_trials, tuning_trials = [], []
+        for trial, indices in groups.items():
+            if trial not in plan:
+                raise ValueError('Accepted cue is absent from the original calibration plan.')
+            block = plan[trial]['block']
+            if labels[trial] != plan[trial]['label']:
+                raise ValueError('Accepted cue label disagrees with the original calibration plan.')
+            if any(records[i].get('calibration_block') != block for i in indices):
+                raise ValueError('Accepted cue block disagrees with the original calibration plan.')
+            (tuning_trials if block in tuning_blocks else train_trials).append(trial)
+    else:
+        if any('calibration_block' in r for r in records):
+            raise ValueError('Original calibration events are required to reserve declared blocks before quality filtering.')
+        # Legacy calibration recordings still receive one global chronological
+        # cut. Do not interleave per-class later and earlier cues.
+        use_onsets = all('onset' in r for r in records)
+        key = 'onset' if use_onsets else 'start'
+        if any(key not in r or not np.isfinite(r[key]) for r in records):
+            raise ValueError('Chronological calibration splitting requires recorded cue onset/start times.')
+        order = sorted(groups, key=lambda trial:(min(records[i][key] for i in groups[trial]), trial))
+        target = len(order)*(1-tuning_fraction)
+        possible = []
+        for cut in range(1, len(order)):
+            before = Counter(labels[t] for t in order[:cut])
+            after = Counter(labels[t] for t in order[cut:])
+            if all(before[i] >= 4 and after[i] >= 2 for i in range(3)):
+                possible.append(cut)
+        if not possible:
+            raise ValueError('No chronological split has enough earlier training and later tuning cues for all classes; collect balanced cue blocks.')
+        cut = min(possible, key=lambda value:(abs(value-target), value))
+        train_trials, tuning_trials = order[:cut], order[cut:]
+    train_counts = Counter(labels[t] for t in train_trials)
+    tuning_counts = Counter(labels[t] for t in tuning_trials)
+    if not all(train_counts[i] >= 4 and tuning_counts[i] >= 2 for i in range(3)):
+        raise ValueError('Reserved calibration blocks need at least four clean training and two clean tuning cues per class; collect a new calibration.')
+    train = [i for trial in train_trials for i in groups[trial]]
+    tuning = [i for trial in tuning_trials for i in groups[trial]]
+    if all('onset' in r and 'cue_end' in r for r in records):
+        if max(records[i]['cue_end'] for i in train) > min(records[i]['onset'] for i in tuning)+1/256:
+            raise ValueError('Training and tuning cues overlap the chronological boundary.')
     train, tuning = np.array(sorted(train), dtype=int), np.array(sorted(tuning), dtype=int)
     if {records[i]['trial'] for i in train} & {records[i]['trial'] for i in tuning}:
         raise ValueError('Whole-cue calibration split leaked.')
@@ -198,6 +268,7 @@ def _metrics(probabilities, rows):
     result = evaluate(probabilities, y, rows, CLASSES)
     truth, p, _ = cue_probabilities(probabilities, rows)
     result['cue_nll'] = float(-np.log(np.maximum(p[np.arange(len(truth)), truth], 1e-12)).mean())
+    result['deployment_policy'] = diagnostic_from_probabilities(probabilities, rows, CLASSES, POLICY)
     return result
 
 
@@ -238,20 +309,24 @@ def _fit_member(tx, tr, vx, vr, pre, c, seed, cancel, progress):
             loss_sum += float((losses.detach()*w).sum())
             weight_sum += float(w.sum())
         m = _metrics(_probabilities(model, vx), vr)
-        cue = m['cue_trials']
+        cue = m['deployment_policy']
         score = (cue['balanced_accuracy'], min(cue['recall'].values()), -m['cue_nll'])
         row = dict(epoch=epoch, sampled_window_loss=loss_sum/weight_sum,
-                   tuning_cue_balanced_accuracy=score[0], tuning_cue_nll=m['cue_nll'])
+                   tuning_cue_balanced_accuracy=m['cue_trials']['balanced_accuracy'],
+                   tuning_deployment_balanced_accuracy=score[0],
+                   tuning_deployment_coverage=cue['coverage'], tuning_cue_nll=m['cue_nll'])
         if epoch == 1 or epoch % 10 == 0:
             tm = _metrics(_probabilities(model, tx), tr)
-            row.update(train_cue_balanced_accuracy=tm['cue_trials']['balanced_accuracy'], train_cue_nll=tm['cue_nll'])
+            row.update(train_cue_balanced_accuracy=tm['cue_trials']['balanced_accuracy'],
+                       train_deployment_balanced_accuracy=tm['deployment_policy']['balanced_accuracy'],
+                       train_deployment_coverage=tm['deployment_policy']['coverage'], train_cue_nll=tm['cue_nll'])
         history.append(row)
         if best is None or score > best:
             best, state, best_epoch, wait = score, copy.deepcopy(model.state_dict()), epoch, 0
         else:
             wait += 1
         if progress and (epoch == 1 or epoch % 20 == 0):
-            progress(f'Fitting personal three-class seed {seed}: epoch {epoch}, tuning cue BA {score[0]:.1%}.')
+            progress(f'Fitting personal three-class seed {seed}: epoch {epoch}, tuning deployed-cue BA {score[0]:.1%}.')
         if wait >= c['patience']:
             break
     model.load_state_dict(state)
@@ -273,7 +348,7 @@ def fit_personal(raw, timestamps, events, channels, output_dir, config=None,
     if progress:
         progress('Checking complete calibration cues, gaps and EEG quality.')
     X, rows, counts = prepare_calibration(raw, timestamps, events, channels, c, segments)
-    train, tuning = split_cues(rows, c['seed'], c['min_cues_per_class'], c['tuning_fraction'])
+    train, tuning = split_cues(rows, c['seed'], c['min_cues_per_class'], c['tuning_fraction'], events=events)
     tr, vr = [rows[i] for i in train], [rows[i] for i in tuning]
     y = np.array([r['label'] for r in tr], dtype=np.int64)
     weights = trial_class_weights(y, tr)
@@ -295,7 +370,8 @@ def fit_personal(raw, timestamps, events, channels, output_dir, config=None,
                    post_logit_bias=np.zeros(3, dtype=np.float32))
     runner = FeatureEnsembleRunner(payload)
     cue_manifest = [dict(trial=str(e['trial']), label=_canonical(e['label']),
-                         onset=float(e['onset']), end=float(e['end']))
+                         onset=float(e['onset']), end=float(e['end']),
+                         **({'calibration_block':int(e['calibration_block'])} if 'calibration_block' in e else {}))
                     for e in events if e.get('complete', False)]
     input_hashes = dict(
         raw_volts_float32_sha256=hashlib.sha256(np.asarray(raw, dtype=np.float32).tobytes()).hexdigest(),
@@ -311,6 +387,26 @@ def fit_personal(raw, timestamps, events, channels, output_dir, config=None,
         tuning_cues_per_class={name:len({r['trial'] for r in vr if r['label'] == i}) for i, name in enumerate(CLASSES)},
         config=c, input_hashes=input_hashes, completed_cue_manifest=cue_manifest,
         warning='Calibration tuning is development evidence. Collect NEW frozen-model validation cues; no accuracy is fabricated or inferred for them.')
+    diagnostics['split_scope'] = ('Later original calibration blocks reserved before quality filtering.'
+        if any('calibration_block' in e for e in events) else
+        'One chronological cut of complete accepted calibration cues; no interleaving.')
+    diagnostics['train_tuning_gap'] = (diagnostics['training']['deployment_policy']['balanced_accuracy']-
+                                       diagnostics['tuning']['deployment_policy']['balanced_accuracy'])
+    diagnostics['raw_train_tuning_gap'] = (diagnostics['training']['cue_trials']['balanced_accuracy']-
+                                           diagnostics['tuning']['cue_trials']['balanced_accuracy'])
+    diagnostics['tuning_abstention_rate'] = 1-diagnostics['tuning']['deployment_policy']['coverage']
+    diagnostics['split_details'] = dict(
+        latest_training_cue_end=max(r['cue_end'] for r in tr),
+        earliest_tuning_cue_onset=min(r['onset'] for r in vr),
+        chronology='Every training cue precedes every tuning cue.')
+    if any('calibration_block' in e for e in events):
+        declared_blocks = sorted({int(e['calibration_block']) for e in events})
+        n_reserved = max(2, int(np.ceil(len(declared_blocks)*c['tuning_fraction'])))
+        diagnostics['split_details'].update(
+            original_block_ids=declared_blocks,
+            training_block_ids=declared_blocks[:-n_reserved],
+            reserved_tuning_block_ids=declared_blocks[-n_reserved:],
+            reserved_before_quality_filtering=True)
     contract = dict(schema_version=2, task_mode='multiclass', arch='feature_ensemble',
         role='personal_threeclass_model', classes=CLASSES, channels=list(channels), sfreq=256,
         n_times=1024, normalization='feature_train_only',
@@ -322,6 +418,8 @@ def fit_personal(raw, timestamps, events, channels, output_dir, config=None,
         participant=str(c.get('participant', 'self')),
         calibration_run_id=str(c.get('calibration_run_id', '')),
         calibration_input_hashes=input_hashes,
+        calibration_split=diagnostics['split_scope'],
+        early_stopping='Tuning deployed-cue BA, minimum class recall, then raw cue NLL; no decision-threshold search.',
         final_validation_performed=False, training_cues=diagnostics['train_cues'],
         tuning_cues=diagnostics['tuning_cues'], class_bias_calibration='None: zero offsets for this new person.')
     _check_cancel(cancel)

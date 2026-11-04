@@ -1,6 +1,6 @@
 # Personal motor-imagery BCI Studio
 
-**Separate downloads for lab testing:** [binary Rest/Grasp ZIP](downloads/BCI_Binary_Lab_2026-11-05.zip) and [three-class Rest/Grasp/Extension ZIP](downloads/BCI_ThreeClass_Lab_2026-11-05.zip). Extract them into different folders and read [the two-package lab guide](LAB_PACKAGES.md). The three-class package now includes its own live cue/calibration/validation console at port8051; both packages still require physical lab validation.
+**Separate downloads for lab testing:** [binary Rest/Grasp ZIP](downloads/BCI_Binary_Lab_2026-11-05.zip) and [three-class Rest/Grasp/Extension ZIP · revision 2](downloads/BCI_ThreeClass_Lab_2026-11-05_r2.zip). Extract them into different folders and read [the two-package lab guide](LAB_PACKAGES.md). The three-class package has its own live cue/calibration/validation console at port8051; [revision 2](THREECLASS_R2_IMPROVEMENTS.md) improves cue timing, chronological tuning, confidence diagnostics and saved-model reuse. Both packages still require physical lab validation.
 
 Fit an EEGNet to your own **REST versus imagined right-hand grasp** calibration, then evaluate the frozen model on new cue trials. Windows are 2 seconds, stride .25 seconds (87.5% overlap), with continuous causal 8–30 Hz filtering.
 

@@ -106,6 +106,7 @@ def test_hidden_display_timeout_and_stop_abort_without_fitting(studio):
     assert s.protocol is None and not s.state['streaming'] and not s.state['training']
     assert s.results[-1]['status'] == 'aborted'
     s.action('/api/calibrate')
+    s.action('/api/cue-presented', dict(run_id=s.protocol.run_id, trial=1))
     s.action('/api/stop', dict(reason='Cue display hidden.'))
     assert s.events[-1]['complete'] is False and s.protocol is None
     assert s.results[-1]['reason'] == 'Cue display hidden.'
@@ -146,12 +147,20 @@ def test_personal_fit_then_new_frozen_validation_and_private_save(studio, calibr
     assert s.state['model_ready'], s.state['error']
     assert s.state['model_role'] == 'personal'
     model_hash = s.state['model_sha256']
+    # Restarting the application keeps a verified model available, but only an
+    # explicit same-participant selection marks it ready for another test.
+    restarted = ThreeClassStudio(s.config, root=s.root, clock=lambda:now[0])
+    assert not restarted.state['model_ready']
+    candidate = restarted.state['model_choices'][0]
+    restarted.action('/api/load-model', dict(participant='synthetic_fixture', model_id=candidate['model_id']))
+    assert restarted.state['model_ready'] and restarted.state['model_sha256'] == model_hash
     now[0] = 300.
     s.state['connected'] = True
     s.action('/api/validate')
     labels = list(s.protocol.labels)
     rng = np.random.default_rng(7)
     for label in labels:
+        s.action('/api/cue-presented', dict(run_id=s.protocol.run_id, trial=s.protocol.index+1))
         onset = s.protocol.events[-1]['onset']
         for a in range(0, 8*256, 64):
             stamps = onset+np.arange(a, a+64)/256
@@ -173,6 +182,59 @@ def test_personal_fit_then_new_frozen_validation_and_private_save(studio, calibr
     assert metadata['model_role'] == 'personal'
     assert metadata['results'][-1]['metrics']['n_cues'] == 3
     # Synthetic pipeline success does not establish participant accuracy.
+
+
+def test_render_acknowledgement_precedes_labels_and_timeout_aborts(studio):
+    s, now = studio
+    s.state['connected'] = True
+    result = s.action('/api/calibrate')
+    assert result['awaiting_cue_ack'] and not s.protocol.events
+    with pytest.raises(ValueError, match='Stale or unexpected'):
+        s.action('/api/cue-presented', dict(run_id='old', trial=1))
+    now[0] += .3
+    result = s.action('/api/cue-presented', dict(run_id=s.protocol.run_id, trial=1))
+    assert not result['awaiting_cue_ack'] and s.protocol.events[0]['onset'] == now[0]
+    assert s.protocol.events[0]['display_acknowledged']
+    now[0] += 8.
+    s.last_ui_seen = now[0]
+    s._refresh(now[0])
+    assert s.state['awaiting_cue_ack'] and len(s.protocol.events) == 1
+    now[0] += 3.1
+    s.last_ui_seen = now[0]  # Polling is alive, but the next cue was never painted.
+    s._refresh(now[0])
+    assert s.protocol is None and s.results[-1]['status'] == 'aborted'
+    assert 'acknowledgement timed out' in s.state['error']
+    assert s.events[0]['complete']  # Completed preceding cue remains intact.
+
+
+def test_all_site_quality_identifies_a_channel_outside_the_three_displayed_traces(tmp_path):
+    c = json.loads((ROOT/'threeclass_config.custom20.example.json').read_text())
+    c['checkpoint'] = str(ROOT/c['checkpoint'])
+    s = ThreeClassStudio(c, root=tmp_path, clock=lambda:100.)
+    assert s.decoder is None  # Physical custom20 sites differ from the reference.
+    s.state['streaming'] = True
+    raw = np.random.default_rng(29).normal(0, 3e-6, (20, 1280)).astype('float32')
+    raw[s.channels.index('F1'), 1000] = .001
+    s.ingest(raw, 100.+np.arange(1280)/256)
+    assert s.state['quality'] == 'artifact'
+    assert 'F1' in s.state['quality_details']['artifact_channels']
+    assert s.state['quality_details']['peak_uV']['F1'] > 100
+    assert len(s.state['quality_details']['peak_uV']) == 20
+    assert s.state['decision'] == 'uncertain'
+    s._reset_segment()
+    assert not s.state['quality_details'] and s.state['quality'] == 'warming_up'
+
+
+def test_electrode_spelling_case_does_not_change_reference_or_blank_the_scope(tmp_path):
+    c = json.loads((ROOT/'threeclass_config.json').read_text())
+    c.update(checkpoint=str(ROOT/c['checkpoint']), channels=[ch.lower() for ch in c['channels']])
+    s = ThreeClassStudio(c, root=tmp_path, clock=lambda:100.)
+    assert s.decoder is not None and s.state['model_role'] == 'recorded_reference'
+    s.state['streaming'] = True
+    s.ingest(np.random.default_rng(3).normal(0, 3e-6, (20, 1280)).astype('float32'),
+             100.+np.arange(1280)/256)
+    for channel in ['C3', 'Cz', 'C4']:
+        assert len(s.waves[channel]) == 1024 and all(v is not None for v in s.waves[channel])
 
 
 def test_pending_connection_is_discarded_after_source_switch(studio, monkeypatch):

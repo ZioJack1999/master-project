@@ -44,9 +44,9 @@ def test_preflight_rejects_unsupported_geometry_and_missing_sites(field, value):
 def fake_lsl(monkeypatch, now=100., stale=False, duplicate=False):
     import lsl_acquisition
     c = config()
-    streams = [SimpleNamespace(name=lambda:'X24', source_id=lambda:'lab_x24')]
+    streams = [SimpleNamespace(name=lambda:'X24', source_id=lambda:'lab_x24', type=lambda:'EEG')]
     if duplicate:
-        streams.append(SimpleNamespace(name=lambda:'X24-copy', source_id=lambda:'other'))
+        streams.append(SimpleNamespace(name=lambda:'X24-copy', source_id=lambda:'other', type=lambda:'EEG'))
     closed = []
     meta = dict(name='X24', source_id='lab_x24', type='EEG', sfreq=256,
                 channel_count=26, labels=['prefix'+str(i) for i in range(6)]+c['channels'],
@@ -60,7 +60,8 @@ def fake_lsl(monkeypatch, now=100., stale=False, duplicate=False):
             return np.ones((64, 26)).tolist(), (last-np.arange(63,-1,-1)/256).tolist()
         def close_stream(self): closed.append(self.stream)
     monkeypatch.setitem(sys.modules, 'pylsl', SimpleNamespace(StreamInlet=Inlet,
-        local_clock=lambda:now, proc_clocksync=1, resolve_byprop=lambda *a,**kw:streams))
+        local_clock=lambda:now, proc_clocksync=1, resolve_byprop=lambda *a,**kw:streams,
+        resolve_streams=lambda **kw:streams))
     monkeypatch.setattr(lsl_acquisition, 'stream_metadata', lambda info:copy.deepcopy(meta))
     return closed
 
