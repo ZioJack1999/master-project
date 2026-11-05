@@ -1,14 +1,16 @@
 # Three-class X24 lab procedure
 
-Classes: **Rest, Volar Grasp, Finger Extension**. Run `Launch_THREECLASS_X24.bat` from this folder. The launcher uses the same 32-bit mastersp/Athena → LSL → 64-bit PyTorch route as binary and opens http://127.0.0.1:8051.
+Classes: **Rest, Volar Grasp, Finger Extension**. Run `Launch_THREECLASS_X24.bat` from this folder. The launcher uses the same 32-bit mastersp/Athena â†’ LSL â†’ 64-bit PyTorch route as binary and opens http://127.0.0.1:8051.
 
 Finish/save the binary session and stop its launcher before switching. The three-class application records and displays predictions; it sends no actuator commands.
+
+Live transport, all-site quality display, three-class probabilities and session saving were verified on the physical X24. A saved 46.28-second signal check contains 20 channels and 11,848 samples/channel at 256 Hz. No wearer calibration or personal accuracy test has been performed.
 
 ## Live test and personal calibration
 
 1. Connect the ESU, power on the X24 and verify electrodes/reference and the physical montage. Launch the app and leave Demo OFF.
 2. Check the hardware/source, timestamps and channel quality for all 20 sites. The stock bridge requires the physical X24 10-20 layout; do not substitute electrode names.
-3. Enter a pseudonymous participant ID, start the stream and run personal calibration: 12 eight-second cues per class, **36 cues / 288 seconds**, plus fitting.
+3. Enter a pseudonymous participant ID, click Connect/Reconnect EEG for that ID, then Start stream and run personal calibration: 12 eight-second cues per class, **36 cues / 288 seconds**, plus fitting.
 4. Follow the visible imagery cues without moving your fingers, jaw or shoulders. Keep the browser visible; cue timing requires display acknowledgement. Stop/Cancel or lost display/EEG freshness aborts an incomplete run.
 5. Wait for Personal model ready. Review clean-cue counts and tuning/coverage diagnostics. Poor data may require a complete new calibration.
 6. Start a frozen validation block: **30 NEW cues / 240 seconds**. Do not change model/policy after seeing results and count the same data as a new test.

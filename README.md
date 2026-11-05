@@ -9,7 +9,7 @@ Live binary and three-class apps for the B-Alert X24/ESU. Acquisition runs in **
 
 Connect the ESU, power on the X24 and run one launcher. It verifies model integrity, starts the 32-bit bridge, checks fresh labeled 256 Hz EEG and opens the GUI. Keep the launcher running. Closing the browser tab alone does not stop acquisition; Ctrl+C in the launcher stops both processes. Finish and save one experiment before switching apps.
 
-Binary live transport, waveforms and saving have been verified on this PC. The three-class launcher uses the same bridge; its live check is the next step. Both apps require personal calibration and fresh validation before any claim about accuracy on a new wearer.
+Binary and three-class live transport, waveforms, probabilities and saving have been verified on this PC through the shared bridge. The three-class test saved 11,848 samples per channel at 256 Hz and correctly retained its recorded-reference identity. Both apps require personal calibration and fresh validation before any claim about accuracy on a new wearer.
 
 - [Binary lab procedure](README_LAB_GUIDE.md)
 - [Three-class procedure](THREECLASS_LAB_README.md)

@@ -1,6 +1,6 @@
 # Working X24 connection on this lab PC
 
-Verified November 5, 2026: ESU/X24 → 32-bit mastersp → LSL → existing 64-bit conda Python → original binary GUI.
+Verified November 5, 2026: ESU/X24 â†’ 32-bit mastersp â†’ LSL â†’ existing 64-bit conda Python â†’ original binary GUI.
 
 ## Start
 
@@ -8,7 +8,7 @@ Run **Launch_BINARY_X24.bat from this project folder**. It starts the bridge, ch
 
 The old extracted BCI_binary folder is ignored and is not a supported entry point. Use the launchers beside this document. Historical experiments and distributions are recoverable in Git history and local ignored backups.
 
-Leave Demo Mode OFF. Enter a pseudonymous participant ID, click Start Stream and inspect the signal. Verify physical cap sites/reference and electrode quality. Click Personal calibration (18 × 8s), follow the REST/imagined right-hand grasp cues, and wait for Personal model ready. Start Stream again and Validate for 20 NEW cues. Save Session & Stop afterwards. Initial template probabilities have no learned meaning.
+Leave Demo Mode OFF. Enter a pseudonymous participant ID, click Start Stream and inspect the signal. Verify physical cap sites/reference and electrode quality. Click Personal calibration (18 Ã— 8s), follow the REST/imagined right-hand grasp cues, and wait for Personal model ready. Start Stream again and Validate for 20 NEW cues. Save Session & Stop afterwards. Initial template probabilities have no learned meaning.
 
 ## Verified results
 
@@ -25,16 +25,16 @@ Signal quality checks sometimes passed and sometimes detected artifacts. Physica
 
 One earlier restart hit the timestamp freshness guard and stopped the bridge; the later checks above passed with the same guards enabled. If this recurs, save any available session data, stop the launcher and investigate receiver/USB timing before restarting. An interrupted cue run is not a completed validation block.
 
-The same shared supervisor also starts the three-class GUI via Launch_THREECLASS_X24.bat at http://127.0.0.1:8051; its live verification is pending.
+The shared supervisor also starts the verified three-class GUI via Launch_THREECLASS_X24.bat at http://127.0.0.1:8051. Its physical X24 test displayed live waveforms and three finite class probabilities summing to one on clean updates. All 20 sites were included in quality diagnostics; ten monitored updates passed the software quality check. Saving produced 11,848 samples/channel over 46.28 seconds, 170 prediction updates, median 256 Hz and a maximum timestamp gap of about 3.913 ms. An independent saved-file check confirmed finite volts, live provenance and the correct three class names. The model remained explicitly labeled as the historical participant-08 reference, with personal validation disabled until calibration. This verifies transport and software behavior, not personal classification accuracy.
 
 ## Processes and dependencies
 
 | Role | Runtime |
 |---|---|
-| ESU acquisition | C:\Users\TDT\miniconda3\envs\mastersp\python.exe — existing 32-bit Python 3.9.12 |
-| Athena SDK | C:\ABM\B-Alert\SDK — installed x86 SDK |
-| Local LSL sender | .runtime/x24-lsl32 — pylsl 1.17.6 with 32-bit liblsl 1.16.2 |
-| Decoder/GUI | C:\Users\TDT\miniconda3\python.exe — existing 64-bit conda base, PyTorch 2.15.0 CPU |
+| ESU acquisition | C:\Users\TDT\miniconda3\envs\mastersp\python.exe â€” existing 32-bit Python 3.9.12 |
+| Athena SDK | C:\ABM\B-Alert\SDK â€” installed x86 SDK |
+| Local LSL sender | .runtime/x24-lsl32 â€” pylsl 1.17.6 with 32-bit liblsl 1.16.2 |
+| Decoder/GUI | C:\Users\TDT\miniconda3\python.exe â€” existing 64-bit conda base, PyTorch 2.15.0 CPU |
 
 Neither conda environment was modified. No new conda environment is retained. The small pylsl dependency is installed only in the ignored project-local .runtime folder; PATH/PYTHONPATH overrides affect only the child process. The inherited ABMSDK points to an older Box copy, so the bridge explicitly selects the installed SDK.
 
