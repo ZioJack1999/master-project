@@ -14,9 +14,10 @@ REQUIRED_FILES = [
     'threeclass_acquisition.py',
     'threeclass_preflight.py', 'verify_threeclass_bundle.py',
     'threeclass_config.json', 'threeclass_config.custom20.example.json',
-    'Setup_THREECLASS_Lab.bat', 'Launch_THREECLASS_Lab.bat',
+    'Launch_THREECLASS_X24.bat', 'run_x24.py', 'x24_lsl_bridge.py',
+    'athena_acquisition.py', 'Start_X24_Bridge.bat',
     'multiclass_decoder.py', 'multiclass_features.py', 'multiclass_metrics.py',
-    'multiclass_data.py', 'networks.py', 'realtime_bci_decoder.py',
+    'model_utils.py', 'networks.py', 'realtime_bci_decoder.py',
     'create_personal_template.py', 'lsl_acquisition.py', 'requirements.txt',
     REFERENCE, REFERENCE+'.json',
 ]

@@ -1,10 +1,12 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.ipynb_checkpoints/
 .env
 .venv/
+.runtime/
 env/
 venv/
 ENV/
@@ -33,3 +35,6 @@ audit/*.local.json
 RESUME_NOTES.md
 lab_packages/
 audit/multiclass_v4_sourceonly.json
+
+# Extracted historical package, kept local while open in Windows
+BCI_binary/

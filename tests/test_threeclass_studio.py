@@ -14,7 +14,7 @@ import pytest
 import torch
 import threeclass_studio as app
 from threeclass_studio import ThreeClassProtocol, ThreeClassStudio, score_validation
-from multiclass_data import digest
+from model_utils import digest
 from test_threeclass_personal import calibration
 
 ROOT = Path(__file__).resolve().parents[1]

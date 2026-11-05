@@ -1,61 +1,31 @@
-# Three-class lab package — Rest, Volar Grasp, Finger Extension
+# Three-class X24 lab procedure
 
-**Revision 2** adds display-confirmed cue timing, later calibration blocks for tuning, confidence/rejection diagnostics, saved personal-model loading, targeted stream discovery and an all-site filtered-signal quality summary. The binary package and the participant08 reference weights are preserved.
+Classes: **Rest, Volar Grasp, Finger Extension**. Run `Launch_THREECLASS_X24.bat` from this folder. The launcher uses the same 32-bit mastersp/Athena → LSL → 64-bit PyTorch route as binary and opens http://127.0.0.1:8051.
 
-Use this package separately from the binary Rest/action ZIP. Its launcher opens the **three-class console at http://127.0.0.1:8051/**. It records EEG, presents cues, fits your personal three-class model and evaluates new cues. It displays predictions and implements no actuator or FES output. Run one acquisition consumer at a time if the lab bridge/device requires exclusive ownership.
+Finish/save the binary session and stop its launcher before switching. The three-class application records and displays predictions; it sends no actuator commands.
 
-The supplied participant-08 reference achieved **81.6% cue balanced accuracy** and **77.3% continuous-replay cue balanced accuracy** on that participant's recorded data. Volar Grasp recall was 53.8%. These figures are historical evidence, not your accuracy. The live X24/ESU connection, new personal calibration and three-class performance on you require lab validation. The console labels the reference explicitly and requires a fitted personal model before fresh validation.
+## Live test and personal calibration
 
-## Install and connect
+1. Connect the ESU, power on the X24 and verify electrodes/reference and the physical montage. Launch the app and leave Demo OFF.
+2. Check the hardware/source, timestamps and channel quality for all 20 sites. The stock bridge requires the physical X24 10-20 layout; do not substitute electrode names.
+3. Enter a pseudonymous participant ID, start the stream and run personal calibration: 12 eight-second cues per class, **36 cues / 288 seconds**, plus fitting.
+4. Follow the visible imagery cues without moving your fingers, jaw or shoulders. Keep the browser visible; cue timing requires display acknowledgement. Stop/Cancel or lost display/EEG freshness aborts an incomplete run.
+5. Wait for Personal model ready. Review clean-cue counts and tuning/coverage diagnostics. Poor data may require a complete new calibration.
+6. Start a frozen validation block: **30 NEW cues / 240 seconds**. Do not change model/policy after seeing results and count the same data as a new test.
+7. Save the session. Keep raw EEG, events, predictions, model hashes, quality/rejection counts and metrics together under `session_reports/threeclass/`.
 
-1. Extract the complete three-class ZIP into its own writable folder. Keep the binary package in a different folder. Do not run from inside the ZIP.
-2. Install 64-bit Python 3.11, then run `Setup_THREECLASS_Lab.bat`. Setup downloads Python requirements; vendor acquisition/SDK/driver software and the appropriate acquisition-to-LSL bridge are separate prerequisites. This package does not contain the vendor installer.
-3. Establish clean EEG in the lab's existing licensed acquisition software first. Verify the physical electrodes and reference, impedance, X24/ESU pairing, stream timestamps and numeric units. A 32-bit vendor SDK needs its own matching process; the 64-bit model process communicates through LSL.
-4. Copy the appropriate supplied profile to `threeclass_config.local.json` and make lab-specific edits there. Select the EEG stream by name and preferably source ID. Use the producer's verified channel labels and units; if metadata are absent, supply the full verified field order, including non-EEG prefix fields. Set an input-unit override only after confirming whether values are V, mV or µV. The required sample rate is **256 Hz**, with no implicit resampling.
-5. Run the following in PowerShell from the extracted folder. The probe checks compatible metadata and fresh samples; it does not establish clean EEG or decoding accuracy. Then run `Launch_THREECLASS_Lab.bat --config threeclass_config.local.json`. If using the unchanged default profile, omit `--config` from both commands.
+The supplied participant-08 covariance-NN checkpoint is a **recorded reference**, not a personal model for this wearer. Its historical performance does not predict your accuracy. The GUI requires a personal fit before fresh validation.
 
-```powershell
-& "$env:USERPROFILE\.bci_threeclass\venv\Scripts\python.exe" threeclass_preflight.py --config threeclass_config.local.json --inspect-lsl
-```
+Calibration partitions whole cues before signal-quality exclusions, fits preprocessing only on training cues, and reserves later cues for tuning. Validation uses a frozen saved model and policy; rejected cues count as errors. Those safeguards do not establish biological performance without new wearer data.
 
-The default stock20 physical sites are Fp1, Fp2, F7, F3, Fz, F4, F8, T3, C3, Cz, C4, T4, T5, P3, Pz, P4, T6, O1, POz, O2. The recorded reference requires this physical set. `threeclass_config.custom20.example.json` supports fresh personal fitting with the separate EEGMI-style custom20 arrangement. Verify the profile against the actual cap. Do not rename different electrode sites or substitute missing channels to match a model.
+## Reusing a personal model
 
-## Personal calibration
+Enter the matching participant ID and explicitly select a verified saved personal model. Identity, channel order, preprocessing, provenance and model bytes are checked. A loaded model still needs new validation cues for the current cap placement/session. A new participant cannot inherit another person's fitted model.
 
-1. Enter a pseudonymous participant ID and choose **Connect EEG**. Inspect the actual C3/Cz/C4 EEG traces and signal-quality status. Select **Start stream** to preview live signal. The default reference probabilities describe a model trained for another participant.
-2. When signal quality is satisfactory, choose **Personal calibration**. The default is **12 cues per class × 8 seconds: 36 cues in randomized balanced blocks, 4.8 minutes**, plus brief display-confirmation intervals and fitting time. Follow the visible cue. During Volar Grasp imagine the feeling of closing your hand around an object; during Finger Extension imagine straightening your fingers. Keep your actual fingers, jaw and shoulders still.
-3. The application saves raw EEG and cue events. It fits only on your completed calibration cues. Earlier whole blocks train the model; the last quarter of the ORIGINAL blocks is reserved for tuning before quality exclusions. With all default cues clean this gives nine training and three tuning cues per class. Failed later tuning cues are never reassigned to training; too few clean cues cause fitting to fail clearly. Causal filtering, accepted-window checks and train-only feature normalization are recorded with the model. Overlapping windows from one cue remain in the same partition; they do not become new independent trials.
-4. Wait for **Personal three-class model**. Training/tuning accuracy is calibration evidence, not final validation. If fitting fails because too few independent clean cues remain, inspect signal quality and collect a new calibration run. Stop/cancel must leave an incomplete run unvalidated.
+## Checks and limitations
 
-EEG windows are **4 seconds**, with a **0.25-second stride**: 93.75% overlap. Each restart needs a full warm-up window. The decoder retains causal filter state across contiguous samples and resets after gaps. Each cue clock starts only after the browser has painted that cue and the server receives its matching run/trial acknowledgement. Transition intervals remain unlabeled; duplicate acknowledgements never restart a cue. Missing acknowledgements abort the run. The cue scoring also allows a settling margin. This improves the labeling boundary, but it does not replace a photodiode/ESU measurement of physical display latency.
+`Launch_THREECLASS_X24.bat --check-only` verifies the reference/runtime plus fresh labeled 256 Hz EEG through both architectures. `threeclass_preflight.py --config <run config> --inspect-lsl` provides acquisition details when the bridge is already running. The selected private run config is under `session_reports/x24_bridge/`.
 
-The calibration summary shows both raw cue probabilities and a decision-policy estimate that applies the same confidence/rejection rules as validation. Early stopping uses that decision-policy estimate, per-class recall and raw cue loss from tuning only. Rejected tuning cues count as errors. The estimate covers clean extracted calibration windows; fresh continuous validation also includes real signal-quality interruptions. Neither calibration metric is a final test score.
+The retained software tests cover cue acknowledgement, gaps/abort behavior, all-site quality, personal fitting, saved-model reuse and live LSL transport. Hardware transport/display latency and prospective personal accuracy require lab validation. See [shared connection notes](X24_CONNECTION_STATUS.md).
 
-## Reuse a saved personal model
-
-After an app restart, enter the SAME participant ID and choose Connect/Apply participant ID. Use **Refresh saved models**, select a version and choose **Load selected model** while recording is stopped. The list orders versions by modification time, not by the best validation score. Discovery verifies participant, physical electrode order, preprocessing, model hash and separate calibration training/tuning provenance before weights load. Incompatible/corrupt versions are excluded with a count. No model loads automatically.
-
-Use a fresh validation block after loading. A matching participant and electrode list does not establish that a changed cap placement or hardware reference is equivalent; recalibrate when the setup changes or performance is poor. Keep the entire private `session_reports/threeclass/<participant>/model_*` folder, including contract and training diagnostics, with your saved recordings.
-
-## Fresh validation
-
-1. After fitting, choose **Fresh validation**. The default is **10 new cues per class × 8 seconds: 30 cues, 4 minutes**. Personal model, normalization, offsets and decision settings remain frozen during the block.
-2. Follow every cue and remain still. **Uncertain**, low-quality and warm-up decisions are distinct from Rest; do not treat a rejected cue as correctly recognized Rest.
-3. After completion, inspect cue balanced accuracy, overall cue accuracy, per-class recall, scored/rejected cue counts and coverage. **The primary accuracy includes every completed cue; rejected cues count as errors.** The confusion table includes a separate Rejected column. Any accepted-cue score is secondary. A high score on a small accepted subset is insufficient if many cues were rejected. Keep the full result and exclusions.
-4. Choose **Save session** and retain raw EEG, timestamps, event labels, predictions, model hash and validation metadata together. Model/calibration files and EEG are private; do not publish them to Git.
-5. Collect a second new validation block with the same frozen model/settings. Report each block separately. If you change settings or recalibrate after observing a result, use new cues for the next validation and keep the earlier result as development evidence.
-
-Define success before the first validation. The project's ≥70% cue balanced-accuracy target is a pilot target, not a certified threshold. Also review all three recalls, uncertainty and exclusion rates. Thirty cues provide limited precision; another day or cap placement is needed to examine stability. Never infer your performance from the supplied historical 81.6% reference score.
-
-## Reading the console
-
-- **Recorded participant-08 reference**: useful for software checks and observing outputs; fresh personal validation is unavailable until your calibration finishes.
-- **Personal three-class model**: a model fitted on the entered participant's completed calibration. Its hash identifies the exact weights used in predictions and validation.
-- **Current probabilities / history**: class probabilities from accepted EEG windows, with raw and EMA values shown separately. Probabilities are confidence estimates, not measured hand force or angles.
-- **Signal quality**: all 20 selected sites are checked in the current filtered four-second window, even though the scope shows C3/Cz/C4. Artifact/flat-channel names identify sites to inspect in the vendor software; hover over the quality badge for the full list. These checks do not measure impedance or identify every eye/muscle artifact.
-- **Overlapping raw/EMA curves**: the fixed three-class policy uses EMA alpha 1, so raw and EMA probabilities coincide. This preserves the selected recorded-model policy; it is not evidence of artificial probability clipping.
-- **Synthetic demo**: clearly labeled noise visualization. It cannot provide calibration or validation evidence. Return to live EEG to record a real session.
-- **Stop / cancel**: pauses decoding and aborts an incomplete protocol. The displayed decision becomes paused/uncertain instead of retaining a stale class. Save before resetting the view.
-- **Keep the cue display visible**: hiding the tab during calibration or validation aborts the active run. Closing/disconnecting the cue display also triggers a timeout. Start a new visible cue run after interruption.
-
-The binary ZIP has its own launcher, settings and session folder. Keep both extracted folders, calibration models and validation results separate. Verify your local saved files before leaving the lab and confirm Box upload completion before relying on its cloud copy.
+Keep the launcher running during use. Save before stopping it with Ctrl+C. Closing the browser tab alone leaves acquisition active.

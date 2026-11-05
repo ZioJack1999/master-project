@@ -13,7 +13,7 @@ import numpy as np
 from scipy.signal import butter, sosfilt
 from threeclass_acquisition import connect
 from multiclass_decoder import MulticlassDecoder
-from multiclass_data import digest
+from model_utils import digest
 from realtime_bci_decoder import RingBuffer
 from threeclass_cues import ThreeClassProtocol
 from threeclass_model_store import list_personal_models, validate_personal_model

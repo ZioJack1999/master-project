@@ -1,83 +1,58 @@
-# Personal motor-imagery BCI Studio
+# X24 motor-imagery lab
 
-**Separate downloads for lab testing:** [binary Rest/Grasp ZIP](downloads/BCI_Binary_Lab_2026-11-05.zip) and [three-class Rest/Grasp/Extension ZIP · revision 2](downloads/BCI_ThreeClass_Lab_2026-11-05_r2.zip). Extract them into different folders and read [the two-package lab guide](LAB_PACKAGES.md). The three-class package has its own live cue/calibration/validation console at port8051; [revision 2](THREECLASS_R2_IMPROVEMENTS.md) improves cue timing, chronological tuning, confidence diagnostics and saved-model reuse. Both packages still require physical lab validation.
+Live binary and three-class apps for the B-Alert X24/ESU. Acquisition runs in **32-bit mastersp** and sends EEG over LSL to the existing **64-bit PyTorch** process. No backend rewrite or new conda environment is needed.
 
-Fit an EEGNet to your own **REST versus imagined right-hand grasp** calibration, then evaluate the frozen model on new cue trials. Windows are 2 seconds, stride .25 seconds (87.5% overlap), with continuous causal 8–30 Hz filtering.
+| App | Launch from this folder | Local GUI | Personal calibration / new validation |
+|---|---|---|---|
+| Rest / imagined right-hand grasp | `Launch_BINARY_X24.bat` | http://127.0.0.1:8052 | 18 calibration cues / 20 new validation cues |
+| Rest / Volar Grasp / Finger Extension | `Launch_THREECLASS_X24.bat` | http://127.0.0.1:8051 | 36 calibration cues / 30 new validation cues |
 
-The software pipeline has integration tests. Actual B-Alert X24 driver compatibility and accuracy on a new wearer still require the lab session. Read [the audit](DEBUG_AUDIT.md), [lab procedure](README_LAB_GUIDE.md) and separate [multiclass plan](MULTICLASS_PLAN.md).
+Connect the ESU, power on the X24 and run one launcher. It verifies model integrity, starts the 32-bit bridge, checks fresh labeled 256 Hz EEG and opens the GUI. Keep the launcher running. Closing the browser tab alone does not stop acquisition; Ctrl+C in the launcher stops both processes. Finish and save one experiment before switching apps.
 
-**Thursday November 5: use the binary track.** [Lab checklist](THURSDAY_BINARY_VALIDATION.md). `Launch_BINARY_Lab.bat` verifies the frozen binary files and starts the existing studio. `python verify_binary_release.py` checks integrity without starting acquisition. Local cap/stream settings belong in ignored `lab_config.local.json`.
+Binary live transport, waveforms and saving have been verified on this PC. The three-class launcher uses the same bridge; its live check is the next step. Both apps require personal calibration and fresh validation before any claim about accuracy on a new wearer.
 
-`python package_binary_lab.py` creates a ZIP containing only the binary app and lab instructions. It excludes multiclass code/models and all recordings; read its [package instructions](BINARY_LAB_README.md). Python dependencies, vendor acquisition and an appropriate LSL bridge are still required on the lab PC.
+- [Binary lab procedure](README_LAB_GUIDE.md)
+- [Three-class procedure](THREECLASS_LAB_README.md)
+- [Hardware/runtime details and measured connection checks](X24_CONNECTION_STATUS.md)
 
-| Track | Entry point | Outputs and scope |
-|---|---|---|
-| Binary lab validation | `Launch_BINARY_Lab.bat` | Existing Rest/action GUI and personal model; new live validation required |
-| Three-class lab validation | `Launch_THREECLASS_Lab.bat` | Separate Rest/Grasp/Extension personal calibration and frozen new-cue console; physical validation pending |
-| Multiclass research | [experiments/multiclass_v3](experiments/multiclass_v3/README.md) | Separate 3/5/9-class configs, private models/results; offline only |
+## Runtime setup
 
-Multiclass research does not replace binary models, settings or launchers. The binary loader rejects multiclass contracts. Accuracy from these two tracks must be reported separately.
+This PC already has the vendor SDK and the two required interpreters:
 
-## Start
+- Acquisition: `%USERPROFILE%\miniconda3\envs\mastersp\python.exe` (32-bit Python 3.9).
+- Decoder: `%USERPROFILE%\miniconda3\python.exe` (existing 64-bit conda base).
+- Vendor SDK: `C:\ABM\B-Alert\SDK` (x86). Vendor software/drivers are licensed and are not in this repository.
 
-Use 64-bit Python 3.11 (tested):
+The launchers set process-local DLL paths. Neither conda environment is modified. The small x86 LSL dependency lives under ignored `.runtime/x24-lsl32`. For a fresh checkout on this PC, restore it from PowerShell in the project folder:
 
 ```powershell
-git clone https://github.com/ZioJack1999/master-project.git
-cd master-project
-.\Setup_BCI_Studio.bat
-.\Launch_BCI_3D_Studio.bat
+& "$env:USERPROFILE\miniconda3\envs\mastersp\python.exe" -m pip install --no-deps --target .runtime/x24-lsl32 pylsl==1.17.6
 ```
 
-Setup creates `%USERPROFILE%\.bci_studio\venv`. Launcher prefers a project `.venv` if present and opens `http://127.0.0.1:8050` from the correct directory.
+Install `requirements.txt` only with a compatible **64-bit** decoder Python when preparing another PC. Never install the decoder requirements into 32-bit mastersp. `requirements-tested.txt` preserves historical audit versions; this PC's actual decoder versions are recorded in private preflight reports.
 
-Verify physical electrode sites, reference, LSL labels, units and 256 Hz rate first. Default `lab_config.json` uses an **untrained template** for BCIFEST's `STANDARD_MONTAGE`. That name does not prove your cap uses it. The EEGMI custom layout has `lab_config.eegmi_custom20.example.json`. Never rename physical sites to fit weights. See the lab guide for both lists and acquisition routes.
-
-Start the matching acquisition-to-LSL bridge, then inspect:
+## Checks
 
 ```powershell
-& "$env:USERPROFILE\.bci_studio\venv\Scripts\python.exe" lab_preflight.py --inspect-lsl
+.\Check_X24_Mastersp.bat
+.\Launch_BINARY_X24.bat --check-only
+.\Launch_THREECLASS_X24.bat --check-only
 ```
 
-Enter a pseudonymous ID → Start Stream → Personal calibration. The default collects 18 randomized 8-second cues (144 seconds), trains from scratch and fits a threshold. Then Start Stream → Validate for **20 new cues**, with weights/threshold frozen during the run. This is a short pilot calibration; more data may be needed. Tuning is not final validation. Reset clears recording buffers and retains the fitted model; Personal calibration starts a new fit for the entered person.
+Only one bridge should own the ESU. `Start_X24_Bridge.bat` starts the sender alone for troubleshooting; stop it before using a combined launcher.
 
-## Recorded-data evidence
-
-Real EEGMI subject 08: sessions 1–4 train, 5 tune, 6 test; custom 20 sites. Corrected fixed-normalization EEGNet achieved **96.57% held-out-session balanced accuracy on raw NN window predictions**. Continuous live-engine replay of session 6/run 1 at saved threshold .87, with EMA/dwell, gave **89.72% window balanced accuracy and 95% cue-trial balanced accuracy (19/20)**. These are recorded-data results on a known participant, not a live result on you. [Definitions and limits](DEBUG_AUDIT.md#measured-results).
-
-Legacy weights are retained with unverified contracts. The default template has random weights: its probabilities have no learned meaning and cannot emit hand predictions. The trained subject-08 checkpoint is a reference for its montage, not a model for an arbitrary wearer.
-
-## Three-class recorded-data pipeline
-
-Latest [multiclass v3 development results](MULTICLASS_V3_RESULTS.md): 14 frozen historical cases, independent-cue training, eight source-validation candidates per case and a separate prefix-alignment arm. Results are mixed; no five/nine-class case reaches 70%. All historical tests remain exploratory. This research is separate from Thursday's binary validation.
-
-The new [more-class/transfer study](MULTICLASS_TRANSFER_RESULTS.md) implements 3/5/9-class pooled training and held-person evaluation across IDs04,07,08. Native annotations recovered 170 empty event tables without modifying originals. Primary zero-shot transfer to ID07 scored 36.3%/25.0%/13.0% for 3/5/9 classes; chance is 33.3%/20%/11.1%. Training/tuning diagnostics show large gaps, so reliable five/nine-class or cross-person control is not established. `study_multiclass_transfer.py prepare/run` and `report_multiclass_transfer.py` reproduce the study; `study_*.pt` reference models have adjacent class/preprocessing contracts.
-
-The latest [multiclass v2 result](MULTICLASS_IMPROVEMENT_RESULTS.md) exceeds the 70% **cue-level** target: 81.59% balanced accuracy on unused sessions 9–10, 77.27% in continuous cue-trial replay. It uses a covariance-feature neural ensemble, all 20 sites and 4-second windows. Individual-window balanced accuracy is 63.92%; Volar Grasp recall remains 53.85%. Reference: `decoder_and_models/multiclass_covariance_sub08_v2.pt` and its contract. The result report gives the full v2 preparation/search/calibration/test commands. New prospective personal multiclass GUI validation remains pending.
-
-`train_multiclass.py` trains **Rest / Volar Grasp / Finger Extension** from the BCIFEST random multiclass recordings, within one person. The fixed experiment uses participant 08, sessions 21–25 for training, 26–27 for tuning and 28–29 for test. Whole sessions stay separate; normalization and cue-balanced sampling use training data only. `replay_multiclass.py` tunes EMA/dwell/rejection on tuning recordings before a one-time frozen test. It emits no actuator commands.
+The retained suite covers binary/three-class inference, calibration provenance, fresh validation, saved-model identity, LSL transport and bridge timing. After installing `requirements-dev.txt` into a development decoder runtime:
 
 ```powershell
-python train_multiclass.py prepare --root "C:\path\to\BCIFEST\bids"
-python train_multiclass.py fit
-python replay_multiclass.py --root "C:\path\to\BCIFEST\bids"
-python train_multiclass.py test --root "C:\path\to\BCIFEST\bids"
-python report_multiclass.py
-```
-
-See [multiclass results](MULTICLASS_RESULTS.md) for measured results and limitations. The separate [three-class console](THREECLASS_LAB_README.md) now implements live personal calibration and frozen new-cue validation with display/recording output. Physical prospective validation and any multiclass actuator integration remain pending. The binary studio retains its existing personal rest/action workflow.
-
-## Demo, replay and tests
-
-```powershell
-.\Launch_BCI_3D_Studio.bat --demo
-.\Launch_BCI_3D_Studio.bat --config lab_config.recorded_reference.example.json --replay-edf "C:\path\to\sub-08_ses-06_task-MI_run-01_eeg.edf"
-python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Demo uses stationary synthetic noise. Replay paces actual EDF samples at their recorded rate. Both disable hand predictions and prospective validation. The scope displays every filtered sample in the last 2 seconds; probability traces distinguish raw, EMA and threshold. Synthetic tests establish software behavior only.
+Cleanup validation on this PC: **112 passed, one Windows symlink test skipped**. These are software checks, not biological accuracy measurements.
 
-Session reports save EEG volts, LSL timestamps, segment boundaries, cue/run IDs, participant ID, prediction model hashes/thresholds/quality, metrics and plots. Reports and personal weights remain private and excluded from Git. Save Session pauses acquisition; shutdown saves recorded data.
+## Data and repository scope
 
-`train_lab_model.py` trains recorded data with whole-group splits; [the audit](DEBUG_AUDIT.md#reproduction) gives reproduction commands. `train_personal_model.py` fits saved live calibration. `replay_recording.py` uses the exact live engine and saved threshold. `udp_monitor.py` checks transport. `integrations/HandController.cs` is a reference Unity receiver needing a Unity build and Animator check. `requirements-tested.txt` records audit package versions.
+Private EEG, cues, predictions, plots, personal models and logs stay under ignored `session_reports/`. The three-class reference checkpoint is historical participant data, explicitly labeled as a reference; binary templates are untrained. Keep the complete saved session together.
+
+The active repo contains the two live apps, their runtime/model dependencies, the shared X24 bridge, operator docs and tests. Old offline experiments, historical result dumps, unused models, ZIP distributions and obsolete launchers were removed from the active tree. They remain recoverable in Git history; local recovery copies are under ignored `backups/`. An extracted binary package currently open in Windows is left local and ignored; it is not the supported entry point.
+
+The binary verifier checks **21 retained original core/model hashes**. Retired files are listed in its manifest; removing an obsolete launcher or historical weight is not presented as changing the retained decoder. The three-class verifier checks runtime closure and its fixed reference checkpoint. Neither check establishes signal quality or personal accuracy.

@@ -6,7 +6,7 @@ import torch
 from scipy.signal import butter,sosfilt
 from networks import EEGNet
 from realtime_bci_decoder import RingBuffer
-from multiclass_data import digest
+from model_utils import digest
 
 DEFAULT_POLICY=dict(ema_alpha=.3,dwell_updates=2,min_confidence=.5,min_margin=.05)
 

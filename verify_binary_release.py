@@ -1,4 +1,4 @@
-"""Check the frozen binary files without starting acquisition or training."""
+"""Check retained binary core reference hashes without starting acquisition."""
 import argparse
 import hashlib
 import json
@@ -37,7 +37,7 @@ def verify(root=ROOT, manifest=None):
     return dict(binary_release_unchanged=not problems, files_checked=len(manifest['sha256']),
                 reference_commit=manifest['reference_commit'], problems=problems,
                 line_ending_variants=line_ending_variants,
-                scope='Content integrity; text LF/CRLF equivalents accepted, model bytes exact. Live X24 acquisition and new-cue accuracy require lab validation.')
+                scope='Retained binary core reference hashes; text LF/CRLF equivalents accepted, model bytes exact. Retired release files are excluded. Integrity does not establish EEG quality or personal accuracy.')
 
 
 def main():
