@@ -27,7 +27,8 @@ Repository README records 112 passing tests and one Windows symlink skip from th
 
 ## Next actions, in order
 
-- [ ] Locate any completed lab personal-calibration/validation sessions in ignored `session_reports/` or the user's Box data. Read their metadata, cue manifests, quality and model identity before interpreting predictions. If not available here, identify the precise missing files; do not assume they exist locally.
+- [x] Search the accessible source, Box EEGMI_Personal and two Desktop distribution roots for saved GUI-session metadata. November 6: only two old November 3 three-class session records were found, both with empty results and no cue events; one is demo, the other marked live but still a recorded reference. Neither is completed personal validation. No November 5 lab recording was found in these roots.
+- [ ] Obtain the lab PC's complete relevant `session_reports/` subfolders (raw NPZ, metadata, cue events, predictions, personal checkpoint/contract/training diagnostics and bridge preflight/logs). Preserve their relationships and privacy. Local historical EEGMI datasets are not substitutes for these new lab sessions.
 - [ ] If no completed personal validation exists, prepare the next lab session using the current launchers. Verify montage/reference and clean signal, fit personal binary, freeze the model, collect a fresh validation block and save the complete session. Repeat independently for three classes. Do not launch connected hardware from a remote audit without operator context.
 - [ ] Analyze completed validation: cue-level balanced accuracy, per-class recall, confusion matrix including rejected cues, accepted coverage, timing gaps, artifacts and train/tuning gaps. State sample sizes and uncertainty. Keep binary and three-class results separate.
 - [ ] If performance is below target, investigate labels/cue timing, physical quality, units/montage, rejected windows and calibration adequacy before changing the NN. Select changes using calibration training/tuning only; reserve new validation data for confirmation.
@@ -35,16 +36,16 @@ Repository README records 112 passing tests and one Windows symlink skip from th
 
 Five/nine classes and cross-subject generalization are deferred, not the current validation objective.
 
-## November 6 session
+## November 6 latest session
 
-Request: review GitHub updates and create durable instructions so new repository chats can resume without repeating project context.
+Request: "If there's something you can do, do it." Continued the new handoff priorities after documentation commit `89a5074`.
 
-Completed: reviewed the two incoming commits, fast-forwarded the clean source checkout, read the current runtime/connection docs and acquisition/bridge/supervisor code, created `AGENTS.md` and this handoff, and linked them from README. No runtime/model changes, environment modifications, training or hardware acquisition were performed.
+Completed: fetched origin (no newer changes), searched accessible saved-session metadata including ignored session folders, and established the missing lab-data boundary above. Fixed the X24 supervisor duplicate-outlet discovery: `minimum=1` could return before observing a second matching source; `minimum=2` with the existing one-second timeout permits the ambiguity check to run. Added regression tests for duplicate refusal before opening an inlet and failure before discovery when the child bridge has exited. No model/core changes, environment modifications, training or hardware acquisition were performed.
 
-Validation: documentation paths and Git whitespace checks are recorded in the session commit; no software test rerun is needed for these documentation-only changes. Prior test results above remain explicitly attributed.
+Validation performed here: full suite 112 passed / one Windows symlink skip in 65.02 seconds (collection began before adding the two supervisor tests); targeted bridge/supervisor run 8 passed, including the two new regression cases. Binary verifier passed all 21 retained fingerprints; three-class verifier passed all 27 required runtime/reference files. No physical repeat test was performed. An accidentally duplicated full-suite process was stopped; one full run completed. No need to repeat unrelated fitting studies.
 
-Delivery: this documentation change is committed under `Add persistent agent instructions and current project handoff` and pushed to origin/master. Corresponding handoff documents are copied to the local Box/Desktop distributions; their older runtime files are not upgraded by a documentation copy. Box cloud upload is unconfirmed. Consult Git history and the final session response for the actual push result if interrupted.
+Delivery: previous documentation commit `89a5074` is pushed. The current change is committed under `Reject duplicate X24 outlets during supervisor preflight` and pushed to origin/master; consult Git history/final response if interrupted. Current handoff and a separate `x24_supervisor_update/` copy of the changed supervisor/test and application instructions are delivered locally to Box and both Desktop distributions. Their older complete runtimes are not upgraded by this incremental delivery; use the current Git checkout to run the supported X24 launchers. Box cloud upload is unconfirmed.
 
 Processes: this session started no GUI, bridge, training or acquisition processes.
 
-Next concrete action: inspect availability of fresh lab session files and establish whether personal calibration plus a complete unseen validation block has actually been performed.
+Next concrete action: obtain the complete lab-PC session files listed above, then establish whether personal calibration plus a complete unseen validation block has actually been performed. If none exists, collect it in the lab using the current launchers before claiming accuracy.

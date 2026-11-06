@@ -35,7 +35,9 @@ def probe_stream(config, contract, process, timeout=30.):
     while time.monotonic() < deadline:
         if process.poll() is not None:
             raise RuntimeError(f'X24 bridge exited ({process.returncode}); inspect its log in session_reports/x24_bridge.')
-        streams = resolve_byprop('source_id', SOURCE_ID, minimum=1, timeout=1.)
+        # Wait for a second matching outlet instead of returning immediately
+        # after the first; otherwise the duplicate guard below is ineffective.
+        streams = resolve_byprop('source_id', SOURCE_ID, minimum=2, timeout=1.)
         if len(streams) > 1:
             raise RuntimeError('Duplicate X24 outlets found. Close the other bridge before retrying.')
         if not streams:
