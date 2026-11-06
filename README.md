@@ -1,5 +1,7 @@
 # X24 motor-imagery lab
 
+For a new coding session, read [AGENTS.md](AGENTS.md) and [TODO.md](TODO.md) first. They contain the current project rules, evidence, next tasks and end-of-session handoff requirements.
+
 Live binary and three-class apps for the B-Alert X24/ESU. Acquisition runs in **32-bit mastersp** and sends EEG over LSL to the existing **64-bit PyTorch** process. No backend rewrite or new conda environment is needed.
 
 | App | Launch from this folder | Local GUI | Personal calibration / new validation |
