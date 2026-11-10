@@ -2,7 +2,7 @@
 
 For a new coding session, read [AGENTS.md](AGENTS.md) and [TODO.md](TODO.md) first. They contain the current project rules, evidence, next tasks and end-of-session handoff requirements.
 
-Live binary and three-class apps for the B-Alert X24/ESU. Acquisition runs in **32-bit mastersp** and sends EEG over LSL to the existing **64-bit PyTorch** process. No backend rewrite or new conda environment is needed.
+Live motor-imagery apps for the B-Alert X24/ESU. Acquisition runs in **32-bit mastersp** and sends EEG over LSL to the existing **64-bit PyTorch** process. No backend rewrite or new conda environment is needed.
 
 | App | Launch from this folder | Local GUI | Personal calibration / new validation |
 |---|---|---|---|
@@ -16,6 +16,16 @@ Binary and three-class live transport, waveforms, probabilities and saving have 
 - [Binary lab procedure](README_LAB_GUIDE.md)
 - [Three-class procedure](THREECLASS_LAB_README.md)
 - [Hardware/runtime details and measured connection checks](X24_CONNECTION_STATUS.md)
+
+## Expanded personal-validation ZIPs
+
+| Package | Calibration / new validation | Local GUI port |
+|---|---|---|
+| [5-class ZIP](downloads/BCI_5Class_X24_Lab_2026-11-10.zip) | 60 / 50 cues | 8055 |
+| [7-class ZIP](downloads/BCI_7Class_X24_Lab_2026-11-10.zip) | 84 / 70 cues | 8057 |
+| [9-class ZIP](downloads/BCI_9Class_X24_Lab_2026-11-10.zip) | 108 / 90 cues | 8059 |
+
+Extract each package to its own writable folder and run `Launch_MULTICLASS_X24.bat` after following the [expanded lab setup and procedure](MULTICLASS_LAB_README.md). Each package starts without weights and fits from personal calibration. The expanded apps have software checks. Live X24 testing and prospective personal accuracy are pending.
 
 ## Runtime setup
 
@@ -55,6 +65,6 @@ Cleanup validation on this PC: **112 passed, one Windows symlink test skipped**.
 
 Private EEG, cues, predictions, plots, personal models and logs stay under ignored `session_reports/`. The three-class reference checkpoint is historical participant data, explicitly labeled as a reference; binary templates are untrained. Keep the complete saved session together.
 
-The active repo contains the two live apps, their runtime/model dependencies, the shared X24 bridge, operator docs and tests. Old offline experiments, historical result dumps, unused models, ZIP distributions and obsolete launchers were removed from the active tree. They remain recoverable in Git history; local recovery copies are under ignored `backups/`. An extracted binary package currently open in Windows is left local and ignored; it is not the supported entry point.
+The active repo contains the live apps, their runtime/model dependencies, the shared X24 bridge, operator docs, tests and the expanded lab ZIPs. The older offline experiments, historical result dumps, unused models and earlier distributions are in Git history. Local recovery copies are under ignored `backups/`.
 
 The binary verifier checks **21 retained original core/model hashes**. Retired files are listed in its manifest; removing an obsolete launcher or historical weight is not presented as changing the retained decoder. The three-class verifier checks runtime closure and its fixed reference checkpoint. Neither check establishes signal quality or personal accuracy.

@@ -1,5 +1,7 @@
 # Working X24 connection on this lab PC
 
+November 10: the user reports that the system accepts the binary workflow and is trying the three-class workflow. The experimental [5-, 7- and 9-class lab ZIPs](README.md#expanded-personal-validation-zips) use the same X24 bridge and have software-only checks. Their physical transport and prospective personal accuracy remain to be checked on the lab PC.
+
 November 6 software follow-up: the supervisor now allows the full one-second source discovery interval to observe a second matching X24 outlet before opening an inlet. Duplicate outlets are refused. Regression tests cover this guard and an exited acquisition child; this change has not been rechecked on physical hardware. The saved November 5 lab sessions are not present in the reviewed home-workstation folders, so personal accuracy remains unassessed here.
 
 Verified November 5, 2026: ESU/X24 â†’ 32-bit mastersp â†’ LSL â†’ existing 64-bit conda Python â†’ original binary GUI.

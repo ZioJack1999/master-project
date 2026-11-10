@@ -1,4 +1,4 @@
-"""Start x86 mastersp acquisition and an x64 binary or three-class GUI."""
+"""Start x86 mastersp acquisition and an x64 motor-imagery GUI."""
 import argparse
 import importlib.metadata
 import json
@@ -70,29 +70,36 @@ def probe_stream(config, contract, process, timeout=30.):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--task', choices=['binary', 'threeclass'], default='binary')
+    parser.add_argument('--task', choices=['binary', 'threeclass', 'multiclass'], default='binary')
     parser.add_argument('--port', type=int)
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--check-only', action='store_true', help='Probe both processes and exit without starting the GUI.')
+    parser.add_argument('--verify-only', action='store_true', help='Verify the distribution without starting acquisition.')
     args = parser.parse_args()
-    if args.port is None:
-        args.port = 8052 if args.task == 'binary' else 8051
     if struct.calcsize('P') != 8:
         parser.error('The supervisor/decoder must use 64-bit Python; only acquisition uses mastersp.')
-    from verify_binary_release import verify
-    if not verify()['binary_release_unchanged']:
-        raise RuntimeError('Original binary release integrity check failed.')
-    from realtime_bci_decoder import load_contract, RealtimeBCIDecoder
-    from pylsl import resolve_byprop
-    config_name = 'lab_config.json' if args.task == 'binary' else 'threeclass_config.json'
-    config = json.loads((ROOT / config_name).read_text(encoding='utf-8-sig'))
+    if args.task == 'multiclass':
+        from multiclass_lab_bundle import verify_bundle
+        config = verify_bundle(ROOT)
+        count = len(config['classes'])
+        task_name, default_port = f'{count}class', 8050+count
+    else:
+        from verify_binary_release import verify
+        if not verify()['binary_release_unchanged']:
+            raise RuntimeError('Original binary release integrity check failed.')
+        config_name = 'lab_config.json' if args.task == 'binary' else 'threeclass_config.json'
+        config = json.loads((ROOT / config_name).read_text(encoding='utf-8-sig'))
+        task_name, default_port = args.task, 8052 if args.task == 'binary' else 8051
+    if args.port is None:
+        args.port = default_port
     config.update(stream_name='BAlert_X24', source_id=SOURCE_ID, input_unit='', channel_labels=None)
-    checkpoint = ROOT / config['checkpoint']
     if args.task == 'binary':
+        from realtime_bci_decoder import load_contract, RealtimeBCIDecoder
+        checkpoint = ROOT / config['checkpoint']
         contract = load_contract(checkpoint)
         decoder = RealtimeBCIDecoder(checkpoint, send_udp=False)
         decoder.close()
-    else:
+    elif args.task == 'threeclass':
         from verify_threeclass_bundle import verify as verify_threeclass
         from threeclass_preflight import inspect
         if not verify_threeclass()['threeclass_package_valid']:
@@ -101,8 +108,14 @@ def main():
         if not result['configuration_valid'] or not result['reference_compatible']:
             raise RuntimeError('Invalid three-class configuration: ' + json.dumps(result))
         from multiclass_decoder import MulticlassDecoder
-        MulticlassDecoder(checkpoint)
+        MulticlassDecoder(ROOT / config['checkpoint'])
         contract = dict(channels=config['channels'], sfreq=config['sfreq'])
+    else:
+        contract = dict(channels=config['channels'], sfreq=config['sfreq'])
+    if args.verify_only:
+        print(json.dumps(dict(verified=True, task=task_name, classes=config.get('classes', contract.get('classes')))))
+        return
+    from pylsl import resolve_byprop
     if resolve_byprop('source_id', SOURCE_ID, timeout=1.):
         raise RuntimeError('An X24 bridge is already running. Use its decoder GUI or stop it before launching another.')
     with socket.socket() as test_socket:
@@ -110,7 +123,7 @@ def main():
     # Preserve any user-local config: use a separate ignored run-specific config.
     directory = ROOT / 'session_reports/x24_bridge'
     directory.mkdir(parents=True, exist_ok=True)
-    run_id = args.task + '_' + time.strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:8]
+    run_id = task_name + '_' + time.strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:8]
     config_path = directory / (run_id + '.config.json')
     config_path.write_text(json.dumps(config, indent=2), encoding='utf-8')
     stop_file = directory / (run_id + '.stop')
@@ -123,9 +136,11 @@ def main():
         try:
             report = probe_stream(config, contract, bridge)
             report.update(python32=str(python32), python64=sys.executable,
-                          bridge_pid=bridge.pid, task=args.task, binary_release_unchanged=True,
+                          bridge_pid=bridge.pid, task=task_name,
                           packages={name: importlib.metadata.version(name) for name in
                                     ['numpy', 'scipy', 'torch', 'pylsl', 'pandas', 'scikit-learn']})
+            if args.task != 'multiclass':
+                report['binary_release_unchanged'] = True
             (directory / (run_id + '.preflight.json')).write_text(json.dumps(report, indent=2), encoding='utf-8')
             print(json.dumps(report, indent=2), flush=True)
             if args.check_only:

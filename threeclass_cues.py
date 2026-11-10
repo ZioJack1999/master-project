@@ -28,12 +28,12 @@ class ThreeClassProtocol:
 
     ``require_ack=False`` preserves immediate, clock-driven cues for offline
     simulations. Production callers should require acknowledgement. Calibration
-    consists of balanced randomized three-cue blocks so whole later blocks can
+    consists of balanced randomized blocks so whole later blocks can
     be reserved for tuning. Validation uses a shuffled balanced sequence.
     """
 
     def __init__(self, kind, now, per_class, duration=8., seed=42,
-                 require_ack=False, ack_timeout_s=3.):
+                 require_ack=False, ack_timeout_s=3., classes=CLASSES):
         now = _finite_time(now)
         duration = _finite_time(duration, 'Cue duration')
         ack_timeout_s = _finite_time(ack_timeout_s, 'Acknowledgement timeout')
@@ -45,14 +45,16 @@ class ThreeClassProtocol:
             raise ValueError('Cues require at least seven seconds and a positive acknowledgement timeout.')
         if not isinstance(require_ack, bool):
             raise ValueError('require_ack must be a Boolean.')
+        self.classes = list(classes)
+        n_classes = len(self.classes)
         self.kind, self.duration = kind, duration
         self.require_ack, self.ack_timeout_s = require_ack, ack_timeout_s
         self.run_id = uuid.uuid4().hex
         rng = np.random.default_rng(seed)
         if kind == 'calibration':
-            self.labels = np.concatenate([rng.permutation(3) for _ in range(int(per_class))])
+            self.labels = np.concatenate([rng.permutation(n_classes) for _ in range(int(per_class))])
         else:
-            self.labels = np.tile(np.arange(3), int(per_class))
+            self.labels = np.tile(np.arange(n_classes), int(per_class))
             rng.shuffle(self.labels)
         self.index, self.done, self.aborted = 0, False, False
         self.events, self.predictions = [], []
@@ -70,12 +72,12 @@ class ThreeClassProtocol:
             self._open_event(now)
 
     def _open_event(self, now):
-        event = dict(trial=self.index+1, label=CLASSES[int(self.labels[self.index])],
+        event = dict(trial=self.index+1, label=self.classes[int(self.labels[self.index])],
                      onset=float(now), end=None, complete=False,
                      run_id=self.run_id, kind=self.kind,
                      display_acknowledged=self.require_ack)
         if self.kind == 'calibration':
-            event['calibration_block'] = self.index//3
+            event['calibration_block'] = self.index//len(self.classes)
         if self.require_ack:
             event['ack_received_at'] = float(now)
         self.events.append(event)

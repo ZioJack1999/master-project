@@ -1,4 +1,4 @@
-"""Shared three-class cue decisions and calibration-policy diagnostics."""
+"""Shared multiclass cue decisions and calibration-policy diagnostics."""
 from collections import defaultdict
 import numpy as np
 from multiclass_decoder import MulticlassPolicy
@@ -6,7 +6,7 @@ from multiclass_decoder import MulticlassPolicy
 FIXED_POLICY = dict(ema_alpha=1., dwell_updates=1, min_confidence=.5, min_margin=.05)
 
 
-def cue_decision(packets, eligible_updates=None):
+def cue_decision(packets, eligible_updates=None, n_classes=3):
     """Majority accepted decision, with rejection counted separately from Rest.
 
     At least four accepted updates and at least half of all eligible updates
@@ -22,13 +22,13 @@ def cue_decision(packets, eligible_updates=None):
     for packet in packets:
         value = packet.get('class_id', -1)
         if (isinstance(value, bool) or not isinstance(value, (int, np.integer))
-                or not -1 <= value < 3):
-            raise ValueError('Three-class decisions must be integer IDs -1, 0, 1 or 2.')
+                or not -1 <= value < n_classes):
+            raise ValueError(f'Decisions must be integer IDs between -1 and {n_classes-1}.')
         if packet.get('quality', 'ok') == 'ok' and value >= 0:
             votes.append(int(value))
     decision = -1
     if len(votes) >= 4 and 2*len(votes) >= eligible:
-        counts = np.bincount(votes, minlength=3)
+        counts = np.bincount(votes, minlength=n_classes)
         if np.sum(counts == counts.max()) == 1:
             decision = int(counts.argmax())
     return dict(class_id=decision, eligible_updates=int(eligible), accepted_updates=len(votes))
@@ -43,11 +43,12 @@ def diagnostic_from_probabilities(probabilities, rows, classes, policy=None):
     """
     p = np.asarray(probabilities, dtype=float)
     classes = list(classes)
-    if len(classes) != 3 or len(set(classes)) != 3:
-        raise ValueError('Declare exactly three unique classes.')
-    if (p.shape != (len(rows), 3) or not len(rows) or not np.isfinite(p).all()
+    n_classes = len(classes)
+    if n_classes < 3 or len(set(classes)) != n_classes:
+        raise ValueError('Declare at least three unique classes.')
+    if (p.shape != (len(rows), n_classes) or not len(rows) or not np.isfinite(p).all()
             or np.any(p < 0) or not np.allclose(p.sum(axis=1), 1., atol=1e-5)):
-        raise ValueError('Expected one valid three-class probability vector per calibration window.')
+        raise ValueError('Expected one valid class probability vector per calibration window.')
     groups = defaultdict(list)
     for i, row in enumerate(rows):
         if 'trial' not in row or 'label' not in row:
@@ -65,7 +66,7 @@ def diagnostic_from_probabilities(probabilities, rows, classes, policy=None):
             if label not in classes:
                 raise ValueError('Unknown calibration class label.')
             label = classes.index(label)
-        if isinstance(label, bool) or not isinstance(label, (int, np.integer)) or not 0 <= label < 3:
+        if isinstance(label, bool) or not isinstance(label, (int, np.integer)) or not 0 <= label < n_classes:
             raise ValueError('Unknown calibration class label.')
         # Existing extracted records carry sample indexes. Timestamp ordering
         # supports other explicit calibration records; input order breaks ties.
@@ -75,23 +76,23 @@ def diagnostic_from_probabilities(probabilities, rows, classes, policy=None):
                 raise ValueError('Calibration window order must be finite.')
             return float(value), i
         indices = sorted(indices, key=order)
-        classifier = MulticlassPolicy(3, resolved_policy)
+        classifier = MulticlassPolicy(n_classes, resolved_policy)
         packets = []
         for i in indices:
             quality = rows[i].get('quality', 'ok')
             packets.append(dict(classifier.update(p[i], quality), quality=quality))
-        result = cue_decision(packets)
+        result = cue_decision(packets, n_classes=n_classes)
         truth.append(int(label))
         decisions.append(result['class_id'])
         details.append(dict(trial=trial, true_class=classes[label],
             decision=classes[result['class_id']] if result['class_id'] >= 0 else 'rejected', **result))
     y, prediction = np.array(truth), np.array(decisions)
-    if set(y) != {0, 1, 2}:
-        raise ValueError('Calibration diagnostics need true examples of all three classes.')
+    if set(y) != set(range(n_classes)):
+        raise ValueError('Calibration diagnostics need true examples of all declared classes.')
     recall = {name:float(np.mean(prediction[y == i] == i)) for i, name in enumerate(classes)}
-    cm = np.zeros((3, 4), dtype=int)
+    cm = np.zeros((n_classes, n_classes+1), dtype=int)
     for label, decision in zip(y, prediction):
-        cm[label, decision if decision >= 0 else 3] += 1
+        cm[label, decision if decision >= 0 else n_classes] += 1
     scored = prediction >= 0
     return dict(balanced_accuracy=float(np.mean(list(recall.values()))),
         accuracy=float(np.mean(y == prediction)), recall=recall,

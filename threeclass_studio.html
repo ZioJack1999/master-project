@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Three-Class EEG Lab — Rest · Grasp · Extension</title>
+  <title>EEG Lab</title>
   <style>
     :root { color-scheme: dark; --bg:#0a1018; --panel:#121d2b; --line:#2c3d50; --text:#edf4fc; --muted:#9daec3; --rest:#71c8f6; --grasp:#f3b653; --extension:#ad97f6; --good:#65d8ac; --bad:#ff939c; }
     * { box-sizing:border-box; }
@@ -86,7 +86,7 @@
 <body>
 <main>
   <header>
-    <div><div class="eyebrow">EEG lab · three-class session</div><h1>Rest. Grasp. Extend.</h1><p class="muted">Personal calibration and fresh cue validation</p></div>
+    <div><div id="labEyebrow" class="eyebrow">EEG lab</div><h1 id="labTitle">Motor imagery</h1><p class="muted">Personal calibration and fresh cue validation</p></div>
     <div id="connectionBadge" class="badge"><span class="dot"></span><span id="connectionText">Waiting for app</span></div>
   </header>
 
@@ -119,8 +119,8 @@
       <p id="cueInstruction">Check the signal, then collect your own calibration.</p>
       <div class="cue-timing small"><span id="cueCount"></span><span id="cueTime"></span></div>
       <div class="protocol-actions">
-        <button id="calibrateBtn" class="primary" type="button">Personal calibration · 4.8 min</button>
-        <button id="validateBtn" class="primary" type="button">Fresh validation · 4 min</button>
+        <button id="calibrateBtn" class="primary" type="button">Personal calibration</button>
+        <button id="validateBtn" class="primary" type="button">Fresh validation</button>
       </div>
       <p id="trainingProgress" class="small muted"></p>
       <div class="cue-track"><div id="cueProgress"></div></div>
@@ -128,9 +128,7 @@
 
     <section class="panel" aria-label="Model probabilities">
       <div class="section-heading"><h2>Current probabilities</h2><span class="muted small">Raw / EMA</span></div>
-      <div class="prob-row"><div class="prob-label"><span style="color:var(--rest)">Rest</span><span id="pRest" class="numbers">— / —</span></div><div class="bar"><span id="barRest" style="background:var(--rest)"></span></div></div>
-      <div class="prob-row"><div class="prob-label"><span style="color:var(--grasp)">Volar Grasp</span><span id="pGrasp" class="numbers">— / —</span></div><div class="bar"><span id="barGrasp" style="background:var(--grasp)"></span></div></div>
-      <div class="prob-row"><div class="prob-label"><span style="color:var(--extension)">Finger Extension</span><span id="pExtension" class="numbers">— / —</span></div><div class="bar"><span id="barExtension" style="background:var(--extension)"></span></div></div>
+      <div id="probabilities"></div>
       <div class="decision"><div><div class="muted small">Displayed decision</div><div id="decision">Waiting for EEG</div></div><span id="quality" class="badge">No signal</span></div>
       <p id="status" class="muted small">4-second warm-up · updates every 0.25 seconds</p>
     </section>
@@ -144,8 +142,8 @@
     </section>
     <section class="panel">
       <div class="section-heading"><h2>Probability history</h2><span class="muted small">Solid: EMA · dashed: raw</span></div>
-      <canvas id="probPlot" role="img" aria-label="Raw and smoothed probabilities for all three classes"></canvas>
-      <div class="legend"><span style="color:var(--rest)"><i class="swatch"></i>Rest</span><span style="color:var(--grasp)"><i class="swatch"></i>Volar Grasp</span><span style="color:var(--extension)"><i class="swatch"></i>Finger Extension</span></div>
+      <canvas id="probPlot" role="img" aria-label="Raw and smoothed probabilities by class"></canvas>
+      <div class="legend" id="classLegend"></div>
     </section>
   </div>
 
@@ -154,18 +152,27 @@
     <div id="metrics" class="metrics"></div>
     <div id="recalls"></div>
     <div id="confusion" class="table-wrap"></div>
-    <p id="resultNotes">Calibration estimates and fresh validation are reported separately. The historical participant-08 score does not predict your result.</p>
+    <p id="resultNotes">Calibration estimates and fresh validation are reported separately.</p>
     <details id="resultDetails" hidden><summary>Full result and exclusions</summary><pre id="resultJson"></pre></details>
   </section>
 
-  <footer><span>Three-class console · display and recording · 256 Hz · 4-second windows</span><span id="saved">Session files remain private.</span></footer>
+  <footer><span id="labFooter">EEG console · display and recording · 256 Hz · 4-second windows</span><span id="saved">Session files remain private.</span></footer>
 </main>
 <script>
 'use strict';
-const CLASSES = ['rest','volar_grasp','finger_extension'];
-const NAMES = {rest:'Rest',volar_grasp:'Volar Grasp',finger_extension:'Finger Extension',uncertain:'Uncertain',rejected:'Rejected'};
-const COLORS = ['#71c8f6','#f3b653','#ad97f6'];
-const INSTRUCTIONS = {rest:'Rest naturally. Stay still and let your hand relax.',volar_grasp:'Imagine the feeling of closing your hand around an object. Keep your actual hand still.',finger_extension:'Imagine the feeling of straightening your fingers. Keep your actual fingers still.'};
+let CLASSES = ['rest','volar_grasp','finger_extension'];
+const NAMES = {rest:'Rest',volar_grasp:'Volar Grasp',finger_extension:'Finger Extension',
+  opponens_grasp:'Opponens Grasp',wrist_flexion:'Wrist Flexion',wrist_extension:'Wrist Extension',
+  wrist_pronation:'Wrist Pronation',wrist_supination:'Wrist Supination',pinch_grasp:'Pinch Grasp',
+  uncertain:'Uncertain',rejected:'Rejected'};
+const COLORS = ['#71c8f6','#f3b653','#ad97f6','#7ed9a7','#fa8faa','#9db3ff','#67d7d1','#e2d875','#ffa37f'];
+const INSTRUCTIONS = {rest:'Rest naturally. Stay still and let your hand relax.',volar_grasp:'Imagine the feeling of closing your hand around an object. Keep your actual hand still.',finger_extension:'Imagine the feeling of straightening your fingers. Keep your actual fingers still.',
+  opponens_grasp:'Imagine bringing your thumb across your palm toward your little finger. Keep your hand still.',
+  wrist_flexion:'Imagine bending your wrist toward your palm. Keep your wrist still.',
+  wrist_extension:'Imagine bending your wrist toward the back of your hand. Keep your wrist still.',
+  wrist_pronation:'Imagine rotating your forearm so the palm faces down. Keep your arm still.',
+  wrist_supination:'Imagine rotating your forearm so the palm faces up. Keep your arm still.',
+  pinch_grasp:'Imagine pinching a small object between your thumb and index finger. Keep your hand still.'};
 const $ = id => document.getElementById(id);
 let latest = null, busy = false, uiError = '', pollError='', lastCue = '', lastResult = '', visibilityAborted=false, participantDirty=false, lastModels='';
 const pendingCueAcks=new Set();
@@ -174,6 +181,32 @@ const finite = x => typeof x === 'number' && Number.isFinite(x);
 const percent = x => finite(x) ? (x*100).toFixed(1)+'%' : '—';
 const normalizedName = x => String(x || '').toLowerCase().replace(/\s+/g,'_');
 const label = x => NAMES[normalizedName(x)] || String(x || 'Uncertain');
+let probabilityRows = [];
+function configureClasses(s) {
+  if (probabilityRows.length) return;
+  CLASSES = s.classes || CLASSES;
+  const task = s.task_label || 'three-class';
+  const title = task[0].toUpperCase()+task.slice(1);
+  document.title=title+' EEG Lab';
+  $('labEyebrow').textContent='EEG lab · '+task+' session';
+  $('labTitle').textContent=task==='three-class'?'Rest. Grasp. Extend.':title+' motor imagery';
+  $('labFooter').textContent=title+' console · display and recording · 256 Hz · 4-second windows';
+  const minutes = count => Number((count*(s.cue_duration_s || 8)/60).toFixed(1));
+  $('calibrateBtn').textContent='Personal calibration · '+minutes(s.calibration_total || 36)+' min';
+  $('validateBtn').textContent='Fresh validation · '+minutes(s.validation_total || 30)+' min';
+  for (const [i, name] of CLASSES.entries()) {
+    const row=document.createElement('div'), heading=document.createElement('div');
+    const nameNode=document.createElement('span'), value=document.createElement('span');
+    const track=document.createElement('div'), bar=document.createElement('span');
+    row.className='prob-row'; heading.className='prob-label'; value.className='numbers'; track.className='bar';
+    nameNode.textContent=label(name); nameNode.style.color=COLORS[i]; bar.style.background=COLORS[i];
+    heading.append(nameNode,value); track.append(bar); row.append(heading,track); $('probabilities').append(row);
+    probabilityRows.push({value,bar});
+    const legend=document.createElement('span'), swatch=document.createElement('i');
+    legend.style.color=COLORS[i]; swatch.className='swatch';
+    legend.append(swatch,label(name)); $('classLegend').append(legend);
+  }
+}
 
 async function action(path, body={}) {
   if (busy) return;
@@ -213,7 +246,7 @@ function updateControls() {
   $('loadModelBtn').disabled=blocked || Boolean(s.streaming) || idChanged || !$('savedModel').value;
   $('demoBtn').textContent=s.mode==='demo'?'Return to live EEG':'Synthetic demo';
   $('connectBtn').textContent=idChanged?'Apply participant ID':connected?'Reconnect EEG':'Connect EEG';
-  $('calibrateBtn').title=idChanged?'Apply the participant ID first.':live?'Collect your own labeled Rest/Grasp/Extension cues.':'Live EEG is required for calibration.';
+  $('calibrateBtn').title=idChanged?'Apply the participant ID first.':live?'Collect your own labeled imagery cues.':'Live EEG is required for calibration.';
   $('validateBtn').title=idChanged?'Apply the participant ID first.':s.model_ready?'Collect new cues with the personal model frozen.':'Complete personal calibration first.';
 }
 function renderModels(s) {
@@ -248,12 +281,13 @@ function acknowledgeRenderedCue(s) {
 }
 function render(s) {
   latest=s;
+  configureClasses(s);
   const demo=s.mode==='demo', protocol=s.protocol_kind || '', training=Boolean(s.training);
   $('connectionBadge').className='badge'+(demo?' demo':s.connected?' good':'');
   $('connectionText').textContent=demo?'Synthetic demo':s.connected?(s.streaming?'EEG streaming':'EEG connected'):'EEG disconnected';
   $('demoNotice').style.display=demo?'block':'none';
   const role=s.model_role;
-  $('modelTitle').textContent=role==='personal'?'Personal three-class model':role==='recorded_reference'?'Recorded participant-08 reference':'Personal calibration required';
+  $('modelTitle').textContent=role==='personal'?'Personal '+(s.task_label || 'three-class')+' model':role==='recorded_reference'?'Recorded participant-08 reference':'Personal calibration required';
   $('modelTitle').style.color=role==='personal'?'var(--good)':'var(--grasp)';
   $('modelScope').textContent=s.model_scope || (role==='personal'?'Validate on new cues before interpreting performance.':'Fit a model on your own calibration before validation.');
   $('modelHash').textContent=s.model_sha256?'Model '+s.model_sha256.slice(0,12):'';
@@ -273,12 +307,11 @@ function render(s) {
   $('cueInstruction').textContent=instruction;
   $('cueCount').textContent=protocol?'Cue '+(s.cue_index||0)+' of '+(s.cue_total||0):'';
   $('cueTime').textContent=protocol?(s.awaiting_cue_ack?'Starting after display confirmation…':finite(s.cue_remaining_s)?Math.max(0,s.cue_remaining_s).toFixed(1)+' s remaining':''):'';
-  $('cueProgress').style.width=protocol&&finite(s.cue_remaining_s)?Math.max(0,Math.min(100,100*(1-s.cue_remaining_s/8)))+'%':'0%';
+  $('cueProgress').style.width=protocol&&finite(s.cue_remaining_s)?Math.max(0,Math.min(100,100*(1-s.cue_remaining_s/(s.cue_duration_s || 8))))+'%':'0%';
   const raw=s.raw_probabilities||[], ema=s.ema_probabilities||[], clean=s.quality==='ok'&&Boolean(s.streaming)&&s.model_role!=='untrained';
-  for (let i=0;i<3;i++) {
-    const id=['Rest','Grasp','Extension'][i];
-    $('p'+id).textContent=(clean?percent(raw[i]):'—')+' / '+(clean?percent(ema[i]):'—');
-    $('bar'+id).style.width=clean&&finite(ema[i])?Math.max(0,Math.min(100,100*ema[i]))+'%':'0%';
+  for (const [i, {value, bar}] of probabilityRows.entries()) {
+    value.textContent=(clean?percent(raw[i]):'—')+' / '+(clean?percent(ema[i]):'—');
+    bar.style.width=clean&&finite(ema[i])?Math.max(0,Math.min(100,100*ema[i]))+'%':'0%';
   }
   $('decision').textContent=protocol==='calibration'?'Calibration in progress':training?'Fitting model':!s.streaming?'Paused':!clean?'No clean decision':label(s.decision);
   const q=s.quality_details||{}, badSites=[...(q.artifact_channels||[]),...(q.flat_channels||[])];
@@ -311,7 +344,8 @@ function renderResult(result) {
   lastResult=key; $('metrics').replaceChildren(); $('recalls').replaceChildren();$('confusion').replaceChildren();
   if (!result) {
     $('resultStatus').textContent='No completed validation';
-    $('resultNotes').textContent='Calibration estimates and fresh validation are reported separately. The historical participant-08 score does not predict your result.';
+    $('resultNotes').textContent='Calibration estimates and fresh validation are reported separately.';
+    if (CLASSES.length===3) $('resultNotes').textContent+=' The historical participant-08 score does not predict your result.';
     $('resultDetails').hidden=true; return;
   }
   const m=result.metrics || result;
@@ -327,12 +361,12 @@ function renderResult(result) {
   const recalls=m.recall || {};
   for (const name of CLASSES) if (finite(recalls[name])) { const item=document.createElement('span');item.textContent=label(name)+' recall: '+percent(recalls[name]);$('recalls').append(item); }
   const cm=m.confusion_matrix;
-  if (Array.isArray(cm)&&cm.length===3&&cm.every(row=>Array.isArray(row)&&row.length>=3)) {
+  if (Array.isArray(cm)&&cm.length===CLASSES.length&&cm.every(row=>Array.isArray(row)&&row.length>=CLASSES.length)) {
     const table=document.createElement('table'), head=document.createElement('thead'), header=document.createElement('tr');
-    const columns=m.confusion_columns || (cm[0].length===4?[...CLASSES,'rejected']:CLASSES);
+    const columns=m.confusion_columns || (cm[0].length===CLASSES.length+1?[...CLASSES,'rejected']:CLASSES);
     for(const name of ['True cue / decision',...columns]) {const cell=document.createElement('th');cell.textContent=label(name);header.append(cell);}
     head.append(header);table.append(head);const body=document.createElement('tbody');
-    for(let i=0;i<3;i++) {const row=document.createElement('tr'), name=document.createElement('th');name.textContent=label(CLASSES[i]);row.append(name);for(const value of cm[i]) {const cell=document.createElement('td');cell.textContent=String(value);row.append(cell);}body.append(row);}
+    for(let i=0;i<CLASSES.length;i++) {const row=document.createElement('tr'), name=document.createElement('th');name.textContent=label(CLASSES[i]);row.append(name);for(const value of cm[i]) {const cell=document.createElement('td');cell.textContent=String(value);row.append(cell);}body.append(row);}
     table.append(body);$('confusion').append(table);
   }
   $('resultStatus').textContent=String(result.status || result.resultstatus || result.kind || 'Result saved').replace(/_/g,' ');
@@ -378,7 +412,7 @@ function drawPlots() {
   {
     const {ctx,w,h}=canvasContext('probPlot'), rect={x:39,y:9,w:w-51,h:h-32};
     for(let v=0;v<=1;v+=.25) {const y=rect.y+(1-v)*rect.h;ctx.strokeStyle='#2c3d50';ctx.beginPath();ctx.moveTo(rect.x,y);ctx.lineTo(w-12,y);ctx.stroke();ctx.fillStyle='#8395ac';ctx.fillText(Math.round(v*100)+'%',0,y+4);}
-    for(let i=0;i<3;i++) {const name=CLASSES[i],raw=history['raw_'+name]||history[name]||[],ema=history['ema_'+name]||[];drawLine(ctx,raw,history.time,rect,0,1,COLORS[i],true);drawLine(ctx,ema,history.time,rect,0,1,COLORS[i]);}
+    for(let i=0;i<CLASSES.length;i++) {const name=CLASSES[i],raw=history['raw_'+name]||history[name]||[],ema=history['ema_'+name]||[];drawLine(ctx,raw,history.time,rect,0,1,COLORS[i],true);drawLine(ctx,ema,history.time,rect,0,1,COLORS[i]);}
     ctx.fillStyle='#8395ac';const t=history.time||[];ctx.fillText(t.length>1?'Last '+Math.max(0,t[t.length-1]-t[0]).toFixed(1)+' seconds':'Waiting for clean predictions',rect.x,h-3);
   }
 }
@@ -393,7 +427,7 @@ async function poll() {
     render(await response.json());
   } catch(err) {
     $('connectionBadge').className='badge';$('connectionText').textContent='App disconnected';
-    pollError='The three-class app is not responding. Check its launcher window.';showError();
+    pollError='The EEG lab app is not responding. Check its launcher window.';showError();
     if(latest) {latest={...latest,connected:false,streaming:false};updateControls();$('decision').textContent='App disconnected';}
   } finally {polling=false;}
 }

@@ -1,4 +1,4 @@
-"""Verify and list a wearer's saved three-class models without loading weights.
+"""Verify and list a wearer's saved multiclass models without loading weights.
 
 The caller explicitly selects a returned model ID, validates it again, and only
 then passes the verified checkpoint to the decoder. Filesystem modification
@@ -12,6 +12,11 @@ import re
 
 
 CLASSES = ['rest', 'volar_grasp', 'finger_extension']
+def model_identity(classes):
+    mode = 'threeclass' if list(classes) == CLASSES else 'multiclass'
+    return f'personal_{mode}.pt', f'personal_{mode}_model'
+
+
 FILTER = dict(mode='causal', fmin=8., fmax=30., order=4)
 
 
@@ -70,7 +75,7 @@ def _calibration_score(diagnostics, key):
     return float(value)
 
 
-def _diagnostics(path, directory, train, tuning, participant):
+def _diagnostics(path, directory, train, tuning, participant, classes):
     if not path.exists() and not path.is_symlink():
         return None
     try:
@@ -92,7 +97,7 @@ def _diagnostics(path, directory, train, tuning, participant):
     for key, expected in [('train_cues_per_class', len(train)), ('tuning_cues_per_class', len(tuning))]:
         counts = data.get(key)
         if counts is not None:
-            if (not isinstance(counts, dict) or set(counts) != set(CLASSES)
+            if (not isinstance(counts, dict) or set(counts) != set(classes)
                     or any(isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in counts.values())
                     or sum(counts.values()) != expected):
                 raise ValueError('Calibration per-class cue counts disagree with the model contract.')
@@ -101,7 +106,7 @@ def _diagnostics(path, directory, train, tuning, participant):
                 scope='Calibration training/tuning only; not fresh validation accuracy.')
 
 
-def validate_personal_model(path, participant, channels, reports_dir):
+def validate_personal_model(path, participant, channels, reports_dir, classes=CLASSES):
     """Verify one model and return metadata; never deserialize checkpoint bytes.
 
     ``path`` is either an absolute checkpoint or a ``model_id`` returned by
@@ -117,10 +122,11 @@ def validate_personal_model(path, participant, channels, reports_dir):
         raise ValueError('Personal model path cannot be resolved.') from exc
     if not checkpoint.is_relative_to(directory):
         raise ValueError('Personal model path leaves the selected participant folder.')
+    filename, role = model_identity(classes)
     relative = checkpoint.relative_to(directory)
     if (len(relative.parts) != 2 or not relative.parts[0].startswith('model_')
-            or relative.parts[1] != 'personal_threeclass.pt'):
-        raise ValueError('Select a saved model_*/personal_threeclass.pt checkpoint.')
+            or relative.parts[1] != filename):
+        raise ValueError(f'Select a saved model_*/{filename} checkpoint.')
     if not checkpoint.is_file():
         raise ValueError('Personal checkpoint file is missing.')
     contract_path = Path(str(checkpoint)+'.json')
@@ -132,10 +138,11 @@ def validate_personal_model(path, participant, channels, reports_dir):
         raise ValueError('Personal model contract must stay in the selected model folder.')
     contract = _json_object(resolved_contract, 'Personal model contract')
     if (contract.get('schema_version') != 2 or contract.get('task_mode') != 'multiclass'
-            or contract.get('role') != 'personal_threeclass_model'
+            or contract.get('role') != role
             or contract.get('arch') != 'feature_ensemble'
-            or contract.get('classes') != CLASSES):
-        raise ValueError('Expected a personal three-class feature-ensemble model contract.')
+            or contract.get('classes') != list(classes)):
+        task = 'three-class' if list(classes) == CLASSES else f'{len(classes)}-class'
+        raise ValueError(f'Expected a personal {task} feature-ensemble model contract for the selected classes.')
     if contract.get('participant') != participant:
         raise ValueError('Personal model belongs to a different participant.')
     if _channels(contract.get('channels')) != expected_channels:
@@ -168,17 +175,17 @@ def validate_personal_model(path, participant, channels, reports_dir):
     if actual_hash != expected_hash:
         raise ValueError('Personal checkpoint SHA256 differs from its contract.')
     diagnostics = _diagnostics(checkpoint.parent/'training.json', checkpoint.parent,
-                               train, tuning, participant)
+                               train, tuning, participant, classes)
     model_id = relative.as_posix()
     return dict(model_id=model_id, checkpoint=str(checkpoint), contract=str(resolved_contract),
-                participant=participant, channels=contract['channels'], classes=list(CLASSES),
+                participant=participant, channels=contract['channels'], classes=list(classes),
                 sha256=actual_hash, calibration_run_id=run, training_cues=len(train),
                 tuning_cues=len(tuning), modified_time_ns=stat.st_mtime_ns,
                 bytes=stat.st_size, diagnostics=diagnostics,
                 scope='Saved personal calibration model. Collect new frozen-model validation cues.')
 
 
-def list_personal_models(reports_dir, participant, channels):
+def list_personal_models(reports_dir, participant, channels, classes=CLASSES):
     """List compatible versions newest-first, retaining explicit rejection reasons."""
     directory = _participant_directory(reports_dir, participant)
     _channels(channels)
@@ -187,14 +194,15 @@ def list_personal_models(reports_dir, participant, channels):
         return dict(models=models, rejected=rejected)
     if not directory.is_dir():
         raise ValueError('Participant model location is not a directory.')
+    filename, _ = model_identity(classes)
     for folder in sorted(directory.glob('model_*')):
-        checkpoint = folder/'personal_threeclass.pt'
+        checkpoint = folder/filename
         try:
-            candidate = validate_personal_model(checkpoint, participant, channels, reports_dir)
+            candidate = validate_personal_model(checkpoint, participant, channels, reports_dir, classes)
             if candidate['checkpoint'] not in seen:
                 models.append(candidate)
                 seen.add(candidate['checkpoint'])
         except (OSError, ValueError, RuntimeError) as exc:
-            rejected.append(dict(model_id=(Path(folder.name)/'personal_threeclass.pt').as_posix(), reason=str(exc)))
+            rejected.append(dict(model_id=(Path(folder.name)/filename).as_posix(), reason=str(exc)))
     models.sort(key=lambda candidate:(-candidate['modified_time_ns'], candidate['model_id']))
     return dict(models=models, rejected=rejected)
