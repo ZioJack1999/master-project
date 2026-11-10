@@ -17,7 +17,7 @@ from model_utils import digest
 from realtime_bci_decoder import RingBuffer
 from threeclass_cues import ThreeClassProtocol
 from threeclass_model_store import list_personal_models, validate_personal_model
-from threeclass_decisions import cue_decision
+from threeclass_decisions import cue_decision, mean_probability_decision
 
 ROOT = Path(__file__).resolve().parent
 CLASSES = ['rest', 'volar_grasp', 'finger_extension']
@@ -32,15 +32,18 @@ def clock_now():
 def score_validation(protocol, permutations=2000, seed=42):
     if not protocol.done or protocol.kind != 'validation' or not all(e['complete'] for e in protocol.events):
         raise ValueError('Only complete fresh validation runs can be scored.')
-    truth, decisions, details = [], [], []
+    truth, decisions, comparisons, details = [], [], [], []
     for event in protocol.events:
         rows = [r for r in protocol.predictions if r['trial'] == event['trial']]
         outcome = cue_decision(rows)
         decision = outcome['class_id']
+        comparison = mean_probability_decision(rows)
         truth.append(CLASSES.index(event['label']))
         decisions.append(decision)
+        comparisons.append(comparison)
         details.append(dict(trial=event['trial'], truth=event['label'],
             decision=CLASSES[decision] if decision >= 0 else 'rejected',
+            mean_probability_decision=CLASSES[comparison] if comparison >= 0 else 'rejected',
             eligible_updates=outcome['eligible_updates'], accepted_updates=outcome['accepted_updates']))
     y, pred = np.array(truth), np.array(decisions)
     recall = {c:float(np.mean(pred[y == i] == i)) for i, c in enumerate(CLASSES)}
@@ -58,6 +61,7 @@ def score_validation(protocol, permutations=2000, seed=42):
         bootstrap.append(np.mean([np.mean(pred[rng.choice(np.flatnonzero(y == i), np.sum(y == i), replace=True)] == i)
                                   for i in range(3)]))
     accepted = pred >= 0
+    pooled = np.asarray(comparisons)
     return dict(kind='fresh_frozen_personal_validation', status='complete' if accepted.all() else 'complete_with_rejections',
         metrics=dict(balanced_accuracy=ba, accuracy=float(np.mean(y == pred)), recall=recall,
             n_cues=len(y), n_scored=int(accepted.sum()), n_rejected=int((~accepted).sum()),
@@ -67,19 +71,23 @@ def score_validation(protocol, permutations=2000, seed=42):
             permutation_p=float((1+np.sum(np.array(null) >= ba-1e-12))/(1+permutations)),
             unit_of_analysis='One majority deployed decision per new cue. Rejected cues count as errors.',
             uncertainty_scope='Within-run cue bootstrap/permutations; limited pilot, not across-person/day confidence.'),
+        comparison=dict(rule='Mean of clean window probabilities per cue',
+            balanced_accuracy=float(np.mean([np.mean(pooled[y == i] == i) for i in range(3)])),
+            n_correct=int(np.sum(pooled == y)), n_rejected=int(np.sum(pooled < 0))),
         cues=details)
 
 
 class ThreeClassStudio:
     def __init__(self, config, root=ROOT, clock=clock_now):
         self.root, self.config, self.clock = Path(root), dict(config), clock
+        self.device = config.get('device', 'cpu')
         self.channels = list(config['channels'])
         if (len(self.channels) != 20 or any(not isinstance(c, str) or not c or c != c.strip() for c in self.channels)
                 or len({c.casefold() for c in self.channels}) != 20):
             raise ValueError('Select twenty unique actual electrode sites.')
         self.channel_indices = {c.casefold():i for i, c in enumerate(self.channels)}
-        if config.get('sfreq', 256) != 256 or config.get('window_s', 4.) != 4. or config.get('stride_s', .25) != .25:
-            raise ValueError('Three-class studio requires 256 Hz, four-second windows and .25-second stride.')
+        if config.get('sfreq', 256) != 256 or config.get('window_s', 4.) not in (2., 4.) or config.get('stride_s', .25) != .25:
+            raise ValueError('Three-class studio requires 256 Hz, two- or four-second windows and .25-second stride.')
         self.metadata_contract = dict(channels=self.channels, sfreq=256)
         self.reports = (self.root/config.get('reports_dir', 'session_reports/threeclass')).resolve()
         self.reports.mkdir(parents=True, exist_ok=True)
@@ -95,7 +103,7 @@ class ThreeClassStudio:
         self.reference_checkpoint = self.checkpoint
         self.state = dict(connected=False, connecting=False, streaming=False, mode='live', status='Connect EEG to begin.', error='',
             participant=config.get('participant', 'self'), stream_name='', model_role='untrained',
-            model_sha256='', model_ready=False, training=False, training_progress='', protocol_kind='',
+            model_sha256='', model_device=self.device, model_ready=False, training=False, training_progress='', protocol_kind='',
             cue='', cue_index=0, cue_total=0, cue_remaining_s=0., raw_probabilities=[0.]*3,
             ema_probabilities=[0.]*3, decision='uncertain', quality='warming_up', result=None,
             last_saved='', window_s=4., stride_s=.25,
@@ -132,15 +140,16 @@ class ThreeClassStudio:
 
     def _load_reference(self):
         self.decoder = None
-        reference = MulticlassDecoder(self.reference_checkpoint)
+        reference = MulticlassDecoder(self.reference_checkpoint, device=self.device)
         if reference.classes != CLASSES:
             raise ValueError('Expected Rest, Volar Grasp and Finger Extension in that order.')
         self.state.update(model_ready=False, model_role='untrained', model_sha256='')
         self.state['calibration_diagnostics'] = None
         if [c.casefold() for c in reference.channels] == [c.casefold() for c in self.channels]:
             self.decoder = reference
+            reference_name = 'temporal CNN' if reference.arch == 'temporal_cnn' else 'reference model'
             self.state.update(model_role='recorded_reference', model_sha256=reference.contract['sha256'],
-                model_scope='Recorded participant08 reference only. Fit your own calibration before validation.')
+                model_scope=f'Recorded participant 08 {reference_name}. Fit your own calibration before validation.')
         else:
             self.state['model_scope'] = 'Selected physical montage needs personal fitting; reference predictions unavailable.'
         self.checkpoint = self.reference_checkpoint
@@ -159,13 +168,15 @@ class ThreeClassStudio:
         self.segment += 1
         self.plot_sos = butter(4, [8, 30], fs=256, btype='bandpass', output='sos')
         self.plot_zi = np.zeros((len(self.plot_sos), 20, 2))
-        self.quality_buffer = RingBuffer(20, 1024)
+        window_samples = self.decoder.window_samples if self.decoder else round(self.config.get('window_s', 4.)*256)
+        self.quality_buffer = RingBuffer(20, window_samples)
         if self.decoder:
             self.decoder.reset()
         if self.adapter:
             self.adapter.reset_timestamps()
         self.state.update(quality='warming_up', decision='uncertain', raw_probabilities=[0.]*3,
-                          ema_probabilities=[0.]*3, quality_details={})
+                          ema_probabilities=[0.]*3, quality_details={}, window_s=window_samples/256,
+                          prediction_timing=None, prediction_display_ack_ms=None)
 
     def snapshot(self, seen=False):
         with self.lock:
@@ -200,7 +211,7 @@ class ThreeClassStudio:
             session_started=self.session_started, model_path=str(self.checkpoint),
             model_sha256=self.state['model_sha256'], model_role=self.state['model_role'],
             reference_sha256=digest(self.reference_checkpoint), config=self.config,
-            timing='Cue clock begins at matching browser-render acknowledgement receipt; physical display latency remains unmeasured.',
+            timing='Prediction timestamps are EEG sample times. Decoder start/completion and sampled browser paint acknowledgement receipt use the same server clock. Acknowledgements include browser scheduling and round-trip overhead.',
             classes=CLASSES, results=self.results, protocol_in_progress=self.protocol is not None,
             active_frozen=getattr(self.protocol, 'frozen', None))
         active_events = self.protocol.events if self.protocol else []
@@ -234,6 +245,15 @@ class ThreeClassStudio:
                     raise ValueError('No live cue is awaiting display acknowledgement.')
                 self.protocol.acknowledge(body.get('run_id'), body.get('trial'), self.clock())
                 self._refresh(self.clock())
+            elif path == '/api/prediction-painted':
+                index = body.get('index')
+                if (body.get('session_id') == self.session_id and type(index) is int
+                        and 0 <= index < len(self.predictions)):
+                    record = self.predictions[index]
+                    if 'paint_ack_at' not in record:
+                        record['paint_ack_at'] = self.clock()
+                        self.state['prediction_display_ack_ms'] = 1000*(record['paint_ack_at']-record['timestamp'])
+                return {}
             elif path in ('/api/models', '/api/load-model'):
                 if self.protocol or self.state['streaming']:
                     raise ValueError('Stop and save the current recording before selecting a saved personal model.')
@@ -242,7 +262,7 @@ class ThreeClassStudio:
                 self._refresh_models()
                 if path == '/api/load-model':
                     candidate = validate_personal_model(body.get('model_id'), self.state['participant'], self.channels, self.reports)
-                    decoder = MulticlassDecoder(candidate['checkpoint'])
+                    decoder = MulticlassDecoder(candidate['checkpoint'], device=self.device)
                     if [c.casefold() for c in decoder.channels] != [c.casefold() for c in self.channels] or decoder.classes != CLASSES:
                         raise ValueError('Saved model channels/classes do not match the selected profile.')
                     self.save()
@@ -319,11 +339,12 @@ class ThreeClassStudio:
                             else self.config.get('validation_cues_per_class', 10))
                 self.protocol = ThreeClassProtocol(kind, self.clock(), count,
                     float(self.config.get('cue_duration_s', 8.)), int(self.config.get('seed', 42))+self.run_serial,
-                    require_ack=True)
+                    require_ack=True, window_s=self.state['window_s'], settle_s=self.config.get('settle_s', .5))
                 self.run_serial += 1
                 self.protocol.frozen = dict(model_sha256=self.state['model_sha256'],
                     contract_sha256=digest(str(self.checkpoint)+'.json'),
-                    policy=dict(self.decoder.policy.config) if self.decoder else dict(POLICY))
+                    policy=dict(self.decoder.policy.config) if self.decoder else dict(POLICY),
+                    window_s=self.protocol.window_s, settle_s=self.protocol.settle_s)
                 self.last_ui_seen = self.clock()
                 self.state.update(protocol_kind=kind, status=f'{kind.title()} in progress.')
                 self._refresh(self.clock())
@@ -401,8 +422,8 @@ class ThreeClassStudio:
             try:
                 result = fit_personal(raw, times, protocol.events, self.channels, output,
                     config=dict(self.config, participant=participant, calibration_run_id=protocol.run_id),
-                    cancel=self.cancel_fit, progress=progress, segments=segments)
-                decoder = MulticlassDecoder(result['checkpoint'], policy=POLICY)
+                    cancel=self.cancel_fit, progress=progress, segments=segments, device=self.device)
+                decoder = MulticlassDecoder(result['checkpoint'], policy=POLICY, device=self.device)
                 if decoder.channels != self.channels or decoder.classes != CLASSES:
                     raise ValueError('Personal calibration produced an incompatible montage or class order.')
                 with self.lock:
@@ -410,6 +431,7 @@ class ThreeClassStudio:
                         raise ValueError('Personal fitting cancelled.')
                     self.decoder, self.checkpoint = decoder, Path(result['checkpoint'])
                     self.state.update(model_ready=True, model_role='personal', model_sha256=decoder.contract['sha256'],
+                        window_s=decoder.window_samples/decoder.sfreq,
                         model_scope='Personal model. Validate on NEW cues with weights/settings frozen.',
                         training_progress='Personal model ready.', status='Personal model ready. Start a fresh validation block.', error='',
                         calibration_diagnostics=self._calibration_summary(result['diagnostics']))
@@ -455,7 +477,7 @@ class ThreeClassStudio:
                 artifact_channels=[ch for ch, peak in zip(self.channels, peaks) if peak > artifact_limit],
                 flat_channels=[ch for ch, value in zip(self.channels, std) if value < flat_limit],
                 peak_uV={ch:float(value*1e6) for ch, value in zip(self.channels, peaks)},
-                scope='Current four-second filtered EEG window across all selected sites.')
+                scope='Current filtered EEG window across all selected sites.')
         self.waves['time'].extend(ts.tolist())
         for c in ['C3', 'Cz', 'C4']:
             self.waves[c].extend((filtered[self.channel_indices[c.casefold()]]*1e6).tolist()
@@ -468,12 +490,20 @@ class ThreeClassStudio:
             self.state.update(quality=quality, decision='uncertain')
             return
         before = self.decoder.samples_seen
+        started_at = self.clock()
         packets = self.decoder.process_chunk_all(raw)
+        ready_at = self.clock() if packets else None
         for packet in packets:
             offset = packet['sample_end']-before-1
             sample_time = float(ts[offset])
-            record = dict(packet, timestamp=sample_time, segment=self.segment,
-                model_sha256=self.state['model_sha256'], mode=self.state['mode'])
+            protocol = self.protocol
+            cue_trial = protocol.index+1 if protocol and protocol.add(packet, sample_time) else None
+            record = dict(packet, timestamp=sample_time, segment=self.segment, decoder_started_at=started_at,
+                prediction_ready_at=ready_at, model_sha256=self.state['model_sha256'], mode=self.state['mode'],
+                cue_run_id=protocol.run_id if cue_trial is not None else None, cue_trial=cue_trial)
+            self.state['prediction_timing'] = dict(session_id=self.session_id, index=len(self.predictions),
+                sample_to_ready_ms=1000*(ready_at-sample_time), decoder_chunk_ms=1000*(ready_at-started_at),
+                cue_run_id=record['cue_run_id'], cue_trial=cue_trial)
             self.predictions.append(record)
             p, ema = packet['probabilities_raw'], packet['probabilities_ema']
             self.state.update(raw_probabilities=p, ema_probabilities=ema, decision=packet['class_name'], quality=packet['quality'])
@@ -482,8 +512,6 @@ class ThreeClassStudio:
                 self.history[c].append(p[i])
                 self.history['raw_'+c].append(p[i])
                 self.history['ema_'+c].append(ema[i])
-            if self.protocol:
-                self.protocol.add(packet, sample_time)
 
     def worker(self):
         rng = np.random.default_rng(42)

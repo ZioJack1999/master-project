@@ -76,6 +76,61 @@ def test_primary_score_counts_rejections_as_errors_and_refuses_incomplete():
         score_validation(ThreeClassProtocol('validation', 1., 1), permutations=10)
 
 
+def test_two_second_candidate_scores_only_the_current_cue_and_records_paint(studio, calibration):
+    s, now = studio
+    raw, ts, events = calibration
+    s.config.update(window_s=2., linear_c=.1)
+    s.raw, s.times = [raw], [ts]
+    s.segment_ids = [np.full(len(ts), s.segment)]
+    s._fit(SimpleNamespace(events=events, run_id='linear_fixture'))
+    s.training_thread.join(45.)
+    assert not s.training_thread.is_alive()
+    assert s.state['model_ready'], s.state['error']
+    candidate = s.state['model_choices'][0]
+    assert candidate['window_s'] == 2. and candidate['classifier'] == 'regularized_linear'
+    s.action('/api/load-model', dict(model_id=candidate['model_id']))
+    s.state['connected'] = True
+    s.action('/api/validate')
+    p = s.protocol
+    assert p.frozen['window_s'] == 2.
+    s.action('/api/cue-presented', dict(run_id=p.run_id, trial=1))
+    onset = p.events[0]['onset']
+    rng = np.random.default_rng(12)
+    for i in range(11):
+        stamps = onset+(np.arange(64)+64*i)/256
+        now[0] = stamps[-1]+.02
+        s.ingest(rng.normal(0, 3e-6, (20, 64)).astype(np.float32), stamps)
+        assert len(p.predictions) == (0 if i < 10 else 1)
+    timing = s.snapshot()['prediction_timing']
+    assert timing['cue_trial'] == 1
+    assert timing['sample_to_ready_ms'] == pytest.approx(20.)
+    assert timing['decoder_chunk_ms'] == 0.
+    record = s.predictions[timing['index']]
+    s.action('/api/prediction-painted', dict(session_id='stale', index=timing['index']))
+    assert 'paint_ack_at' not in record
+    now[0] += .05
+    s.action('/api/prediction-painted', timing)
+    assert s.state['prediction_display_ack_ms'] == pytest.approx(70.)
+    now[0] += .05
+    s.action('/api/prediction-painted', timing)
+    assert s.state['prediction_display_ack_ms'] == pytest.approx(70.)
+
+
+def test_mean_probability_comparison_keeps_primary_rejections():
+    p = ThreeClassProtocol('validation', 100., 1)
+    for label in p.labels:
+        start = p.events[-1]['onset']
+        probabilities = [.3, .3, .3]
+        probabilities[label] = .4
+        for offset in (4.5, 4.75, 5., 5.25):
+            p.add(dict(packet(-1), probabilities_raw=probabilities), start+offset)
+        p.advance(start+8.)
+    result = score_validation(p, permutations=10)
+    assert result['metrics']['n_rejected'] == 3
+    assert result['comparison']['n_correct'] == 3
+    assert result['comparison']['n_rejected'] == 0
+
+
 def test_reference_demo_and_new_participant_cannot_validate(studio):
     s, _ = studio
     with pytest.raises(ValueError, match='Reconnect EEG with the new participant'):

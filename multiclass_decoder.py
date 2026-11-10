@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from scipy.signal import butter,sosfilt
 from networks import EEGNet
+from temporal_networks import TemporalEEGEnsemble
 from realtime_bci_decoder import RingBuffer
 from model_utils import digest
 
@@ -30,7 +31,8 @@ class MulticlassPolicy:
         return dict(class_id=decision,confidence=confidence,margin=margin,probabilities_ema=self.ema.tolist())
 
 class MulticlassDecoder:
-    def __init__(self,checkpoint,policy=None):
+    def __init__(self,checkpoint,policy=None,device='cpu'):
+        self.device = torch.device(device)
         path=Path(checkpoint);c=json.loads(Path(str(path)+'.json').read_text())
         if c.get('task_mode')!='multiclass' or c.get('schema_version')!=2 or len(c['classes'])<3: raise ValueError('Multiclass schema v2 checkpoint required.')
         if c['sha256']!=digest(path): raise ValueError('Multiclass model SHA256 mismatch.')
@@ -43,10 +45,19 @@ class MulticlassDecoder:
         if self.arch=='feature_ensemble':
             if c['normalization']!='feature_train_only':raise ValueError('Feature ensemble requires train-only feature normalization.')
             from multiclass_features import FeatureEnsembleRunner
-            self.feature_runner=FeatureEnsembleRunner(ck);self.model=None
+            self.feature_runner=FeatureEnsembleRunner(ck,device=self.device);self.model=None
+        elif self.arch=='temporal_cnn':
+            if c.get('arch') != self.arch or c['normalization'] != 'fixed' or not ck.get('member_states'):
+                raise ValueError('Temporal CNN requires fixed normalization and trained members.')
+            standardize = ck.get('window_standardization', False)
+            if not isinstance(standardize, bool) or standardize != c.get('window_standardization', False):
+                raise ValueError('Temporal CNN window standardization differs from the contract.')
+            self.model = TemporalEEGEnsemble(self.n_ch, len(self.classes), ck['member_states'], standardize).to(self.device).eval()
         elif self.arch=='eegnet':
             if c['normalization']!='fixed':raise ValueError('EEGNet requires fixed normalization.')
-            self.model=EEGNet(self.n_ch,self.window_samples,len(self.classes));self.model.load_state_dict(ck['model_state']);self.model.eval()
+            self.model = EEGNet(self.n_ch, self.window_samples, len(self.classes))
+            self.model.load_state_dict(ck['model_state'])
+            self.model.to(self.device).eval()
         else:raise ValueError('Unknown multiclass model architecture.')
         self.mean=np.asarray(ck['train_mean'],np.float32);self.std=np.asarray(ck['train_std'],np.float32)
         if self.mean.shape!=(self.n_ch,) or self.std.shape!=(self.n_ch,) or not np.isfinite(self.mean).all() or not np.isfinite(self.std).all() or np.any(self.std<1e-9):raise ValueError('Invalid multiclass normalization.')
@@ -72,7 +83,10 @@ class MulticlassDecoder:
             if quality=='ok':
                 if self.feature_runner:p=self.feature_runner.predict(x[None])[0]
                 else:
-                    with torch.inference_mode():p=torch.softmax(self.model(torch.from_numpy((x-self.mean[:,None])/(self.std[:,None]+1e-8))[None]),dim=1)[0].numpy()
+                    with torch.inference_mode():
+                        normalized = (x - self.mean[:, None]) / (self.std[:, None] + 1e-8)
+                        batch = torch.from_numpy(normalized[None]).to(self.device)
+                        p = torch.softmax(self.model(batch), dim=1)[0].cpu().numpy()
             decision=self.policy.update(p,quality)
             outputs.append(dict(sample_end=self.samples_seen,quality=quality,probabilities_raw=p.tolist(),
                 class_name=self.classes[decision['class_id']] if decision['class_id']>=0 else 'uncertain',**decision))

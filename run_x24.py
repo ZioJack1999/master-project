@@ -70,6 +70,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--task', choices=['binary', 'threeclass'], default='binary')
     parser.add_argument('--port', type=int)
+    parser.add_argument('--device', choices=['auto', 'cuda', 'cpu'], help='Three-class model device (default: auto).')
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--check-only', action='store_true', help='Probe both processes and exit without starting the GUI.')
     args = parser.parse_args()
@@ -77,6 +78,8 @@ def main():
         args.port = 8052 if args.task == 'binary' else 8051
     if struct.calcsize('P') != 8:
         parser.error('The supervisor/decoder must use 64-bit Python; only acquisition uses mastersp.')
+    if args.task == 'binary' and args.device is not None:
+        parser.error('--device is supported by the three-class GUI.')
     from verify_binary_release import verify
     if not verify()['binary_release_unchanged']:
         raise RuntimeError('Original binary release integrity check failed.')
@@ -99,7 +102,23 @@ def main():
         if not result['configuration_valid'] or not result['reference_compatible']:
             raise RuntimeError('Invalid three-class configuration: ' + json.dumps(result))
         from multiclass_decoder import MulticlassDecoder
-        MulticlassDecoder(checkpoint)
+        import numpy as np
+        import torch
+        requested = args.device or 'auto'
+        cuda_available = requested != 'cpu' and torch.cuda.is_available()
+        if requested == 'cuda' and not cuda_available:
+            raise RuntimeError('CUDA is unavailable to this PyTorch runtime. Check the CUDA wheel and NVIDIA driver.')
+        config['device'] = 'cuda:0' if cuda_available else 'cpu'
+        decoder = MulticlassDecoder(checkpoint, device=config['device'])
+        if cuda_available:
+            window = np.random.default_rng(0).normal(0, 5e-6, (decoder.n_ch, decoder.window_samples))
+            result = decoder.process_chunk_all(window)
+            if len(result) != 1 or result[0]['quality'] != 'ok':
+                raise RuntimeError('CUDA model warm-up did not produce a prediction.')
+            print(f'Three-class model on {config["device"]}: {torch.cuda.get_device_name(0)}', flush=True)
+        else:
+            print('Three-class model on CPU.', flush=True)
+        del decoder
         contract = dict(channels=config['channels'], sfreq=config['sfreq'])
     if resolve_byprop('source_id', SOURCE_ID, timeout=1.):
         raise RuntimeError('An X24 bridge is already running. Use its decoder GUI or stop it before launching another.')
@@ -124,6 +143,8 @@ def main():
                           bridge_pid=bridge.pid, task=args.task, binary_release_unchanged=True,
                           packages={name: importlib.metadata.version(name) for name in
                                     ['numpy', 'scipy', 'torch', 'pylsl', 'pandas', 'scikit-learn']})
+            if args.task == 'threeclass':
+                report['model_device'] = config['device']
             (directory / (run_id + '.preflight.json')).write_text(json.dumps(report, indent=2), encoding='utf-8')
             print(json.dumps(report, indent=2), flush=True)
             if args.check_only:

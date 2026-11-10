@@ -19,7 +19,7 @@ def make_info(metadata, channels):
     desc.append_child_value('manufacturer', 'Advanced Brain Monitoring')
     desc.append_child_value('device_name', metadata['name'])
     desc.append_child_value('acquisition', '32-bit Athena RAW via mastersp')
-    desc.append_child_value('timestamp_method', 'SDK epoch/offset anchored once to LSL arrival clock; transport latency unmeasured')
+    desc.append_child_value('timestamp_method', 'SDK epoch/offset mapped to LSL arrival clock with bounded lead correction; transport latency unmeasured')
     labels = desc.append_child('channels')
     for name in channels:
         channel = labels.append_child('channel')

@@ -17,7 +17,7 @@ REQUIRED_FILES = [
     'Launch_THREECLASS_X24.bat', 'run_x24.py', 'x24_lsl_bridge.py',
     'athena_acquisition.py', 'Start_X24_Bridge.bat',
     'multiclass_decoder.py', 'multiclass_features.py', 'multiclass_metrics.py',
-    'model_utils.py', 'networks.py', 'realtime_bci_decoder.py',
+    'model_utils.py', 'networks.py', 'temporal_networks.py', 'realtime_bci_decoder.py',
     'create_personal_template.py', 'lsl_acquisition.py', 'requirements.txt',
     REFERENCE, REFERENCE+'.json',
 ]

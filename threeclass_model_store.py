@@ -131,18 +131,21 @@ def validate_personal_model(path, participant, channels, reports_dir):
     if resolved_contract.parent != checkpoint.parent:
         raise ValueError('Personal model contract must stay in the selected model folder.')
     contract = _json_object(resolved_contract, 'Personal model contract')
+    arch = contract.get('arch')
+    normalization_by_arch = {'feature_ensemble': 'feature_train_only', 'temporal_cnn': 'fixed'}
+    normalization = normalization_by_arch.get(arch) if isinstance(arch, str) else None
     if (contract.get('schema_version') != 2 or contract.get('task_mode') != 'multiclass'
             or contract.get('role') != 'personal_threeclass_model'
-            or contract.get('arch') != 'feature_ensemble'
+            or normalization is None
             or contract.get('classes') != CLASSES):
-        raise ValueError('Expected a personal three-class feature-ensemble model contract.')
+        raise ValueError('Expected a supported personal three-class model contract.')
     if contract.get('participant') != participant:
         raise ValueError('Personal model belongs to a different participant.')
     if _channels(contract.get('channels')) != expected_channels:
         raise ValueError('Personal model electrode sites/order differ from the selected physical montage.')
-    if (contract.get('sfreq') != 256 or contract.get('n_times') != 1024
-            or contract.get('normalization') != 'feature_train_only' or contract.get('filter') != FILTER):
-        raise ValueError('Personal model preprocessing differs from the supported 256 Hz, four-second pipeline.')
+    if (contract.get('sfreq') != 256 or contract.get('n_times') not in (512, 1024)
+            or contract.get('normalization') != normalization or contract.get('filter') != FILTER):
+        raise ValueError('Personal model preprocessing differs from the supported 256 Hz, two- or four-second pipeline.')
     if contract.get('verified') is not True or contract.get('initialization') != 'scratch':
         raise ValueError('Personal model lacks documented scratch calibration provenance.')
     run = contract.get('calibration_run_id')
@@ -174,7 +177,8 @@ def validate_personal_model(path, participant, channels, reports_dir):
                 participant=participant, channels=contract['channels'], classes=list(CLASSES),
                 sha256=actual_hash, calibration_run_id=run, training_cues=len(train),
                 tuning_cues=len(tuning), modified_time_ns=stat.st_mtime_ns,
-                bytes=stat.st_size, diagnostics=diagnostics,
+                bytes=stat.st_size, diagnostics=diagnostics, window_s=contract['n_times']/256,
+                classifier=contract.get('classifier', 'neural_ensemble'),
                 scope='Saved personal calibration model. Collect new frozen-model validation cues.')
 
 

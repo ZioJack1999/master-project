@@ -92,7 +92,10 @@ def test_nonfinite_backward_timestamps_and_label_conflicts_fail(calibration):
         prepare_calibration(raw,ts,bad_events,CHANNELS)
 
 
-def test_fitting_uses_train_only_statistics_and_round_trips(calibration,tmp_path,monkeypatch):
+@pytest.mark.parametrize('device', [
+    'cpu', pytest.param('cuda:0', marks=pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA unavailable')),
+])
+def test_fitting_uses_train_only_statistics_and_round_trips(calibration,tmp_path,monkeypatch,device):
     raw, ts, events = calibration
     X, rows, _ = prepare_calibration(raw,ts,events,CHANNELS)
     tr, va = split_cues(rows)
@@ -106,7 +109,7 @@ def test_fitting_uses_train_only_statistics_and_round_trips(calibration,tmp_path
     monkeypatch.setattr(FeaturePreprocessor,'fit',guarded)
     config = dict(epochs=2,patience=2,ensemble_seeds=[42],threads=1,
                   participant='synthetic_fixture',calibration_run_id='fixture_calibration')
-    result = fit_personal(raw,ts,events,CHANNELS,tmp_path/'model',config)
+    result = fit_personal(raw,ts,events,CHANNELS,tmp_path/'model',config,device=device)
     assert observed == [len(tr)]
     diagnostics = result['diagnostics']
     assert diagnostics['split_details']['latest_training_cue_end'] <= diagnostics['split_details']['earliest_tuning_cue_onset']
@@ -121,8 +124,10 @@ def test_fitting_uses_train_only_statistics_and_round_trips(calibration,tmp_path
     assert not set(contract['training_cues']) & set(contract['tuning_cues'])
     assert contract['sha256'] == hashlib.sha256(open(result['checkpoint'],'rb').read()).hexdigest()
     payload = torch.load(result['checkpoint'],weights_only=False)
+    assert all(tensor.device.type == 'cpu' for state in payload['member_states'] for tensor in state.values())
     expected = FeatureEnsembleRunner(payload).predict(X[:1])[0]
-    decoder = MulticlassDecoder(result['checkpoint'])
+    decoder = MulticlassDecoder(result['checkpoint'],device=device)
+    assert all(param.device == torch.device(device) for member in decoder.feature_runner.members for param in member.parameters())
     # The trained filter has continuous state; use the exact causal window's raw
     # prefix and select the corresponding decoder sample endpoint.
     raw_end = rows[0]['end']
@@ -194,6 +199,18 @@ def test_block_provenance_reaches_prepared_windows(calibration):
     train, tune = split_cues(rows, events=events)
     assert {rows[i]['calibration_block'] for i in train} == set(range(6))
     assert {rows[i]['calibration_block'] for i in tune} == {6, 7}
+
+
+def test_archived_fit_reserves_complete_blocks_without_requiring_later_tuning():
+    events, rows = block_records()
+    reserved = [e['trial'] for e in events if e['calibration_block'] in {1, 2}]
+    train, tune = split_cues(rows, events=events, reserved_trials=reserved)
+    assert {rows[i]['trial'] for i in tune} == set(reserved)
+    assert {rows[i]['trial'] for i in train} == {e['trial'] for e in events} - set(reserved)
+    with pytest.raises(ValueError, match='whole calibration blocks'):
+        split_cues(rows, events=events, reserved_trials=reserved[:-1])
+    with pytest.raises(ValueError, match='completed recording plan'):
+        split_cues(rows, events=events, reserved_trials=reserved + ['missing'])
 
 
 def test_legacy_split_refuses_to_interleave_segregated_class_times():
