@@ -33,16 +33,20 @@ class ThreeClassProtocol:
     """
 
     def __init__(self, kind, now, per_class, duration=8., seed=42,
-                 require_ack=False, ack_timeout_s=3., classes=CLASSES):
+                 require_ack=False, ack_timeout_s=3., classes=CLASSES, window_s=4., settle_s=.5):
         now = _finite_time(now)
         duration = _finite_time(duration, 'Cue duration')
         ack_timeout_s = _finite_time(ack_timeout_s, 'Acknowledgement timeout')
+        self.window_s = _finite_time(window_s, 'Decoder window')
+        self.settle_s = _finite_time(settle_s, 'Cue settling time')
         if kind not in ('calibration', 'validation'):
             raise ValueError('Use calibration or validation cues.')
         if isinstance(per_class, bool) or not isinstance(per_class, numbers.Integral) or per_class < 1:
             raise ValueError('Cue count per class must be a positive integer.')
         if duration < 7. or ack_timeout_s <= 0:
             raise ValueError('Cues require at least seven seconds and a positive acknowledgement timeout.')
+        if self.window_s <= 0 or self.settle_s < 0 or self.window_s+self.settle_s >= duration:
+            raise ValueError('The decoder window and settling time must fit inside a cue.')
         if not isinstance(require_ack, bool):
             raise ValueError('require_ack must be a Boolean.')
         self.classes = list(classes)
@@ -135,12 +139,13 @@ class ThreeClassProtocol:
     def add(self, packet, sample_time):
         sample_time = _finite_time(sample_time, 'Sample timestamp')
         if self.done or self.aborted or self.awaiting_ack or self._active is None:
-            return
+            return False
         onset = self._active['onset']
-        if sample_time-4. < onset+.5 or sample_time > onset+self.duration:
-            return
+        if sample_time-self.window_s < onset+self.settle_s or sample_time > onset+self.duration:
+            return False
         self.predictions.append(dict(packet, trial=self._active['trial'],
                                      timestamp=sample_time, truth=self._active['label']))
+        return True
 
     def abort(self, now):
         """Abort without corrupting a completed cue during an unlabeled gap."""

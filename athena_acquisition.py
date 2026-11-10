@@ -1,7 +1,7 @@
 """Direct x86 Athena acquisition, with named channels and SDK sample continuity.
 
-The monotonic clock is anchored once to initial packet arrival. Device transport
-latency is unmeasured; this is not a precision event-synchronization interface.
+The monotonic clock starts at initial packet arrival and applies bounded
+corrections when the device clock runs ahead. Device transport latency is unmeasured.
 """
 import ctypes as ct
 from datetime import datetime
@@ -109,7 +109,7 @@ class AthenaInlet:
                 type='EEG', sfreq=256., channel_count=30,
                 labels=['Epoch', 'Offset', 'Hour', 'Min', 'Sec', 'MilliSec'] + labels,
                 units=[''] * 6 + ['uV'] * 24, transport='athena_direct',
-                timestamp_method='SDK epoch/offset, anchored once to monotonic packet arrival; transport latency unmeasured',
+                timestamp_method='SDK epoch/offset mapped to monotonic arrival clock with bounded lead correction',
                 vendor_destination=str(self.vendor_destination))
             # Validate channels before starting acquisition.
             self.adapter = StreamAdapter(self.metadata, contract, config)
@@ -133,11 +133,18 @@ class AthenaInlet:
         packet = np.ctypeslib.as_array(pointer, shape=(size.value * 30,)).reshape(size.value, 30).copy()
         now = self.clock()
         counters = sample_counters(packet)
-        if self.last_counter is not None and counters[0] <= self.last_counter:
+        previous = self.last_counter
+        if previous is not None and counters[0] <= previous:
             raise ValueError('Athena sample counter reset; reconnect required.')
         self.last_counter = int(counters[-1])
         if self.anchor is None:
             self.anchor = now - counters[-1] / 256.
+        elif previous is not None and self.last_counter-previous == len(counters):
+            lead = self.anchor + counters[-1]/256. - now
+            if lead > .010:
+                # At most 1 ms of correction per second of contiguous samples.
+                # Leave real gaps and old/backlogged packets visible to freshness checks.
+                self.anchor -= min(lead-.010, .001*min(len(counters), 64)/256.)
         timestamps = self.anchor + counters / 256.
         self.pending = np.concatenate((self.pending, packet))
         self.pending_times = np.r_[self.pending_times, timestamps]

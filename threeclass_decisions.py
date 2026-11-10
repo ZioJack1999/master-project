@@ -34,6 +34,18 @@ def cue_decision(packets, eligible_updates=None, n_classes=3):
     return dict(class_id=decision, eligible_updates=int(eligible), accepted_updates=len(votes))
 
 
+def mean_probability_decision(packets, n_classes=3):
+    """Comparison rule that pools clean windows before choosing a class."""
+    probabilities = [p['probabilities_raw'] for p in packets
+                     if p.get('quality') == 'ok' and 'probabilities_raw' in p]
+    if len(probabilities) < 4 or 2*len(probabilities) < len(packets):
+        return -1
+    scores = np.mean(probabilities, axis=0)
+    if scores.shape != (n_classes,) or not np.isclose(scores.sum(), 1.) or np.sum(scores == scores.max()) != 1:
+        return -1
+    return int(scores.argmax())
+
+
 def diagnostic_from_probabilities(probabilities, rows, classes, policy=None):
     """Apply the fixed deployed policy to ordered, clean calibration windows.
 

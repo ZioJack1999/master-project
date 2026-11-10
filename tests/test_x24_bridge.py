@@ -44,7 +44,7 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 adapter.transform([[0.], [0.]], times, now)
 
-    def test_sdk_clock_is_anchored_once_without_hiding_a_gap(self):
+    def test_sdk_clock_preserves_a_counter_gap(self):
         inlet = AthenaInlet.__new__(AthenaInlet)
         inlet.pending = np.empty((0, 30), np.float32)
         inlet.pending_times = np.empty(0)
@@ -62,6 +62,37 @@ class BridgeTests(unittest.TestCase):
         inlet._read()
         self.assertEqual(inlet.anchor, initial_anchor)
         np.testing.assert_allclose(np.diff(inlet.pending_times), [1/256, 129/256, 1/256])
+
+    def test_fast_device_clock_stays_synchronized_without_hiding_backlog(self):
+        inlet = AthenaInlet.__new__(AthenaInlet)
+        inlet.pending = np.empty((0, 30), np.float32)
+        inlet.pending_times = np.empty(0)
+        inlet.anchor = inlet.last_counter = None
+        block = packet(np.arange(64))
+        buffer = (ct.c_float * block.size)()
+        storage = np.ctypeslib.as_array(buffer).reshape(block.shape)
+        def read(size):
+            ct.cast(size, ct.POINTER(ct.c_int))[0] = len(block)
+            return buffer
+        inlet.raw_data = read
+        now = 10.
+        inlet.clock = lambda: now
+        last = None
+        for i in range(6001):
+            now = 10. + .25*i*(1-.0001)  # 150 ms of lead over 25 minutes.
+            storage[:] = block
+            storage[:, 0] = i//4
+            storage[:, 1] += (i % 4)*64
+            _, stamps = inlet.pull_chunk(max_samples=64)
+            if last is not None:
+                self.assertAlmostEqual(stamps[0]-last, 1/256, delta=.00025+1e-10)
+            self.assertLessEqual(stamps[-1]-now, .01001)
+            last = stamps[-1]
+        now += 2.
+        storage[:, 1] += 64
+        _, stamps = inlet.pull_chunk(max_samples=64)
+        self.assertGreater(now-stamps[-1], 1.)
+        self.assertAlmostEqual(stamps[0]-last, 1/256)
 
     def test_duplicate_block_is_not_retimed(self):
         inlet = AthenaInlet.__new__(AthenaInlet)

@@ -77,7 +77,10 @@ class FeatureNetwork(nn.Module):
             self.register_buffer('feature_mean',torch.as_tensor(preprocessing['feature_mean'],dtype=torch.float32))
             self.register_buffer('feature_std',torch.as_tensor(preprocessing['feature_std'],dtype=torch.float32))
         else:n_features=len(BANDS)*n_channels*(n_channels+1)//2
-        self.head=nn.Sequential(nn.Dropout(dropout),nn.Linear(n_features,hidden),nn.ELU(),nn.Dropout(dropout),nn.Linear(hidden,n_classes))
+        if hidden == 0:
+            self.head = nn.Linear(n_features, n_classes)
+        else:
+            self.head=nn.Sequential(nn.Dropout(dropout),nn.Linear(n_features,hidden),nn.ELU(),nn.Dropout(dropout),nn.Linear(hidden,n_classes))
     def forward(self,x):
         if self.family=='filterbank_power':
             weights=self.spatial/(self.spatial.norm(dim=-1,keepdim=True)+1e-8)
@@ -86,19 +89,22 @@ class FeatureNetwork(nn.Module):
         return self.head(x)
 
 class FeatureEnsembleRunner:
-    def __init__(self,checkpoint):
+    def __init__(self,checkpoint,device='cpu'):
+        self.device = torch.device(device)
         self.checkpoint=checkpoint;self.preprocessor=FeaturePreprocessor(checkpoint['preprocessing'])
         self.members=[];self.logit_bias=np.asarray(checkpoint.get('post_logit_bias',np.zeros(checkpoint['n_classes'])),np.float32)
         if self.logit_bias.shape!=(checkpoint['n_classes'],) or not np.isfinite(self.logit_bias).all():raise ValueError('Invalid neural class-bias calibration.')
         for state in checkpoint['member_states']:
             model=FeatureNetwork(checkpoint['family'],checkpoint['n_channels'],checkpoint['n_classes'],checkpoint['preprocessing'],checkpoint['hidden_units'],checkpoint['dropout'])
-            model.load_state_dict(state);model.eval();self.members.append(model)
+            model.load_state_dict(state)
+            self.members.append(model.to(self.device).eval())
     def from_covariances(self,covariances,batch_size=256):
         features=self.preprocessor.transform(covariances);all_probabilities=[]
         with torch.inference_mode():
             for a in range(0,len(features),batch_size):
-                x=torch.from_numpy(features[a:a+batch_size])
-                all_probabilities.append(torch.stack([torch.softmax(model(x),dim=1) for model in self.members]).mean(dim=0).numpy())
+                x = torch.from_numpy(features[a:a+batch_size]).to(self.device)
+                probabilities = torch.stack([torch.softmax(model(x), dim=1) for model in self.members])
+                all_probabilities.append(probabilities.mean(dim=0).cpu().numpy())
         p=np.concatenate(all_probabilities)
         logits=np.log(np.maximum(p,1e-12))+self.logit_bias[None]
         logits-=logits.max(axis=1,keepdims=True);p=np.exp(logits)

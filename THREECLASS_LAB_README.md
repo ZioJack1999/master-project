@@ -24,6 +24,10 @@ Calibration partitions whole cues before signal-quality exclusions, fits preproc
 
 Enter the matching participant ID and explicitly select a verified saved personal model. Identity, channel order, preprocessing, provenance and model bytes are checked. A loaded model still needs new validation cues for the current cap placement/session. A new participant cannot inherit another person's fitted model.
 
+The saved-model menu shows each decoder's window length and classifier. A two-second model can produce its first cue-eligible window about two seconds earlier than a four-second model. Both update every 250 ms. During validation, the current-window display waits for EEG from the active cue. The final result shows the usual confidence-gated vote and a secondary comparison that averages clean window probabilities per cue.
+
+During streaming, the timing line reports EEG sample to prediction, decoder chunk duration, and the most recent sample-to-paint acknowledgement. The last measurement includes browser scheduling and the acknowledgement's trip back to the server. The timestamps are saved with the predictions.
+
 ## Checks and limitations
 
 `Launch_THREECLASS_X24.bat --check-only` verifies the reference/runtime plus fresh labeled 256 Hz EEG through both architectures. `threeclass_preflight.py --config <run config> --inspect-lsl` provides acquisition details when the bridge is already running. The selected private run config is under `session_reports/x24_bridge/`.

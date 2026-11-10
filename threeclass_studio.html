@@ -129,8 +129,9 @@
     <section class="panel" aria-label="Model probabilities">
       <div class="section-heading"><h2>Current probabilities</h2><span class="muted small">Raw / EMA</span></div>
       <div id="probabilities"></div>
-      <div class="decision"><div><div class="muted small">Displayed decision</div><div id="decision">Waiting for EEG</div></div><span id="quality" class="badge">No signal</span></div>
-      <p id="status" class="muted small">4-second warm-up · updates every 0.25 seconds</p>
+      <div class="decision"><div><div class="muted small">Current window decision</div><div id="decision">Waiting for EEG</div></div><span id="quality" class="badge">No signal</span></div>
+      <p id="timing" class="muted small" hidden></p>
+      <p id="status" class="muted small">Updates every 0.25 seconds</p>
     </section>
   </div>
 
@@ -156,7 +157,7 @@
     <details id="resultDetails" hidden><summary>Full result and exclusions</summary><pre id="resultJson"></pre></details>
   </section>
 
-  <footer><span id="labFooter">EEG console · display and recording · 256 Hz · 4-second windows</span><span id="saved">Session files remain private.</span></footer>
+  <footer><span id="labFooter">EEG console · 256 Hz</span><span id="saved">Session files remain private.</span></footer>
 </main>
 <script>
 'use strict';
@@ -176,6 +177,7 @@ const INSTRUCTIONS = {rest:'Rest naturally. Stay still and let your hand relax.'
 const $ = id => document.getElementById(id);
 let latest = null, busy = false, uiError = '', pollError='', lastCue = '', lastResult = '', visibilityAborted=false, participantDirty=false, lastModels='';
 const pendingCueAcks=new Set();
+let lastPaintKey='', lastPaintSent=-Infinity;
 $('participant').addEventListener('input',()=>{participantDirty=true;updateControls();});
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const percent = x => finite(x) ? (x*100).toFixed(1)+'%' : '—';
@@ -253,7 +255,12 @@ function renderModels(s) {
   const models=Array.isArray(s.model_choices)?s.model_choices:[], key=JSON.stringify(models.map(m=>[m.model_id,m.sha256]));
   if(key!==lastModels) {
     lastModels=key;const chosen=$('savedModel').value;$('savedModel').replaceChildren();
-    for(const m of models) {const option=document.createElement('option');option.value=m.model_id;option.textContent=m.calibration_run_id.slice(0,10)+' · '+m.sha256.slice(0,10)+' · '+m.training_cues+' train / '+m.tuning_cues+' tuning cues';$('savedModel').append(option);}
+    for(const m of models) {
+      const option=document.createElement('option');option.value=m.model_id;
+      const classifier=({regularized_linear:'linear',temporal_cnn:'temporal CNN'})[m.classifier]||'neural';
+      option.textContent=(m.window_s||4)+' s '+classifier+' · '+m.sha256.slice(0,10)+' · '+m.training_cues+' train / '+m.tuning_cues+' tuning cues';
+      $('savedModel').append(option);
+    }
     if(!models.length) {const option=document.createElement('option');option.value='';option.textContent='No compatible saved models';$('savedModel').append(option);}
     else if(models.some(m=>m.model_id===chosen)) $('savedModel').value=chosen;
   }
@@ -279,6 +286,18 @@ function acknowledgeRenderedCue(s) {
     finally {pendingCueAcks.delete(key);}
   }));
 }
+function acknowledgePredictionPaint(timing) {
+  const key=timing.session_id+':'+timing.index;
+  if(document.hidden||key===lastPaintKey||performance.now()-lastPaintSent<1000) return;
+  lastPaintKey=key;
+  lastPaintSent=performance.now();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const current=latest?.prediction_timing;
+    if(document.hidden||!latest.streaming||current?.session_id!==timing.session_id||current.index!==timing.index) return;
+    fetch('/api/prediction-painted',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session_id:timing.session_id,index:timing.index})}).catch(()=>{});
+  }));
+}
 function render(s) {
   latest=s;
   configureClasses(s);
@@ -290,7 +309,7 @@ function render(s) {
   $('modelTitle').textContent=role==='personal'?'Personal '+(s.task_label || 'three-class')+' model':role==='recorded_reference'?'Recorded participant-08 reference':'Personal calibration required';
   $('modelTitle').style.color=role==='personal'?'var(--good)':'var(--grasp)';
   $('modelScope').textContent=s.model_scope || (role==='personal'?'Validate on new cues before interpreting performance.':'Fit a model on your own calibration before validation.');
-  $('modelHash').textContent=s.model_sha256?'Model '+s.model_sha256.slice(0,12):'';
+  $('modelHash').textContent=s.model_sha256?`Model ${s.model_sha256.slice(0,12)} · ${s.model_device || 'cpu'}`:'';
   $('modelHash').title=s.model_sha256 || '';
   if (s.participant && !participantDirty && document.activeElement!==$('participant')) $('participant').value=s.participant;
   $('trainingProgress').textContent=training?(s.training_progress||'Fitting your personal model…'):'';
@@ -307,19 +326,31 @@ function render(s) {
   $('cueInstruction').textContent=instruction;
   $('cueCount').textContent=protocol?'Cue '+(s.cue_index||0)+' of '+(s.cue_total||0):'';
   $('cueTime').textContent=protocol?(s.awaiting_cue_ack?'Starting after display confirmation…':finite(s.cue_remaining_s)?Math.max(0,s.cue_remaining_s).toFixed(1)+' s remaining':''):'';
-  $('cueProgress').style.width=protocol&&finite(s.cue_remaining_s)?Math.max(0,Math.min(100,100*(1-s.cue_remaining_s/(s.cue_duration_s || 8))))+'%':'0%';
+  cueProgress.style.width=protocol&&finite(s.cue_remaining_s)?Math.max(0,Math.min(100,100*(1-s.cue_remaining_s/(s.cue_duration_s || 8))))+'%':'0%';
+  const timing=s.prediction_timing;
+  const awaitingWindow=protocol==='validation'&&'prediction_timing' in s&&(!timing||s.awaiting_cue_ack||timing.cue_run_id!==s.cue_run_id||timing.cue_trial!==s.cue_index);
   const raw=s.raw_probabilities||[], ema=s.ema_probabilities||[], clean=s.quality==='ok'&&Boolean(s.streaming)&&s.model_role!=='untrained';
+  const showProbabilities=clean&&!awaitingWindow;
   for (const [i, {value, bar}] of probabilityRows.entries()) {
-    value.textContent=(clean?percent(raw[i]):'—')+' / '+(clean?percent(ema[i]):'—');
-    bar.style.width=clean&&finite(ema[i])?Math.max(0,Math.min(100,100*ema[i]))+'%':'0%';
+    value.textContent=(showProbabilities?percent(raw[i]):'—')+' / '+(showProbabilities?percent(ema[i]):'—');
+    bar.style.width=showProbabilities&&finite(ema[i])?Math.max(0,Math.min(100,100*ema[i]))+'%':'0%';
   }
-  $('decision').textContent=protocol==='calibration'?'Calibration in progress':training?'Fitting model':!s.streaming?'Paused':!clean?'No clean decision':label(s.decision);
+  decision.textContent=protocol==='calibration'?'Calibration in progress':training?'Fitting model':!s.streaming?'Paused':awaitingWindow?'Waiting for current cue EEG':!clean?'No clean decision':label(s.decision);
+  if (labFooter) labFooter.textContent=(s.task_label || 'EEG')+' console · 256 Hz · '+(s.window_s||4)+' s windows · '+(s.stride_s||0.25)+' s updates';
+  timing.hidden=!(s.streaming&&timing&&!awaitingWindow&&protocol!=='calibration');
+  if(!timing.hidden) {
+    const ms=value=>finite(value)?value.toFixed(1)+' ms':'—';
+    timing.textContent='Sample to prediction '+ms(timing.sample_to_ready_ms)+' · decoder chunk '+ms(timing.decoder_chunk_ms)+' · last sample to paint ack '+ms(s.prediction_display_ack_ms);
+    timing.title='Paint acknowledgement includes browser scheduling and the return trip to the local server.';
+    acknowledgePredictionPaint(timing);
+  }
+  }
   const q=s.quality_details||{}, badSites=[...(q.artifact_channels||[]),...(q.flat_channels||[])];
   const sites=[...new Set(badSites)];
   $('quality').textContent=String(s.quality||'No signal').replace(/_/g,' ')+(sites.length?' · '+sites.slice(0,4).join(', ')+(sites.length>4?' +'+(sites.length-4):''):'');
   $('quality').title=sites.length?'Check these sites in acquisition software: '+sites.join(', '):'';
   $('quality').style.color=clean?'var(--good)':'var(--muted)';
-  $('status').textContent=s.status || '4-second warm-up · updates every 0.25 seconds';
+  $('status').textContent=s.status || 'Updates every 0.25 seconds';
   $('saved').textContent=s.last_saved?'Saved: '+s.last_saved:'Session files remain private.';
   if (!protocol) visibilityAborted=false;
   abortHiddenProtocol();
@@ -358,6 +389,7 @@ function renderResult(result) {
   if (finite(m.coverage)) add('Cue coverage',percent(m.coverage));
   if (finite(m.n_rejected)) add('Rejected cues',String(m.n_rejected));
   if (finite(m.conditional_scored_balanced_accuracy)) add('Accepted-cue BA (secondary)',percent(m.conditional_scored_balanced_accuracy));
+  if (result.comparison) add('Mean-probability comparison',result.comparison.n_correct+' / '+m.n_cues+' correct');
   const recalls=m.recall || {};
   for (const name of CLASSES) if (finite(recalls[name])) { const item=document.createElement('span');item.textContent=label(name)+' recall: '+percent(recalls[name]);$('recalls').append(item); }
   const cm=m.confusion_matrix;
@@ -375,6 +407,7 @@ function renderResult(result) {
   else if (Array.isArray(m.run_cluster_bootstrap_95ci)) notes.push('Run-bootstrap 95% interval: '+m.run_cluster_bootstrap_95ci.map(percent).join('–')+'.');
   if (finite(m.permutation_p)) notes.push('Permutation p = '+m.permutation_p.toFixed(4)+'.');
   if (finite(ba)) notes.push('Primary accuracy includes every cue; rejected cues count as errors.');
+  if (result.comparison) notes.push('The secondary comparison averages clean window probabilities and has no confidence cutoff.');
   notes.push('A short block has limited precision. Keep model/settings fixed for each new validation block.');
   $('resultNotes').textContent=notes.join(' ');
   $('resultJson').textContent=JSON.stringify(result,null,2);$('resultDetails').hidden=false;

@@ -43,6 +43,15 @@ The launchers set process-local DLL paths. Neither conda environment is modified
 
 Install `requirements.txt` only with a compatible **64-bit** decoder Python when preparing another PC. Never install the decoder requirements into 32-bit mastersp. `requirements-tested.txt` preserves historical audit versions; this PC's actual decoder versions are recorded in private preflight reports.
 
+The three-class launcher selects CUDA when available and shows the model device in the GUI. On this PC the launcher uses PyTorch 2.10.0 with CUDA 12.6 from `.runtime/torch-cu126`. To restore that runtime with this PC's 64-bit Python 3.14, run:
+
+```powershell
+& "$env:USERPROFILE\miniconda3\python.exe" -m pip install --no-deps --target .runtime/torch-cu126 --index-url https://download.pytorch.org/whl/cu126 torch==2.10.0+cu126
+.\Launch_THREECLASS_X24.bat --device cuda
+```
+
+`--device cuda` requires GPU availability at startup. Signal filtering and covariance preprocessing run on the CPU, and the neural models run on the selected device.
+
 ## Checks
 
 ```powershell
