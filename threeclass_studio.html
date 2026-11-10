@@ -163,11 +163,15 @@
 'use strict';
 let CLASSES = ['rest','volar_grasp','finger_extension'];
 const NAMES = {rest:'Rest',volar_grasp:'Volar Grasp',finger_extension:'Finger Extension',
+  right_hand_grasp:'Right-Hand Grasp',action:'Right-Hand Grasp',
   opponens_grasp:'Opponens Grasp',wrist_flexion:'Wrist Flexion',wrist_extension:'Wrist Extension',
   wrist_pronation:'Wrist Pronation',wrist_supination:'Wrist Supination',pinch_grasp:'Pinch Grasp',
   uncertain:'Uncertain',rejected:'Rejected'};
 const COLORS = ['#71c8f6','#f3b653','#ad97f6','#7ed9a7','#fa8faa','#9db3ff','#67d7d1','#e2d875','#ffa37f'];
-const INSTRUCTIONS = {rest:'Rest naturally. Stay still and let your hand relax.',volar_grasp:'Imagine the feeling of closing your hand around an object. Keep your actual hand still.',finger_extension:'Imagine the feeling of straightening your fingers. Keep your actual fingers still.',
+const INSTRUCTIONS = {rest:'Rest naturally. Stay still and let your hand relax.',
+  right_hand_grasp:'Imagine the feeling of closing your right hand. Keep your fingers, jaw and shoulders still.',
+  action:'Imagine the feeling of closing your right hand. Keep your fingers, jaw and shoulders still.',
+  volar_grasp:'Imagine the feeling of closing your hand around an object. Keep your actual hand still.',finger_extension:'Imagine the feeling of straightening your fingers. Keep your actual fingers still.',
   opponens_grasp:'Imagine bringing your thumb across your palm toward your little finger. Keep your hand still.',
   wrist_flexion:'Imagine bending your wrist toward your palm. Keep your wrist still.',
   wrist_extension:'Imagine bending your wrist toward the back of your hand. Keep your wrist still.',
@@ -187,12 +191,13 @@ let probabilityRows = [];
 function configureClasses(s) {
   if (probabilityRows.length) return;
   CLASSES = s.classes || CLASSES;
-  const task = s.task_label || 'three-class';
+  const task = s.task_label || (CLASSES.length === 2 ? 'binary' : 'three-class');
   const title = task[0].toUpperCase()+task.slice(1);
-  document.title=title+' EEG Lab';
+  document.title=task==='binary'?'Binary EEG Lab — Rest · Right-Hand Grasp':title+' EEG Lab';
   $('labEyebrow').textContent='EEG lab · '+task+' session';
-  $('labTitle').textContent=task==='three-class'?'Rest. Grasp. Extend.':title+' motor imagery';
-  $('labFooter').textContent=title+' console · display and recording · 256 Hz · 4-second windows';
+  $('labTitle').textContent=task==='three-class'?'Rest. Grasp. Extend.':(task==='binary'?'Rest. Right-Hand Grasp.':title+' motor imagery');
+  const win_s = s.window_s ? Math.round(s.window_s)+'-second' : '4-second';
+  $('labFooter').textContent=title+' console · display and recording · 256 Hz · '+win_s+' windows';
   const minutes = count => Number((count*(s.cue_duration_s || 8)/60).toFixed(1));
   $('calibrateBtn').textContent='Personal calibration · '+minutes(s.calibration_total || 36)+' min';
   $('validateBtn').textContent='Fresh validation · '+minutes(s.validation_total || 30)+' min';

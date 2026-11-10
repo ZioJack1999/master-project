@@ -496,7 +496,8 @@ def fit_personal(raw, timestamps, events, channels, output_dir, config=None,
     if temporal:
         classifier = c['arch']
         early_stopping = 'Lowest cue log loss on the reserved tuning blocks.'
-    contract = dict(schema_version=2, task_mode='multiclass', arch=c['arch'],
+    task_mode = 'binary' if len(classes) == 2 else 'multiclass'
+    contract = dict(schema_version=2, task_mode=task_mode, arch=c['arch'],
         role=role, classes=classes, channels=list(channels), sfreq=256,
         n_times=payload['n_times'], normalization='fixed' if temporal else 'feature_train_only',
         filter=dict(mode='causal', fmin=8., fmax=30., order=4),

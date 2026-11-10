@@ -34,13 +34,18 @@ class MulticlassDecoder:
     def __init__(self,checkpoint,policy=None,device='cpu'):
         self.device = torch.device(device)
         path=Path(checkpoint);c=json.loads(Path(str(path)+'.json').read_text())
-        if c.get('task_mode')!='multiclass' or c.get('schema_version')!=2 or len(c['classes'])<3: raise ValueError('Multiclass schema v2 checkpoint required.')
+        if (c.get('task_mode') not in ('multiclass', 'binary') and c.get('role') != 'personal_training_template') or (c.get('schema_version', 2) not in (1, 2) and c.get('role') != 'personal_training_template') or len(c['classes']) < 2:
+            raise ValueError('Multiclass or binary schema checkpoint required.')
         if c['sha256']!=digest(path): raise ValueError('Multiclass model SHA256 mismatch.')
-        if c['filter']!=dict(mode='causal',fmin=8.,fmax=30.,order=4) or c['normalization'] not in ('fixed','feature_train_only'): raise ValueError('Unsupported multiclass preprocessing.')
+        filt = c.get('filter', {})
+        if filt.get('mode') != 'causal' or filt.get('order', 4) != 4 or c['normalization'] not in ('fixed','feature_train_only'):
+            raise ValueError('Unsupported multiclass preprocessing.')
+        fmin = float(filt.get('fmin', 8.0))
+        fmax = float(filt.get('fmax', 30.0))
         ck=torch.load(path,map_location='cpu',weights_only=False)
         self.contract=c;self.channels=c['channels'];self.classes=c['classes'];self.n_ch=len(self.channels)
         self.sfreq=c['sfreq'];self.window_samples=c['n_times'];self.step_samples=round(.25*self.sfreq)
-        if ck['n_channels']!=self.n_ch or ck['n_classes']!=len(self.classes) or ck['n_times']!=self.window_samples: raise ValueError('Multiclass dimensions differ from contract.')
+        if ck['n_channels']!=self.n_ch or ck.get('n_classes', len(self.classes))!=len(self.classes) or ck['n_times']!=self.window_samples: raise ValueError('Multiclass dimensions differ from contract.')
         self.arch=ck.get('arch','eegnet');self.feature_runner=None
         if self.arch=='feature_ensemble':
             if c['normalization']!='feature_train_only':raise ValueError('Feature ensemble requires train-only feature normalization.')
@@ -61,10 +66,10 @@ class MulticlassDecoder:
         else:raise ValueError('Unknown multiclass model architecture.')
         self.mean=np.asarray(ck['train_mean'],np.float32);self.std=np.asarray(ck['train_std'],np.float32)
         if self.mean.shape!=(self.n_ch,) or self.std.shape!=(self.n_ch,) or not np.isfinite(self.mean).all() or not np.isfinite(self.std).all() or np.any(self.std<1e-9):raise ValueError('Invalid multiclass normalization.')
-        self.sos=butter(4,[8,30],fs=self.sfreq,btype='bandpass',output='sos')
+        self.sos=butter(4,[fmin,fmax],fs=self.sfreq,btype='bandpass',output='sos')
         self.policy=MulticlassPolicy(len(self.classes),policy or c.get('policy'));self.reset()
     def reset(self):
-        self.ring=RingBuffer(self.n_ch,self.window_samples);self.bad=RingBuffer(1,self.window_samples)
+        self.ring=RingBuffer(self.n_ch,self.window_samples);self.raw_ring=RingBuffer(self.n_ch,self.window_samples);self.bad=RingBuffer(1,self.window_samples)
         self.zi=np.zeros((len(self.sos),self.n_ch,2));self.samples_seen=0;self.next_prediction=self.window_samples;self.policy.reset()
     def process_chunk_all(self,raw):
         raw=np.asarray(raw,np.float32)
@@ -73,11 +78,12 @@ class MulticlassDecoder:
         position=0;outputs=[]
         while position<raw.shape[1]:
             n=min(raw.shape[1]-position,self.next_prediction-self.samples_seen)
-            filtered,self.zi=sosfilt(self.sos,raw[:,position:position+n],axis=1,zi=self.zi)
-            self.ring.push_chunk(filtered);self.bad.push_chunk((abs(filtered)>self.contract['artifact_limit_v']).any(axis=0)[None,:])
+            part=raw[:,position:position+n]
+            filtered,self.zi=sosfilt(self.sos,part,axis=1,zi=self.zi)
+            self.ring.push_chunk(filtered);self.raw_ring.push_chunk(part);self.bad.push_chunk((abs(filtered)>self.contract['artifact_limit_v']).any(axis=0)[None,:])
             self.samples_seen+=n;position+=n
             if self.samples_seen!=self.next_prediction:continue
-            self.next_prediction+=self.step_samples;x=self.ring.get()
+            self.next_prediction+=self.step_samples;x=self.ring.get();raw_x=self.raw_ring.get()
             quality='artifact' if self.bad.get().any() else 'flat_signal' if np.any(x.std(axis=1)<self.contract['min_signal_std_v']) else 'ok'
             p=np.zeros(len(self.classes))
             if quality=='ok':

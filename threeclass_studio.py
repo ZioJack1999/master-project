@@ -6,7 +6,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import re
+import socket
 import threading
+import time
 import uuid
 import webbrowser
 import numpy as np
@@ -81,11 +83,32 @@ class ThreeClassStudio:
     def __init__(self, config, root=ROOT, clock=clock_now):
         self.root, self.config, self.clock = Path(root), dict(config), clock
         self.device = config.get('device', 'cpu')
-        self.classes = list(config.get('classes', CLASSES))
-        self.task = 'threeclass' if self.classes == CLASSES else f'{len(self.classes)}class'
-        self.task_label = 'three-class' if self.task == 'threeclass' else f'{len(self.classes)}-class'
+        reference = config.get('checkpoint')
+        self.reference_checkpoint = (self.root/reference).resolve() if reference else None
+        self.checkpoint = self.reference_checkpoint
+        default_classes = ['rest', 'right_hand_grasp'] if config.get('task') == 'binary' or config.get('udp_port') == 5005 or 'personal_calibration_pairs' in config or (reference and 'stock20' in str(reference)) else CLASSES
+        self.classes = list(config.get('classes', default_classes))
+        if len(self.classes) == 2:
+            self.task = 'binary'
+            self.task_label = 'binary'
+        elif self.classes == CLASSES:
+            self.task = 'threeclass'
+            self.task_label = 'three-class'
+        else:
+            self.task = f'{len(self.classes)}class'
+            self.task_label = f'{len(self.classes)}-class'
         self.policy = dict(POLICY, **config.get('policy', {}))
-        self.channels = list(config['channels'])
+        if 'channels' not in config:
+            if self.reference_checkpoint:
+                contract_file = Path(str(self.reference_checkpoint) + '.json')
+                if contract_file.exists():
+                    c_data = json.loads(contract_file.read_text(encoding='utf-8'))
+                    self.channels = list(c_data.get('channels', []))
+            if not getattr(self, 'channels', None):
+                from threeclass_acquisition import CHANNELS_20
+                self.channels = list(CHANNELS_20)
+        else:
+            self.channels = list(config['channels'])
         if (len(self.channels) != 20 or any(not isinstance(c, str) or not c or c != c.strip() for c in self.channels)
                 or len({c.casefold() for c in self.channels}) != 20):
             raise ValueError('Select twenty unique actual electrode sites.')
@@ -96,6 +119,7 @@ class ThreeClassStudio:
         self.reports = (self.root/config.get('reports_dir', f'session_reports/{self.task}')).resolve()
         self.reports.mkdir(parents=True, exist_ok=True)
         self.lock, self.stop_event, self.cancel_fit = threading.RLock(), threading.Event(), threading.Event()
+        self.stop = self.stop_event
         self.inlet = self.adapter = self.decoder = self.protocol = None
         self.training_thread = None
         self.connect_requested = False
@@ -103,9 +127,14 @@ class ThreeClassStudio:
         self.last_data = None
         self.last_ui_seen = self.clock()
         self.run_serial = 0
-        reference = config.get('checkpoint')
-        self.reference_checkpoint = (self.root/reference).resolve() if reference else None
-        self.checkpoint = self.reference_checkpoint
+        self.udp_port = config.get('udp_port', 5005 if self.task == 'binary' else None)
+        self.udp_host = config.get('udp_host', '127.0.0.1')
+        self.udp_sock = None
+        if self.udp_port:
+            self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_target = (self.udp_host, int(self.udp_port))
+        else:
+            self.udp_target = None
         self.state = dict(connected=False, connecting=False, streaming=False, mode='live', status='Connect EEG to begin.', error='',
             participant=config.get('participant', 'self'), stream_name='', model_role='untrained',
             model_sha256='', model_device=self.device, model_ready=False, training=False, training_progress='', protocol_kind='',
@@ -125,6 +154,38 @@ class ThreeClassStudio:
         self._load_reference()
         self._clear_recording()
         self._refresh_models()
+
+    def _send_udp(self, packet):
+        if self.udp_sock is not None:
+            try:
+                self.udp_sock.sendto(json.dumps(packet, allow_nan=False).encode('utf-8'), self.udp_target)
+            except OSError:
+                pass
+
+    def _send_rest_udp(self, reason='paused'):
+        self._send_udp(dict(
+            timestamp=time.time(),
+            sample_end=0,
+            p_raw=0.0,
+            p_smooth=0.0,
+            grasp_command=0,
+            continuous_flex=0.0,
+            state_label='REST',
+            quality=reason,
+            threshold=float(self.config.get('threshold', 0.5)),
+        ))
+
+    def close(self):
+        with self.lock:
+            self.cancel_fit.set()
+            self.stop_event.set()
+            self._send_rest_udp('shutdown')
+            if self.udp_sock:
+                try:
+                    self.udp_sock.close()
+                except OSError:
+                    pass
+                self.udp_sock = None
 
     def _refresh_models(self):
         found = list_personal_models(self.reports, self.state['participant'], self.channels, self.classes)
@@ -154,9 +215,15 @@ class ThreeClassStudio:
         if self.reference_checkpoint is None:
             return
         reference = MulticlassDecoder(self.reference_checkpoint, device=self.device)
-        if reference.classes != self.classes:
+        ref_classes = [c if c != 'action' else 'right_hand_grasp' for c in reference.classes]
+        stu_classes = [c if c != 'action' else 'right_hand_grasp' for c in self.classes]
+        if ref_classes != stu_classes:
             raise ValueError('Reference model class order differs from the selected profile.')
-        if [c.casefold() for c in reference.channels] == [c.casefold() for c in self.channels]:
+        if reference.contract.get('role') == 'personal_training_template':
+            self.decoder = None
+            self.state.update(model_role='untrained', model_sha256=reference.contract['sha256'],
+                model_scope='Random architecture template. Run personal calibration before validation.')
+        elif [c.casefold() for c in reference.channels] == [c.casefold() for c in self.channels]:
             self.decoder = reference
             reference_name = 'temporal CNN' if reference.arch == 'temporal_cnn' else 'reference model'
             self.state.update(model_role='recorded_reference', model_sha256=reference.contract['sha256'],
@@ -196,6 +263,7 @@ class ThreeClassStudio:
                         probability_history={k:list(v) for k, v in self.history.items()})
 
     def _abort(self, reason):
+        self._send_rest_udp(reason)
         if self.protocol:
             now = self.clock()
             self.protocol.abort(now)
@@ -209,6 +277,7 @@ class ThreeClassStudio:
         self._reset_segment()
 
     def save(self):
+        self._send_rest_udp('saved')
         folder = self.reports/self.state['participant']/self.session_id
         folder.mkdir(parents=True, exist_ok=True)
         raw = np.concatenate(self.raw, axis=1) if self.raw else np.empty((20, 0), np.float32)
@@ -234,6 +303,19 @@ class ThreeClassStudio:
     def action(self, path, body=None):
         body = body or {}
         with self.lock:
+            if path == '/api/toggle_stream':
+                if self.state['streaming']:
+                    self.action('/api/stop', body)
+                else:
+                    self.action('/api/start', body)
+                return self.snapshot()
+            elif path == '/api/set_threshold':
+                val = float(body.get('val', [body.get('threshold', 0.5)])[0] if isinstance(body.get('val'), list) else body.get('val', body.get('threshold', 0.5)))
+                self.config['threshold'] = val
+                return self.snapshot()
+            elif path == '/api/export_figure':
+                folder = self.save()
+                return dict(status='saved', folder=folder)
             if path in ('/api/start', '/api/calibrate', '/api/validate') and body.get('participant', self.state['participant']) != self.state['participant']:
                 raise ValueError('Reconnect EEG with the new participant ID before starting or validating a recording.')
             if path == '/api/stop':
@@ -524,6 +606,24 @@ class ThreeClassStudio:
                 self.history[c].append(p[i])
                 self.history['raw_'+c].append(p[i])
                 self.history['ema_'+c].append(ema[i])
+            if self.udp_sock and len(self.classes) == 2:
+                p_action = float(p[1])
+                ema_prob = float(ema[1])
+                threshold = float(self.config.get('threshold', 0.5))
+                decision = int(packet['class_id'] == 1 and packet['quality'] == 'ok')
+                flex = float(np.clip((ema_prob - threshold) / (1.0 - threshold), 0.0, 1.0)) if decision else 0.0
+                udp_packet = dict(
+                    timestamp=sample_time,
+                    sample_end=packet['sample_end'],
+                    p_raw=p_action,
+                    p_smooth=ema_prob,
+                    grasp_command=decision,
+                    continuous_flex=flex,
+                    state_label='ACTION' if decision else 'REST',
+                    quality=packet['quality'],
+                    threshold=threshold,
+                )
+                self._send_udp(udp_packet)
 
     def worker(self):
         rng = np.random.default_rng(42)
@@ -614,7 +714,10 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
     def do_GET(self):
         if self.path in ('/', '/index.html'):
-            self.respond(200, (self.studio.root/'threeclass_studio.html').read_text(encoding='utf-8'), True)
+            html_file = self.studio.root/'threeclass_studio.html'
+            if not html_file.exists():
+                html_file = self.studio.root/'studio.html'
+            self.respond(200, html_file.read_text(encoding='utf-8'), True)
         elif self.path == '/api/state':
             self.respond(200, self.studio.snapshot(seen=True))
         else:
@@ -628,10 +731,17 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', '0'))
             if length > 10000:
                 raise ValueError('Request too large.')
-            body = json.loads(self.rfile.read(length) or b'{}')
+            body = json.loads(self.rfile.read(length) or b'{}') if length > 0 else {}
             if not isinstance(body, dict):
                 raise ValueError('Expected a JSON object.')
-            self.respond(200, self.studio.action(self.path, body))
+            from urllib.parse import urlparse, parse_qs
+            url = urlparse(self.path)
+            query = parse_qs(url.query)
+            if query:
+                for k, v in query.items():
+                    if k not in body:
+                        body[k] = v[0] if len(v) == 1 else v
+            self.respond(200, self.studio.action(url.path, body))
         except (ValueError, RuntimeError) as exc:
             self.respond(409, dict(error=str(exc)))
 

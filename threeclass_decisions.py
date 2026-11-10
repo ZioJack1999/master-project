@@ -56,8 +56,8 @@ def diagnostic_from_probabilities(probabilities, rows, classes, policy=None):
     p = np.asarray(probabilities, dtype=float)
     classes = list(classes)
     n_classes = len(classes)
-    if n_classes < 3 or len(set(classes)) != n_classes:
-        raise ValueError('Declare at least three unique classes.')
+    if n_classes < 2 or len(set(classes)) != n_classes:
+        raise ValueError('Declare at least two unique classes.')
     if (p.shape != (len(rows), n_classes) or not len(rows) or not np.isfinite(p).all()
             or np.any(p < 0) or not np.allclose(p.sum(axis=1), 1., atol=1e-5)):
         raise ValueError('Expected one valid class probability vector per calibration window.')

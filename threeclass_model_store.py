@@ -13,6 +13,8 @@ import re
 
 CLASSES = ['rest', 'volar_grasp', 'finger_extension']
 def model_identity(classes):
+    if len(classes) == 2:
+        return 'personal_binary.pt', 'personal_binary_model'
     mode = 'threeclass' if list(classes) == CLASSES else 'multiclass'
     return f'personal_{mode}.pt', f'personal_{mode}_model'
 
@@ -140,11 +142,12 @@ def validate_personal_model(path, participant, channels, reports_dir, classes=CL
     arch = contract.get('arch')
     normalization_by_arch = {'feature_ensemble': 'feature_train_only', 'temporal_cnn': 'fixed'}
     normalization = normalization_by_arch.get(arch) if isinstance(arch, str) else None
-    if (contract.get('schema_version') != 2 or contract.get('task_mode') != 'multiclass'
+    expected_task_mode = 'binary' if len(classes) == 2 else 'multiclass'
+    if (contract.get('schema_version') != 2 or contract.get('task_mode') != expected_task_mode
             or contract.get('role') != role
             or normalization is None
             or contract.get('classes') != list(classes)):
-        task = 'three-class' if list(classes) == CLASSES else f'{len(classes)}-class'
+        task = 'binary' if len(classes) == 2 else ('three-class' if list(classes) == CLASSES else f'{len(classes)}-class')
         raise ValueError(f'Expected a supported personal {task} model contract for the selected classes.')
     if contract.get('participant') != participant:
         raise ValueError('Personal model belongs to a different participant.')

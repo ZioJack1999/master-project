@@ -2,7 +2,6 @@
   "reference_commit": "23baacbaaf7fc60627c7de62a571a3009218f6e7",
   "scope": "Retained active binary core and personal templates: original reference hashes preserved; obsolete launchers and unused historical weights retired.",
   "sha256": {
-    "bci_studio_gui.py": "82c83e2c417449cec54abc8c7a2aefb9b4f6f7481c258fc844da61571d16e926",
     "realtime_bci_decoder.py": "d3ac5877f8cdfca13929a8ec06fee117a38862d77e2180fb42d424e58b4a6f3f",
     "networks.py": "388df629aa0426da40018e4dd805d0dd17c36339c7ca22cbb33c52619c65221d",
     "lsl_acquisition.py": "1c4841b557981e46af3e6b4429d9a63ef619c41f130277bd2ed9f388ab0e3fb8",
@@ -21,11 +20,9 @@
     "decoder_and_models/personal_template_eegmi_custom20.pt": "35cfbfed2fdb7e592b0f90e6f294f4f149a7ac0fb3dcffda3a810b9466e1cc23",
     "decoder_and_models/personal_template_eegmi_custom20.pt.json": "a4a62ff85f6e1a11d3834a090020e0b7f1abcf672620d0d477667d6fb8917332",
     "decoder_and_models/personal_template_x24_stock20.pt": "9fe6ebe24f11e8634f01d40f034378e60c25a38522b7a480a9ebf5014cd82e6d",
-    "decoder_and_models/personal_template_x24_stock20.pt.json": "22529169d964f06d138bf6a1c4f24072a6d5cfb194fb7de7bb6cd1ae33959b6e",
-    "studio.html": "c382da778378ca262031643d79a48b662bf210d1e8b02a386fef04cfd517b011"
+    "decoder_and_models/personal_template_x24_stock20.pt.json": "22529169d964f06d138bf6a1c4f24072a6d5cfb194fb7de7bb6cd1ae33959b6e"
   },
   "text_lf_sha256": {
-    "bci_studio_gui.py": "c343566e49f7dc589a8bac4864ebbcd178c46ddb1bc001932bd49f3587a07441",
     "realtime_bci_decoder.py": "e611b9fa4451e1b31fe86340ac0783852ca2c766550ae650f3e2ca7ebfa15a22",
     "networks.py": "44b6f0bf58099b3f9c96562d489610c0a9c18dc9bcf7053534ede23c813c2e15",
     "lsl_acquisition.py": "41e97e9dd08d8f85d41869b298cf18acf6029ca0e91aa880a38294e005acca54",
@@ -42,11 +39,12 @@
     "lab_config.json": "3a4c96b59510889182756c20cd7224b155d48f621b97378903b9c609c2ed7026",
     "lab_config.eegmi_custom20.example.json": "218b39de65e42ea17f68eabeb57d21838429c625a20a1d45cd15855592fe36cb",
     "decoder_and_models/personal_template_eegmi_custom20.pt.json": "9c00821fe9793cc44792c8b6e8b4919cead9b0d328b7eadb0605e896f4cbf881",
-    "decoder_and_models/personal_template_x24_stock20.pt.json": "17320ac818b5147d9e1d48dff2f3a89c13dabe5b3f2956ad440712b38b51f8ad",
-    "studio.html": "5d2bc5840b57ad4aa0b8bc91de4b66d8fec33b0bd69ea23b0f31dc92dc8787a5"
+    "decoder_and_models/personal_template_x24_stock20.pt.json": "17320ac818b5147d9e1d48dff2f3a89c13dabe5b3f2956ad440712b38b51f8ad"
   },
   "schema_version": 2,
   "retired_files": [
+    "bci_studio_gui.py",
+    "studio.html",
     "Launch_BCI_3D_Studio.bat",
     "Setup_BCI_Studio.bat",
     "bci_live_gui.py",
