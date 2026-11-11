@@ -14,23 +14,20 @@ echo Launching BCI Studio Web Dashboard at http://127.0.0.1:8052 ...
 echo Launching 3D Virtual Hand Window at http://127.0.0.1:8052/virtual_hand ...
 echo.
 
-:: Automatically launch both GUI and 3D Virtual Hand windows once server starts
-start "" cmd /c "timeout /t 2 /nobreak >nul & start http://127.0.0.1:8052 & timeout /t 1 /nobreak >nul & start http://127.0.0.1:8052/virtual_hand"
-
 if exist "C:\tools\Anaconda3\envs\multi_nn\python.exe" (
-    "C:\tools\Anaconda3\envs\multi_nn\python.exe" bci_studio_gui.py --no-browser %*
+    "C:\tools\Anaconda3\envs\multi_nn\python.exe" bci_studio_gui.py --open-virtual-hand %*
     goto finished
 )
 if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" bci_studio_gui.py --no-browser %*
+    ".venv\Scripts\python.exe" bci_studio_gui.py --open-virtual-hand %*
     goto finished
 )
 if exist "%USERPROFILE%\.bci_studio\venv\Scripts\python.exe" (
-    "%USERPROFILE%\.bci_studio\venv\Scripts\python.exe" bci_studio_gui.py --no-browser %*
+    "%USERPROFILE%\.bci_studio\venv\Scripts\python.exe" bci_studio_gui.py --open-virtual-hand %*
     goto finished
 )
 where py >nul 2>&1
-if errorlevel 1 (python bci_studio_gui.py --no-browser %*) else (py -3 bci_studio_gui.py --no-browser %*)
+if errorlevel 1 (python bci_studio_gui.py --open-virtual-hand %*) else (py -3 bci_studio_gui.py --open-virtual-hand %*)
 
 :finished
 set "BCI_EXIT=%ERRORLEVEL%"

@@ -97,17 +97,15 @@ def find_browser_executables() -> dict[str, str]:
     """Find installed browser executables supporting app mode or clean windows."""
     executables = {}
 
-    # 1. Edge executables
+    # 1. Edge executables (exclude headless EdgeCore)
     edge_candidates = [
         shutil.which("msedge"),
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        *sorted(glob.glob(r"C:\Program Files (x86)\Microsoft\EdgeCore\*\msedge.exe"), reverse=True),
-        *sorted(glob.glob(r"C:\Program Files\Microsoft\EdgeCore\*\msedge.exe"), reverse=True),
         os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
     ]
     for cand in edge_candidates:
-        if cand and os.path.isfile(cand):
+        if cand and os.path.isfile(cand) and "EdgeCore" not in cand:
             executables["edge"] = cand
             break
 
@@ -205,13 +203,17 @@ def launch_viewer_window(
         except Exception as e:
             print(f"[VirtualHandViewer] Browser launch failed ({e}), falling back...")
 
-    # Fallback to python standard webbrowser
+    # Fallback to python standard webbrowser / os.startfile
     print(f"[VirtualHandViewer] Opening via system default browser: {url}")
     if dry_run:
         return True
     try:
-        webbrowser.open(url, new=1, autoraise=True)
-        return True
+        if sys.platform == "win32":
+            os.startfile(url)
+            return True
+        else:
+            webbrowser.open(url, new=1, autoraise=True)
+            return True
     except Exception as e:
         print(f"[VirtualHandViewer] Failed to open browser: {e}")
         return False
@@ -560,6 +562,41 @@ Examples:
         target_port, desc = detect_active_port(args.host, preferred_mode=target_mode)
     else:
         desc = f"Specified port {target_port}"
+
+    # If no studio server is running and user did not force a port, start standalone demo mode
+    if not is_port_listening(args.host, target_port) and not args.binary and not args.threeclass and args.port is None:
+        print("=" * 70)
+        print("   3D VIRTUAL HAND DESKTOP VIEWER (STANDALONE DEMO MODE)")
+        print("=" * 70)
+        print(f"[VirtualHandViewer] No active BCI Studio detected on port {target_port}.")
+        print("[VirtualHandViewer] Launching standalone 3D Virtual Hand in demo mode...")
+        bridge = StandaloneUDPBridge(
+            http_port=args.bridge_port,
+            udp_port=args.udp_port,
+            demo=True,
+        )
+        bridge.run()
+        target_url = f"http://{args.host}:{args.bridge_port}{args.path}"
+        time.sleep(0.3)
+        launch_viewer_window(
+            url=target_url,
+            browser_pref=args.browser,
+            app_mode=not args.no_app,
+            width=args.width,
+            height=args.height,
+            dry_run=args.dry_run,
+        )
+        if args.dry_run:
+            bridge.stop()
+            return 0
+        print("[StandaloneBridge] Running live 3D Virtual Hand. Press Ctrl+C to exit.")
+        try:
+            while True:
+                time.sleep(1.0)
+        except KeyboardInterrupt:
+            print("\n[StandaloneBridge] Shutting down.")
+            bridge.stop()
+        return 0
 
     # Waiting logic if requested
     if args.wait > 0 and not is_port_listening(args.host, target_port):
