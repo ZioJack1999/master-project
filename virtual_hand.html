@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BCI 3D Virtual Hand — Real-Time Biomechanical Twin</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a1018;
+      --panel: rgba(14, 23, 35, 0.88);
+      --panel-border: rgba(44, 61, 80, 0.75);
+      --panel-hover: rgba(28, 45, 68, 0.95);
+      --text: #edf4fc;
+      --muted: #8ea3bd;
+      --rest: #71c8f6;
+      --grasp: #00e5ff;
+      --extension: #ad97f6;
+      --good: #65d8ac;
+      --warn: #f3b653;
+      --bad: #ff939c;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+    }
+
+    /* 3D WebGL Canvas Container */
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 1;
+    }
+    #canvas-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Header Overlay */
+    #header-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .interactive { pointer-events: auto; }
+
+    /* Frosted Glass Base */
+    .glass-card {
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Brand / Title & Connection */
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      color: var(--grasp);
+      flex-shrink: 0;
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+    .brand-sub {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Connection Status */
+    .conn-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(10, 16, 24, 0.7);
+      border: 1px solid rgba(44, 61, 80, 0.6);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .conn-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 8px var(--warn);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .conn-dot.online {
+      background: var(--good);
+      box-shadow: 0 0 10px var(--good);
+    }
+    .conn-dot.offline {
+      background: var(--bad);
+      box-shadow: 0 0 10px var(--bad);
+    }
+
+    /* Target Status Pill (Centerpiece) */
+    .target-pill-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .target-pill {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 22px;
+      border-radius: 40px;
+      border: 1.5px solid rgba(0, 229, 255, 0.4);
+      background: rgba(14, 23, 35, 0.92);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 24px rgba(0, 229, 255, 0.25), inset 0 0 16px rgba(0, 229, 255, 0.1);
+      transition: border-color 0.35s, box-shadow 0.35s, background 0.35s;
+    }
+    .target-pill.state-rest {
+      border-color: rgba(113, 200, 246, 0.45);
+      box-shadow: 0 0 20px rgba(113, 200, 246, 0.25), inset 0 0 12px rgba(113, 200, 246, 0.08);
+    }
+    .target-pill.state-volar_grasp, .target-pill.state-right_hand_grasp, .target-pill.state-action {
+      border-color: rgba(0, 229, 255, 0.7);
+      box-shadow: 0 0 32px rgba(0, 229, 255, 0.45), inset 0 0 16px rgba(0, 229, 255, 0.18);
+    }
+    .target-pill.state-finger_extension {
+      border-color: rgba(173, 151, 246, 0.75);
+      box-shadow: 0 0 32px rgba(173, 151, 246, 0.45), inset 0 0 16px rgba(173, 151, 246, 0.18);
+    }
+
+    .pill-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pill-icon svg { width: 100%; height: 100%; }
+
+    .pill-label {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      min-width: 140px;
+      text-align: center;
+    }
+    .pill-conf-badge {
+      font-size: 14px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      font-variant-numeric: tabular-nums;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .pill-meta {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Controls Toolbar */
+    .toolbar-section {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+    }
+    button, select {
+      font: inherit;
+      color: var(--text);
+      background: rgba(26, 40, 60, 0.85);
+      border: 1px solid rgba(60, 85, 115, 0.6);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.1s;
+    }
+    button:hover, select:hover {
+      background: rgba(38, 60, 90, 0.95);
+      border-color: rgba(90, 130, 175, 0.8);
+      color: #fff;
+    }
+    button:active { transform: scale(0.96); }
+    button.active {
+      background: rgba(0, 229, 255, 0.2);
+      border-color: var(--grasp);
+      color: var(--grasp);
+    }
+    select {
+      padding-right: 22px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="%238ea3bd" height="12" viewBox="0 0 24 24" width="12" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+    }
+    select option { background: #121d2b; color: #fff; }
+
+    /* Collapsible Telemetry HUD Drawer */
+    #hud-drawer {
+      position: absolute;
+      top: 76px;
+      right: 14px;
+      width: 320px;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 90;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    }
+    #hud-drawer.hidden {
+      transform: translateX(350px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .hud-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid rgba(44, 61, 80, 0.6);
+      padding-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hud-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Class probability bars */
+    .prob-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .prob-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .prob-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(30, 45, 65, 0.7);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .prob-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      transition: width 0.12s linear;
+    }
+
+    /* Kinematic Angles */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-box {
+      background: rgba(10, 16, 24, 0.6);
+      border: 1px solid rgba(44, 61, 80, 0.5);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+    .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+    .stat-val { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+    /* Manual Interactive Kinematics Override */
+    .manual-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(10, 16, 24, 0.6);
+      border: 1px dashed rgba(44, 61, 80, 0.8);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .manual-slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .manual-slider-row label {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--grasp);
+      cursor: pointer;
+    }
+
+    /* Bottom Info Strip */
+    #bottom-info {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 14px;
+      font-size: 11px;
+      color: var(--muted);
+      z-index: 100;
+      pointer-events: auto;
+    }
+    .kbd-hint {
+      background: rgba(30, 45, 65, 0.8);
+      border: 1px solid rgba(60, 85, 115, 0.6);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      #header-overlay { flex-wrap: wrap; }
+      .target-pill-container { order: 3; width: 100%; }
+      #hud-drawer { width: calc(100vw - 28px); right: 14px; left: 14px; top: 130px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D WebGL Canvas Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Header Overlay -->
+  <header id="header-overlay">
+    
+    <!-- Left: Brand & Connection Status -->
+    <div class="glass-card brand-section interactive">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/>
+        <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v7"/>
+        <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+        <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+      </svg>
+      <div>
+        <div class="brand-title">3D Virtual Hand</div>
+        <div class="brand-sub">Biomechanical Neural Twin</div>
+      </div>
+      <div class="conn-badge" id="conn-badge" title="Click to cycle API port (8052, 8051, 8053)" style="cursor:pointer;">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span id="conn-label">ONLINE</span>
+        <span id="conn-port" style="color:var(--muted); font-size:10px;">:8052</span>
+      </div>
+    </div>
+
+    <!-- Center: Large Target Status Pill -->
+    <div class="target-pill-container interactive">
+      <div class="target-pill state-rest" id="target-pill">
+        <div class="pill-icon" id="pill-icon">
+          <!-- Default Rest Icon (Open Relaxed Hand) -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#71c8f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 11V6a2 2 0 0 0-4 0v4"/>
+            <path d="M14 10V4a2 2 0 0 0-4 0v7"/>
+            <path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>
+            <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+          </svg>
+        </div>
+        <div class="pill-label" id="pill-label">REST</div>
+        <div class="pill-conf-badge" id="pill-conf">98.5%</div>
+      </div>
+      <div class="pill-meta" id="pill-meta">SYNCHRONIZED WITH BCI DECODER</div>
+    </div>
+
+    <!-- Right: Toolbar Controls -->
+    <div class="glass-card toolbar-section interactive">
+      <!-- Camera controls -->
+      <button id="resetCamBtn" title="Reset camera to default perspective (Double-click canvas also works)">⟲ Reset</button>
+      <button id="zoomInBtn" title="Zoom in">+</button>
+      <button id="zoomOutBtn" title="Zoom out">−</button>
+      
+      <select id="viewPresetSelect" title="Preset camera views">
+        <option value="default">Perspective</option>
+        <option value="front">Front</option>
+        <option value="oblique">Oblique</option>
+        <option value="side">Side</option>
+        <option value="top">Top</option>
+      </select>
+
+      <button id="autoRotateBtn" title="Toggle gentle turntable rotation">🔄 Spin</button>
+      
+      <!-- Theme & Wireframe -->
+      <button id="wireframeBtn" title="Toggle cybernetic wireframe blueprint">⬡ Wire</button>
+      
+      <select id="themeSelect" title="Biomechanical hand aesthetic theme">
+        <option value="cyber">Cyber Neon</option>
+        <option value="bionic">Bionic Titanium</option>
+        <option value="matrix">Matrix Green</option>
+        <option value="stealth">Stealth Carbon</option>
+      </select>
+
+      <!-- HUD Drawer Toggle -->
+      <button id="toggleHudBtn" class="active" title="Toggle Telemetry HUD Drawer">📊 HUD</button>
+      <button id="fullscreenBtn" title="Toggle full-screen second window">⛶</button>
+    </div>
+
+  </header>
+
+  <!-- Collapsible Telemetry HUD Drawer -->
+  <aside class="glass-card interactive" id="hud-drawer">
+    
+    <!-- Probabilities -->
+    <div class="hud-card">
+      <div class="hud-title">
+        <span>Class Probabilities</span>
+        <span id="hud-fps" style="font-variant-numeric:tabular-nums; font-size:10px; color:var(--good);">60 FPS</span>
+      </div>
+      
+      <div class="prob-row">
+        <div class="prob-info">
+          <span style="color:var(--rest);">Rest</span>
+          <span id="prob-rest-val">98.5%</span>
+        </div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-rest-bar" style="background:var(--rest); width:98.5%;"></div></div>
+      </div>
+
+      <div class="prob-row">
+        <div class="prob-info">
+          <span style="color:var(--grasp);">Volar Grasp</span>
+          <span id="prob-grasp-val">1.2%</span>
+        </div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-grasp-bar" style="background:var(--grasp); width:1.2%;"></div></div>
+      </div>
+
+      <div class="prob-row">
+        <div class="prob-info">
+          <span style="color:var(--extension);">Finger Extension</span>
+          <span id="prob-ext-val">0.3%</span>
+        </div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-ext-bar" style="background:var(--extension); width:0.3%;"></div></div>
+      </div>
+    </div>
+
+    <!-- Kinematics -->
+    <div class="hud-card">
+      <div class="hud-title">Anatomical Kinematics</div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-label">Flexion / Fist</div>
+          <div class="stat-val" id="stat-flexion" style="color:var(--grasp);">12%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Splay / Abduction</div>
+          <div class="stat-val" id="stat-splay" style="color:var(--extension);">0%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Tendon Tension</div>
+          <div class="stat-val" id="stat-tendon" style="color:var(--good);">55%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Confidence Aura</div>
+          <div class="stat-val" id="stat-aura" style="color:var(--rest);">0.98</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session & Transport Telemetry -->
+    <div class="hud-card">
+      <div class="hud-title">BCI Decoder Telemetry</div>
+      <div style="font-size:11px; display:flex; flex-direction:column; gap:4px; color:var(--muted);">
+        <div style="display:flex; justify-content:space-between;"><span>Participant:</span><strong id="meta-participant" style="color:#fff;">self</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mode:</span><strong id="meta-mode" style="color:#fff;">LSL Live</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Signal Quality:</span><strong id="meta-quality" style="color:var(--good);">Good</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Model Ready:</span><strong id="meta-ready" style="color:var(--good);">Yes</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Polling Sync Rate:</span><strong id="meta-poll-rate" style="color:#fff;">50 Hz (20ms)</strong></div>
+      </div>
+    </div>
+
+    <!-- Clinician / Manual Test Override -->
+    <div class="hud-card">
+      <div class="hud-title">
+        <span>Manual Kinematic Test</span>
+        <button id="toggleManualBtn" style="padding:2px 8px; font-size:10px;">Test Override</button>
+      </div>
+      
+      <div class="manual-controls" id="manualControlsArea" style="opacity:0.4; pointer-events:none;">
+        <div style="display:flex; gap:6px;">
+          <button id="btnManualRest" style="flex:1; font-size:11px; padding:4px;">Rest</button>
+          <button id="btnManualGrasp" style="flex:1; font-size:11px; padding:4px;">Grasp</button>
+          <button id="btnManualExt" style="flex:1; font-size:11px; padding:4px;">Extend</button>
+        </div>
+
+        <div class="manual-slider-row">
+          <label><span>Flexion (Fist)</span><span id="sliderFlexVal">0.12</span></label>
+          <input type="range" id="sliderFlex" min="-0.35" max="1.0" step="0.01" value="0.12">
+        </div>
+
+        <div class="manual-slider-row">
+          <label><span>Splay (Spread)</span><span id="sliderSplayVal">0.00</span></label>
+          <input type="range" id="sliderSplay" min="0.0" max="1.0" step="0.01" value="0.0">
+        </div>
+
+        <div class="manual-slider-row">
+          <label><span>Confidence Glow</span><span id="sliderConfVal">0.85</span></label>
+          <input type="range" id="sliderConf" min="0.0" max="1.0" step="0.01" value="0.85">
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Bottom Hint & Telemetry Strip -->
+  <footer class="glass-card" id="bottom-info">
+    <span><span class="kbd-hint">Left Drag</span> Orbit</span>
+    <span><span class="kbd-hint">Scroll</span> Zoom</span>
+    <span><span class="kbd-hint">Dbl-Click</span> Reset</span>
+    <span style="border-left:1px solid rgba(44,61,80,0.6); padding-left:10px;" id="status-footer">Synchronized with BCI Studio</span>
+  </footer>
+
+  <!-- Scripts: Load staged Three.js and VirtualHand3D engine -->
+  <script src="static/js/three.min.js"></script>
+  <script src="static/js/virtual_hand.js"></script>
+
+  <script>
+    (function () {
+      // SVG icons for postures
+      const ICONS = {
+        rest: `<svg viewBox="0 0 24 24" fill="none" stroke="#71c8f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-4 0v4"/><path d="M14 10V4a2 2 0 0 0-4 0v7"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+        </svg>`,
+        volar_grasp: `<svg viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="11" width="14" height="10" rx="3" fill="#00e5ff" fill-opacity="0.25"/>
+          <path d="M7 11V7a2 2 0 0 1 4 0v4"/><path d="M11 11V6a2 2 0 0 1 4 0v5"/><path d="M15 11V8a2 2 0 0 1 4 0v3"/>
+          <path d="M3 13c1.5 0 2.5 1 3.5 1.5"/>
+        </svg>`,
+        finger_extension: `<svg viewBox="0 0 24 24" fill="none" stroke="#ad97f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 10V4a1.5 1.5 0 0 0-3 0v6"/><path d="M13 9V2a1.5 1.5 0 0 0-3 0v8"/><path d="M8 10V4a1.5 1.5 0 0 0-3 0v8"/>
+          <path d="M21 8a1.5 1.5 0 0 0-3 0v4"/><path d="M3 10a1.5 1.5 0 0 0 1.5 1.5l1.5.5"/>
+          <path d="M5 14v4a5 5 0 0 0 5 5h4a5 5 0 0 0 5-5v-4"/>
+        </svg>`
+      };
+
+      // State & UI References
+      const $ = id => document.getElementById(id);
+      let hand = null;
+      let manualMode = false;
+      let currentPort = 8052;
+      const availablePorts = [8052, 8051, 8053];
+      let portIdx = 0;
+      let lastSuccessfulEndpoint = null;
+      let pollActive = true;
+      let pollRateHz = 45; // ~45 Hz polling for low latency
+      let frameCount = 0;
+      let lastFpsCheck = performance.now();
+      let lastPacketTime = performance.now();
+
+      // Determine initial API endpoint
+      function detectApiHost() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('port')) {
+          currentPort = parseInt(params.get('port'), 10);
+        } else if (window.location.port && window.location.port !== '80' && window.location.port !== '443') {
+          currentPort = parseInt(window.location.port, 10);
+        }
+        $('conn-port').textContent = ':' + currentPort;
+        return (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+          ? window.location.origin
+          : 'http://127.0.0.1:' + currentPort;
+      }
+
+      let apiBase = detectApiHost();
+
+      // Initialize Virtual Hand 3D
+      function initVirtualHand() {
+        try {
+          hand = new VirtualHand3D('canvas-container', {
+            theme: 'cyber',
+            antialias: true,
+            fov: 42,
+            autoRotate: false
+          });
+          window.virtualHand = hand;
+        } catch (err) {
+          console.error('[VirtualHand] Init failed:', err);
+          $('status-footer').textContent = 'Error initializing WebGL: ' + err.message;
+        }
+      }
+
+      // Update Target Status Pill
+      function updateTargetPill(className, confidence, sourceMeta) {
+        const pill = $('target-pill');
+        const label = $('pill-label');
+        const confBadge = $('pill-conf');
+        const iconContainer = $('pill-icon');
+        const meta = $('pill-meta');
+
+        const cleanClass = className.toLowerCase();
+        let displayName = 'REST';
+        let stateKey = 'rest';
+
+        if (cleanClass.includes('grasp') || cleanClass.includes('action')) {
+          displayName = 'VOLAR GRASP';
+          stateKey = 'volar_grasp';
+        } else if (cleanClass.includes('extension')) {
+          displayName = 'FINGER EXTENSION';
+          stateKey = 'finger_extension';
+        }
+
+        // Apply state classes
+        pill.className = 'target-pill state-' + stateKey;
+        label.textContent = displayName;
+        confBadge.textContent = (Math.round(confidence * 1000) / 10).toFixed(1) + '%';
+        
+        if (stateKey === 'finger_extension') {
+          confBadge.style.color = '#ad97f6';
+          confBadge.style.borderColor = 'rgba(173,151,246,0.4)';
+        } else if (stateKey === 'volar_grasp') {
+          confBadge.style.color = '#00e5ff';
+          confBadge.style.borderColor = 'rgba(0,229,255,0.4)';
+        } else {
+          confBadge.style.color = '#71c8f6';
+          confBadge.style.borderColor = 'rgba(113,200,246,0.4)';
+        }
+
+        iconContainer.innerHTML = ICONS[stateKey] || ICONS.rest;
+        if (sourceMeta) meta.textContent = sourceMeta;
+      }
+
+      // Update Telemetry HUD
+      function updateTelemetryHUD(state) {
+        if (!state) return;
+        const classes = state.classes || ['rest', 'volar_grasp', 'finger_extension'];
+        const ema = state.ema_probabilities || state.raw_probabilities || [0, 0, 0];
+        
+        let pRest = 0, pGrasp = 0, pExt = 0;
+        classes.forEach((c, i) => {
+          const val = ema[i] || 0;
+          if (c === 'rest') pRest = val;
+          else if (c === 'volar_grasp' || c === 'right_hand_grasp' || c === 'action') pGrasp = val;
+          else if (c === 'finger_extension') pExt = val;
+        });
+
+        // Probabilities
+        $('prob-rest-val').textContent = (pRest * 100).toFixed(1) + '%';
+        $('prob-rest-bar').style.width = Math.min(100, Math.max(0, pRest * 100)) + '%';
+
+        $('prob-grasp-val').textContent = (pGrasp * 100).toFixed(1) + '%';
+        $('prob-grasp-bar').style.width = Math.min(100, Math.max(0, pGrasp * 100)) + '%';
+
+        $('prob-ext-val').textContent = (pExt * 100).toFixed(1) + '%';
+        $('prob-ext-bar').style.width = Math.min(100, Math.max(0, pExt * 100)) + '%';
+
+        // Kinematics readout from hand engine
+        if (hand) {
+          const tele = hand.getTelemetry();
+          const flexDeg = Math.round(tele.flexion * 90);
+          $('stat-flexion').textContent = (flexDeg >= 0 ? flexDeg + '°' : 'Hyper ' + Math.abs(flexDeg) + '°');
+          $('stat-splay').textContent = Math.round(tele.splay * 28) + '°';
+          $('stat-tendon').textContent = Math.round(tele.confidence * 100) + '%';
+          $('stat-aura').textContent = (tele.confidence).toFixed(2);
+        }
+
+        // BCI metadata
+        if (state.participant) $('meta-participant').textContent = state.participant;
+        if (state.mode) $('meta-mode').textContent = state.mode.toUpperCase();
+        if (state.quality) {
+          $('meta-quality').textContent = state.quality.replace('_', ' ').toUpperCase();
+          $('meta-quality').style.color = (state.quality === 'good' || state.quality === 'ok') ? 'var(--good)' : 'var(--warn)';
+        }
+        if (typeof state.model_ready === 'boolean') {
+          $('meta-ready').textContent = state.model_ready ? 'READY' : 'TRAINING / CALIBRATING';
+          $('meta-ready').style.color = state.model_ready ? 'var(--good)' : 'var(--warn)';
+        }
+      }
+
+      // Process state from BCI Studio
+      function handleStateUpdate(state) {
+        if (!state || manualMode) return;
+
+        const classes = state.classes || ['rest', 'volar_grasp', 'finger_extension'];
+        const ema = state.ema_probabilities || state.raw_probabilities || [0, 0, 0];
+        const probs = {};
+        classes.forEach((c, idx) => {
+          probs[c] = ema[idx] !== undefined ? ema[idx] : 0.0;
+        });
+
+        // Determine active class: protocol cue has priority if actively cueing, else live decision
+        let activeClass = 'rest';
+        let conf = 0.0;
+        let sourceMeta = 'LIVE BCI DECODER';
+
+        if (state.cue && state.cue !== '' && state.cue !== 'idle') {
+          activeClass = state.cue;
+          conf = probs[activeClass] || 0.95;
+          const rem = state.cue_remaining_s ? ` (${state.cue_remaining_s.toFixed(1)}s)` : '';
+          sourceMeta = `PROTOCOL CUE: ${activeClass.toUpperCase().replace('_', ' ')}${rem}`;
+        } else if (state.decision && state.decision !== 'uncertain') {
+          activeClass = state.decision;
+          conf = probs[activeClass] || 0.85;
+          sourceMeta = `LIVE DECODER DECISION: ${activeClass.toUpperCase().replace('_', ' ')}`;
+        } else {
+          // If uncertain, evaluate dominant probability
+          let maxProb = 0.0;
+          let dominant = 'rest';
+          for (const k in probs) {
+            if (probs[k] > maxProb) {
+              maxProb = probs[k];
+              dominant = k;
+            }
+          }
+          if (maxProb > 0.65) {
+            activeClass = dominant;
+            conf = maxProb;
+          } else {
+            activeClass = 'rest';
+            conf = probs['rest'] || 0.85;
+          }
+          sourceMeta = 'LIVE DECODER: RESTING STATE';
+        }
+
+        // Continuous blend calculation
+        const isGrasp = (activeClass === 'volar_grasp' || activeClass === 'right_hand_grasp' || activeClass === 'action');
+        const isExt = (activeClass === 'finger_extension');
+        let continuousVal = null;
+        if (isGrasp) {
+          continuousVal = Math.max(0.60, conf);
+        } else if (isExt) {
+          continuousVal = Math.max(0.60, conf);
+        }
+
+        if (hand) {
+          hand.setTargetState(activeClass, probs, continuousVal);
+        }
+
+        updateTargetPill(activeClass, conf, sourceMeta);
+        updateTelemetryHUD(state);
+      }
+
+      // Adaptive sequential polling loop (30-60 Hz, zero request pileup)
+      async function pollLoop() {
+        if (!pollActive) return;
+        const t0 = performance.now();
+        let ok = false;
+
+        try {
+          const endpoint = apiBase + '/api/state';
+          const resp = await fetch(endpoint, { cache: 'no-store', mode: 'cors' });
+          if (resp.ok) {
+            const state = await resp.json();
+            handleStateUpdate(state);
+            ok = true;
+            lastSuccessfulEndpoint = apiBase;
+            setConnectionOnline(true, currentPort);
+            lastPacketTime = performance.now();
+          } else {
+            setConnectionOnline(false, currentPort);
+          }
+        } catch (err) {
+          setConnectionOnline(false, currentPort);
+          // If disconnected and running via file:// or default localhost, try alternative candidate ports
+          if (!ok && performance.now() - lastPacketTime > 3000) {
+            cyclePort(false);
+          }
+        }
+
+        frameCount++;
+        if (performance.now() - lastFpsCheck >= 1000) {
+          const fps = Math.round((frameCount * 1000) / (performance.now() - lastFpsCheck));
+          $('hud-fps').textContent = fps + ' Hz';
+          frameCount = 0;
+          lastFpsCheck = performance.now();
+        }
+
+        const elapsed = performance.now() - t0;
+        const targetDelay = Math.max(10, Math.floor(1000 / pollRateHz) - elapsed);
+        setTimeout(pollLoop, targetDelay);
+      }
+
+      function setConnectionOnline(online, port) {
+        const dot = $('conn-dot');
+        const label = $('conn-label');
+        $('conn-port').textContent = ':' + port;
+        if (online) {
+          dot.className = 'conn-dot online';
+          label.textContent = 'ONLINE';
+          $('status-footer').textContent = `Synchronized with BCI Studio (Port ${port} · ~${pollRateHz} Hz)`;
+        } else {
+          dot.className = 'conn-dot offline';
+          label.textContent = 'CONNECTING';
+          $('status-footer').textContent = `Connecting to BCI Studio at http://127.0.0.1:${port}...`;
+        }
+      }
+
+      function cyclePort(manualClick = true) {
+        portIdx = (portIdx + 1) % availablePorts.length;
+        currentPort = availablePorts[portIdx];
+        apiBase = 'http://127.0.0.1:' + currentPort;
+        $('conn-port').textContent = ':' + currentPort;
+        if (manualClick) {
+          $('status-footer').textContent = `Switched endpoint to port ${currentPort}. Probing...`;
+        }
+      }
+
+      // Setup UI Event Handlers
+      function setupUI() {
+        $('conn-badge').addEventListener('click', () => cyclePort(true));
+
+        $('resetCamBtn').addEventListener('click', () => {
+          if (hand) hand.resetCamera();
+          $('viewPresetSelect').value = 'default';
+        });
+
+        $('zoomInBtn').addEventListener('click', () => {
+          if (hand) hand.zoom(-0.25);
+        });
+
+        $('zoomOutBtn').addEventListener('click', () => {
+          if (hand) hand.zoom(0.25);
+        });
+
+        $('viewPresetSelect').addEventListener('change', (e) => {
+          if (hand) hand.setView(e.target.value);
+        });
+
+        $('autoRotateBtn').addEventListener('click', function () {
+          if (hand) {
+            const active = hand.toggleAutoRotate();
+            this.classList.toggle('active', active);
+          }
+        });
+
+        $('wireframeBtn').addEventListener('click', function () {
+          if (hand) {
+            const active = hand.toggleWireframe();
+            this.classList.toggle('active', active);
+          }
+        });
+
+        $('themeSelect').addEventListener('change', (e) => {
+          if (hand) hand.setTheme(e.target.value);
+        });
+
+        $('toggleHudBtn').addEventListener('click', function () {
+          const drawer = $('hud-drawer');
+          const isHidden = drawer.classList.toggle('hidden');
+          this.classList.toggle('active', !isHidden);
+        });
+
+        $('fullscreenBtn').addEventListener('click', () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        });
+
+        // Manual Kinematics Override
+        const manualBtn = $('toggleManualBtn');
+        const manualArea = $('manualControlsArea');
+        manualBtn.addEventListener('click', () => {
+          manualMode = !manualMode;
+          manualBtn.textContent = manualMode ? 'Live BCI Mode' : 'Test Override';
+          manualBtn.classList.toggle('active', manualMode);
+          manualArea.style.opacity = manualMode ? '1.0' : '0.4';
+          manualArea.style.pointerEvents = manualMode ? 'auto' : 'none';
+          if (!manualMode) {
+            $('pill-meta').textContent = 'SYNCHRONIZED WITH BCI DECODER';
+          } else {
+            $('pill-meta').textContent = 'MANUAL CLINICAL KINEMATIC TEST';
+          }
+        });
+
+        function applyManualSliders() {
+          if (!manualMode || !hand) return;
+          const flex = parseFloat($('sliderFlex').value);
+          const splay = parseFloat($('sliderSplay').value);
+          const conf = parseFloat($('sliderConf').value);
+
+          $('sliderFlexVal').textContent = flex.toFixed(2);
+          $('sliderSplayVal').textContent = splay.toFixed(2);
+          $('sliderConfVal').textContent = conf.toFixed(2);
+
+          let manualClass = 'rest';
+          if (flex > 0.3) manualClass = 'volar_grasp';
+          else if (splay > 0.3 || flex < -0.05) manualClass = 'finger_extension';
+
+          hand.target.flexion = flex;
+          hand.target.splay = splay;
+          hand.target.confidence = conf;
+          hand.target.activeClass = manualClass;
+
+          updateTargetPill(manualClass, conf, 'MANUAL INTERACTIVE TEST');
+          const statFlex = Math.round(flex * 90);
+          $('stat-flexion').textContent = (statFlex >= 0 ? statFlex + '°' : 'Hyper ' + Math.abs(statFlex) + '°');
+          $('stat-splay').textContent = Math.round(splay * 28) + '°';
+          $('stat-tendon').textContent = Math.round(conf * 100) + '%';
+          $('stat-aura').textContent = conf.toFixed(2);
+        }
+
+        $('sliderFlex').addEventListener('input', applyManualSliders);
+        $('sliderSplay').addEventListener('input', applyManualSliders);
+        $('sliderConf').addEventListener('input', applyManualSliders);
+
+        $('btnManualRest').addEventListener('click', () => {
+          $('sliderFlex').value = 0.12;
+          $('sliderSplay').value = 0.0;
+          $('sliderConf').value = 0.90;
+          applyManualSliders();
+        });
+
+        $('btnManualGrasp').addEventListener('click', () => {
+          $('sliderFlex').value = 0.88;
+          $('sliderSplay').value = 0.0;
+          $('sliderConf').value = 0.95;
+          applyManualSliders();
+        });
+
+        $('btnManualExt').addEventListener('click', () => {
+          $('sliderFlex').value = -0.28;
+          $('sliderSplay').value = 0.85;
+          $('sliderConf').value = 0.92;
+          applyManualSliders();
+        });
+      }
+
+      // Initialize
+      window.addEventListener('DOMContentLoaded', () => {
+        initVirtualHand();
+        setupUI();
+        pollLoop();
+      });
+    })();
+  </script>
+</body>
+</html>

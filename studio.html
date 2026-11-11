@@ -16,6 +16,8 @@
     button.primary { background:#2f7b70; border-color:#4c9d90; }
     button.primary:hover:not(:disabled) { background:#3b9185; }
     button.stop { background:#59343b; border-color:#8c535b; }
+    #openHandBtn { background:#1a4568; border-color:#2a74ad; color:#e0f2fe; font-weight:600; }
+    #openHandBtn:hover:not(:disabled) { background:#235885; border-color:#38bdf8; }
     input { min-width:100px; width:160px; padding:10px 12px; color:var(--text); background:#0e1723; border:1px solid var(--line); border-radius:9px; }
     main { max-width:1510px; margin:auto; padding:24px 28px 36px; }
     header { display:flex; justify-content:space-between; gap:16px; align-items:center; margin-bottom:18px; }
@@ -97,6 +99,7 @@
       <button id="startBtn" type="button">Start stream</button>
       <button id="stopBtn" class="stop" type="button">Stop / cancel</button>
       <div class="grow"></div>
+      <button id="openHandBtn" type="button" onclick="window.open('/virtual_hand', 'VirtualHandWindow', 'width=720,height=680,menubar=no,toolbar=no,location=no,status=no')">3D Virtual Hand Window</button>
       <button id="saveBtn" type="button">Save session</button>
       <button id="resetBtn" type="button">Reset view</button>
       <button id="demoBtn" type="button">Synthetic demo</button>

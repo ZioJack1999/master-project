@@ -12,6 +12,7 @@ from collections import deque
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mimetypes
 from pathlib import Path
 import re
 import socket
@@ -269,12 +270,19 @@ class Studio:
         self._send_udp(dict(
             timestamp=time.time(),
             sample_end=self.decoder.samples_seen if self.decoder else 0,
+            class_name='rest',
+            class_id=0,
+            grasp_command=0,
+            extension_command=0,
+            continuous_flex=0.0,
+            continuous_splay=0.0,
+            probabilities={'rest': 1.0, 'right_hand_grasp': 0.0},
+            probabilities_raw=[1.0, 0.0],
+            probabilities_ema=[1.0, 0.0],
+            quality=reason,
             p_raw=0.0,
             p_smooth=0.0,
-            grasp_command=0,
-            continuous_flex=0.0,
             state_label='REST',
-            quality=reason,
             threshold=float(self.state.get('threshold', 0.5)),
         ))
 
@@ -595,15 +603,27 @@ class Studio:
                 row[ch + '_rms_uv'] = val if idx is not None else None
 
             if emit or self.udp_port:
+                class_name = 'right_hand_grasp' if (decision and quality == 'ok') else 'rest'
+                class_id = 1 if (decision and quality == 'ok') else 0
                 udp_packet = dict(
                     timestamp=sample_time,
                     sample_end=packet['sample_end'],
+                    class_name=class_name,
+                    class_id=class_id,
+                    grasp_command=decision,
+                    extension_command=0,
+                    continuous_flex=flex,
+                    continuous_splay=0.0,
+                    probabilities={
+                        'rest': float(1.0 - p_action),
+                        'right_hand_grasp': float(p_action)
+                    },
+                    probabilities_raw=[float(1.0 - p_action), float(p_action)],
+                    probabilities_ema=[float(1.0 - p_smooth), float(p_smooth)],
+                    quality=quality,
                     p_raw=p_action,
                     p_smooth=p_smooth,
-                    grasp_command=decision,
-                    continuous_flex=flex,
                     state_label='ACTION' if decision else 'REST',
-                    quality=quality,
                     threshold=threshold,
                 )
                 self._send_udp(udp_packet)
@@ -857,20 +877,75 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def respond(self, status, value, content_type='application/json'):
-        body = json.dumps(value, allow_nan=False).encode('utf-8') if content_type == 'application/json' else value.encode('utf-8')
+        if isinstance(value, bytes):
+            body = value
+        elif content_type == 'application/json':
+            body = json.dumps(value, allow_nan=False).encode('utf-8')
+        else:
+            body = str(value).encode('utf-8')
         self.send_response(status)
-        self.send_header('Content-Type', content_type + '; charset=utf-8')
+        if content_type.startswith('text/') or content_type in ('application/javascript', 'application/json'):
+            if 'charset' not in content_type:
+                content_type = f'{content_type}; charset=utf-8'
+        self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Origin, Accept')
         self.end_headers()
         self.wfile.write(body)
 
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Origin, Accept')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
     def do_GET(self):
-        if self.path in ('/', '/index.html'):
+        url = urlparse(self.path)
+        path = url.path
+        if path in ('/', '/index.html'):
             html_path = self.studio.root / 'studio.html'
             if not html_path.exists():
                 html_path = self.studio.root / 'threeclass_studio.html'
             self.respond(200, html_path.read_text(encoding='utf-8'), 'text/html')
-        elif self.path == '/api/state':
+        elif path in ('/virtual_hand', '/virtual_hand.html', '/hand'):
+            hand_file = self.studio.root / 'virtual_hand.html'
+            if hand_file.exists():
+                self.respond(200, hand_file.read_text(encoding='utf-8'), 'text/html')
+            else:
+                self.respond(404, dict(error='virtual_hand.html not found'))
+        elif path.startswith('/static/'):
+            static_dir = (self.studio.root / 'static').resolve()
+            safe_rel = path[len('/static/'):]
+            file_path = (static_dir / safe_rel).resolve()
+            try:
+                if not file_path.is_relative_to(static_dir):
+                    self.respond(403, dict(error='Forbidden'))
+                    return
+            except (ValueError, AttributeError):
+                self.respond(403, dict(error='Forbidden'))
+                return
+            if file_path.is_file():
+                mime = 'application/octet-stream'
+                if file_path.suffix == '.js':
+                    mime = 'application/javascript'
+                elif file_path.suffix == '.css':
+                    mime = 'text/css'
+                elif file_path.suffix in ('.html', '.htm'):
+                    mime = 'text/html'
+                elif file_path.suffix == '.json':
+                    mime = 'application/json'
+                else:
+                    guessed = mimetypes.guess_type(str(file_path))[0]
+                    if guessed:
+                        mime = guessed
+                self.respond(200, file_path.read_bytes(), mime)
+            else:
+                self.respond(404, dict(error='Static asset not found'))
+        elif path == '/api/state':
             self.respond(200, self.studio.snapshot(seen=True))
         else:
             self.respond(404, dict(error='Not found'))
@@ -914,6 +989,7 @@ def main(default_protocol=None):
     p.add_argument('--threshold', type=float)
     p.add_argument('--lsl-stream')
     p.add_argument('--allow-unverified-model', action='store_true')
+    p.add_argument('--open-virtual-hand', action='store_true', help='Open 3D virtual hand window on launch.')
     p.add_argument('--replay-edf', type=Path, help='Paced recorded-data visualization.')
 
     args = p.parse_args()
@@ -949,6 +1025,8 @@ def main(default_protocol=None):
 
     if not args.no_browser:
         webbrowser.open(url)
+        if args.open_virtual_hand:
+            webbrowser.open(f'{url}/virtual_hand')
 
     try:
         server.serve_forever(poll_interval=0.2)

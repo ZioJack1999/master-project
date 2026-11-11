@@ -4,11 +4,13 @@ from collections import deque
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mimetypes
 from pathlib import Path
 import re
 import socket
 import threading
 import time
+from urllib.parse import parse_qs, urlparse
 import uuid
 import webbrowser
 import numpy as np
@@ -164,15 +166,23 @@ class ThreeClassStudio:
                 pass
 
     def _send_rest_udp(self, reason='paused'):
+        prob_dict = {c: (1.0 if 'rest' in c.lower() else 0.0) for c in self.classes}
         self._send_udp(dict(
             timestamp=time.time(),
             sample_end=0,
+            class_name='rest',
+            class_id=0,
+            grasp_command=0,
+            extension_command=0,
+            continuous_flex=0.0,
+            continuous_splay=0.0,
+            probabilities=prob_dict,
+            probabilities_raw=[1.0 if i == 0 else 0.0 for i in range(len(self.classes))],
+            probabilities_ema=[1.0 if i == 0 else 0.0 for i in range(len(self.classes))],
+            quality=reason,
             p_raw=0.0,
             p_smooth=0.0,
-            grasp_command=0,
-            continuous_flex=0.0,
             state_label='REST',
-            quality=reason,
             threshold=float(self.config.get('threshold', 0.5)),
         ))
 
@@ -649,21 +659,55 @@ class ThreeClassStudio:
                 self.history[c].append(p[i])
                 self.history['raw_'+c].append(p[i])
                 self.history['ema_'+c].append(ema[i])
-            if self.udp_sock and len(self.classes) == 2:
-                p_action = float(p[1])
-                ema_prob = float(ema[1])
-                threshold = float(self.config.get('threshold', 0.5))
-                decision = int(packet['class_id'] == 1 and packet['quality'] == 'ok')
-                flex = float(np.clip((ema_prob - threshold) / (1.0 - threshold), 0.0, 1.0)) if decision else 0.0
+            if self.udp_sock:
+                grasp_idx = next((i for i, c in enumerate(self.classes) if 'grasp' in c.lower()), 1 if len(self.classes) > 1 else None)
+                ext_idx = next((i for i, c in enumerate(self.classes) if 'ext' in c.lower() or 'open' in c.lower()), 2 if len(self.classes) > 2 else None)
+                rest_idx = next((i for i, c in enumerate(self.classes) if 'rest' in c.lower()), 0)
+
+                raw_id = packet.get('class_id')
+                active_id = int(raw_id) if raw_id is not None else -1
+                quality = packet.get('quality', 'ok')
+                class_name = packet.get('class_name', 'rest')
+
+                threshold = float(self.config.get('threshold', self.policy.get('min_confidence', 0.5)))
+
+                grasp_command = 1 if (quality == 'ok' and active_id >= 0 and active_id == grasp_idx) else 0
+                extension_command = 1 if (quality == 'ok' and active_id >= 0 and active_id == ext_idx) else 0
+
+                p_grasp_ema = float(ema[grasp_idx]) if (grasp_idx is not None and grasp_idx < len(ema)) else 0.0
+                p_ext_ema = float(ema[ext_idx]) if (ext_idx is not None and ext_idx < len(ema)) else 0.0
+
+                continuous_flex = float(np.clip((p_grasp_ema - threshold) / max(1e-6, 1.0 - threshold), 0.0, 1.0)) if grasp_command else 0.0
+                continuous_splay = float(np.clip((p_ext_ema - threshold) / max(1e-6, 1.0 - threshold), 0.0, 1.0)) if extension_command else 0.0
+
+                prob_dict = {c: float(p[i]) for i, c in enumerate(self.classes)}
+                p_raw_val = float(p[grasp_idx]) if (grasp_idx is not None and grasp_idx < len(p)) else float(p[1] if len(p) > 1 else p[0])
+                p_smooth_val = float(ema[grasp_idx]) if (grasp_idx is not None and grasp_idx < len(ema)) else float(ema[1] if len(ema) > 1 else ema[0])
+
+                state_label = 'REST'
+                if grasp_command:
+                    state_label = 'GRASP'
+                elif extension_command:
+                    state_label = 'EXTENSION'
+                elif class_name not in ('uncertain', 'rest'):
+                    state_label = 'ACTION'
+
                 udp_packet = dict(
                     timestamp=sample_time,
                     sample_end=packet['sample_end'],
-                    p_raw=p_action,
-                    p_smooth=ema_prob,
-                    grasp_command=decision,
-                    continuous_flex=flex,
-                    state_label='ACTION' if decision else 'REST',
-                    quality=packet['quality'],
+                    class_name=class_name,
+                    class_id=active_id,
+                    grasp_command=grasp_command,
+                    extension_command=extension_command,
+                    continuous_flex=continuous_flex,
+                    continuous_splay=continuous_splay,
+                    probabilities=prob_dict,
+                    probabilities_raw=[float(x) for x in p],
+                    probabilities_ema=[float(x) for x in ema],
+                    quality=quality,
+                    p_raw=p_raw_val,
+                    p_smooth=p_smooth_val,
+                    state_label=state_label,
                     threshold=threshold,
                 )
                 self._send_udp(udp_packet)
@@ -748,20 +792,82 @@ class ThreeClassStudio:
 class Handler(BaseHTTPRequestHandler):
     studio = None
     def log_message(self, *args): pass
-    def respond(self, code, value, html=False):
-        payload = value.encode('utf-8') if html else json.dumps(value, allow_nan=False).encode('utf-8')
+    def respond(self, code, value, content_type=None, html=False):
+        if html:
+            content_type = 'text/html'
+        elif content_type is None:
+            content_type = 'application/json'
+
+        if isinstance(value, bytes):
+            payload = value
+        elif content_type == 'application/json':
+            payload = json.dumps(value, allow_nan=False).encode('utf-8')
+        else:
+            payload = str(value).encode('utf-8')
+
         self.send_response(code)
-        self.send_header('Content-Type', 'text/html; charset=utf-8' if html else 'application/json; charset=utf-8')
+        if content_type.startswith('text/') or content_type in ('application/javascript', 'application/json'):
+            if 'charset' not in content_type:
+                content_type = f'{content_type}; charset=utf-8'
+        self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(payload)))
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Origin, Accept')
         self.end_headers()
         self.wfile.write(payload)
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Origin, Accept')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
     def do_GET(self):
-        if self.path in ('/', '/index.html'):
-            html_file = self.studio.root/'threeclass_studio.html'
+        url = urlparse(self.path)
+        path = url.path
+        if path in ('/', '/index.html'):
+            html_file = self.studio.root / 'threeclass_studio.html'
             if not html_file.exists():
-                html_file = self.studio.root/'studio.html'
-            self.respond(200, html_file.read_text(encoding='utf-8'), True)
-        elif self.path == '/api/state':
+                html_file = self.studio.root / 'studio.html'
+            self.respond(200, html_file.read_text(encoding='utf-8'), html=True)
+        elif path in ('/virtual_hand', '/virtual_hand.html', '/hand'):
+            hand_file = self.studio.root / 'virtual_hand.html'
+            if hand_file.exists():
+                self.respond(200, hand_file.read_text(encoding='utf-8'), html=True)
+            else:
+                self.respond(404, dict(error='virtual_hand.html not found.'))
+        elif path.startswith('/static/'):
+            static_dir = (self.studio.root / 'static').resolve()
+            safe_rel = path[len('/static/'):]
+            file_path = (static_dir / safe_rel).resolve()
+            try:
+                if not file_path.is_relative_to(static_dir):
+                    self.respond(403, dict(error='Forbidden.'))
+                    return
+            except (ValueError, AttributeError):
+                self.respond(403, dict(error='Forbidden.'))
+                return
+            if file_path.is_file():
+                mime = 'application/octet-stream'
+                if file_path.suffix == '.js':
+                    mime = 'application/javascript'
+                elif file_path.suffix == '.css':
+                    mime = 'text/css'
+                elif file_path.suffix in ('.html', '.htm'):
+                    mime = 'text/html'
+                elif file_path.suffix == '.json':
+                    mime = 'application/json'
+                else:
+                    guessed = mimetypes.guess_type(str(file_path))[0]
+                    if guessed:
+                        mime = guessed
+                self.respond(200, file_path.read_bytes(), content_type=mime)
+            else:
+                self.respond(404, dict(error='Static asset not found.'))
+        elif path == '/api/state':
             self.respond(200, self.studio.snapshot(seen=True))
         else:
             self.respond(404, dict(error='Not found.'))
@@ -794,6 +900,7 @@ def main():
     parser.add_argument('--config', type=Path, default=ROOT/'threeclass_config.json')
     parser.add_argument('--port', type=int, default=8051)
     parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument('--open-virtual-hand', action='store_true', help='Open 3D virtual hand window on launch.')
     parser.add_argument('--demo', action='store_true')
     args = parser.parse_args()
     import torch
@@ -810,6 +917,8 @@ def main():
     print(f'{studio.task_label.capitalize()} lab: {url}\nPrivate reports: {studio.reports}', flush=True)
     if not args.no_browser:
         webbrowser.open(url)
+        if args.open_virtual_hand:
+            webbrowser.open(f'{url}/virtual_hand')
     try:
         server.serve_forever(poll_interval=.2)
     except KeyboardInterrupt:
