@@ -2,7 +2,7 @@
   "reference_commit": "23baacbaaf7fc60627c7de62a571a3009218f6e7",
   "scope": "Retained active binary core and personal templates: original reference hashes preserved; obsolete launchers and unused historical weights retired.",
   "sha256": {
-    "realtime_bci_decoder.py": "d3ac5877f8cdfca13929a8ec06fee117a38862d77e2180fb42d424e58b4a6f3f",
+    "realtime_bci_decoder.py": "dabeb37222f3196ee8f0dffa51e1cb4e882078fffab3fb8e5f6b53279d7e04d8",
     "networks.py": "388df629aa0426da40018e4dd805d0dd17c36339c7ca22cbb33c52619c65221d",
     "lsl_acquisition.py": "1c4841b557981e46af3e6b4429d9a63ef619c41f130277bd2ed9f388ab0e3fb8",
     "protocols.py": "e885bb58a006107a57a624cefb8e16197982648faca351e381284da1809b44c6",
@@ -23,7 +23,7 @@
     "decoder_and_models/personal_template_x24_stock20.pt.json": "22529169d964f06d138bf6a1c4f24072a6d5cfb194fb7de7bb6cd1ae33959b6e"
   },
   "text_lf_sha256": {
-    "realtime_bci_decoder.py": "e611b9fa4451e1b31fe86340ac0783852ca2c766550ae650f3e2ca7ebfa15a22",
+    "realtime_bci_decoder.py": "e64ef8c850db8f07c58ce1dc4fa777d76da4557cee73e3665b4ecc3ecdba8c1c",
     "networks.py": "44b6f0bf58099b3f9c96562d489610c0a9c18dc9bcf7053534ede23c813c2e15",
     "lsl_acquisition.py": "41e97e9dd08d8f85d41869b298cf18acf6029ca0e91aa880a38294e005acca54",
     "protocols.py": "eced677174ef088e9d698ae3cf2f8f47ec7c80ae04c20ff1b14fbe3c753855a9",

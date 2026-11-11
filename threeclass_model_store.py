@@ -140,12 +140,21 @@ def validate_personal_model(path, participant, channels, reports_dir, classes=CL
         raise ValueError('Personal model contract must stay in the selected model folder.')
     contract = _json_object(resolved_contract, 'Personal model contract')
     arch = contract.get('arch')
-    normalization_by_arch = {'feature_ensemble': 'feature_train_only', 'temporal_cnn': 'fixed'}
-    normalization = normalization_by_arch.get(arch) if isinstance(arch, str) else None
+    allowed_norms_by_arch = {
+        'feature_ensemble': ('feature_train_only',),
+        'temporal_cnn': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+        'hierarchical_dual_band': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+        'hierarchical_two_stage': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+        'hierarchical_eegnet': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+        'HierarchicalTwoStageEEGNet': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+        'dual_band_cnn': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+        'DualBandTemporalEEGNet': ('fixed', 'unsupervised_resting_alignment', 'resting_alignment'),
+    }
+    allowed_norms = allowed_norms_by_arch.get(arch) if isinstance(arch, str) else None
     expected_task_mode = 'binary' if len(classes) == 2 else 'multiclass'
     if (contract.get('schema_version') != 2 or contract.get('task_mode') != expected_task_mode
             or contract.get('role') != role
-            or normalization is None
+            or allowed_norms is None
             or contract.get('classes') != list(classes)):
         task = 'binary' if len(classes) == 2 else ('three-class' if list(classes) == CLASSES else f'{len(classes)}-class')
         raise ValueError(f'Expected a supported personal {task} model contract for the selected classes.')
@@ -153,8 +162,14 @@ def validate_personal_model(path, participant, channels, reports_dir, classes=CL
         raise ValueError('Personal model belongs to a different participant.')
     if _channels(contract.get('channels')) != expected_channels:
         raise ValueError('Personal model electrode sites/order differ from the selected physical montage.')
+    filt_obj = contract.get('filter')
+    valid_filter = (filt_obj == FILTER) or (
+        isinstance(filt_obj, dict)
+        and filt_obj.get('mode') == 'causal'
+        and arch in ('hierarchical_dual_band', 'hierarchical_two_stage', 'hierarchical_eegnet', 'HierarchicalTwoStageEEGNet', 'dual_band_cnn', 'DualBandTemporalEEGNet')
+    )
     if (contract.get('sfreq') != 256 or contract.get('n_times') not in (512, 1024)
-            or contract.get('normalization') != normalization or contract.get('filter') != FILTER):
+            or contract.get('normalization') not in allowed_norms or not valid_filter):
         raise ValueError('Personal model preprocessing differs from the supported 256 Hz, two- or four-second pipeline.')
     if contract.get('verified') is not True or contract.get('initialization') != 'scratch':
         raise ValueError('Personal model lacks documented scratch calibration provenance.')

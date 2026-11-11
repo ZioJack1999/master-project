@@ -1,7 +1,17 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "X24_DECODER_PYTHON=%USERPROFILE%\miniconda3\python.exe"
+if "%X24_DECODER_PYTHON%"=="" (
+  if exist "%USERPROFILE%\miniconda3\python.exe" (
+    set "X24_DECODER_PYTHON=%USERPROFILE%\miniconda3\python.exe"
+  ) else if exist "C:\tools\Anaconda3\envs\multi_nn\python.exe" (
+    set "X24_DECODER_PYTHON=C:\tools\Anaconda3\envs\multi_nn\python.exe"
+  ) else if exist "%USERPROFILE%\.bci_studio\venv\Scripts\python.exe" (
+    set "X24_DECODER_PYTHON=%USERPROFILE%\.bci_studio\venv\Scripts\python.exe"
+  ) else (
+    set "X24_DECODER_PYTHON=%USERPROFILE%\miniconda3\python.exe"
+  )
+)
 if not exist "%X24_DECODER_PYTHON%" (
   echo Existing 64-bit conda Python was not found at "%X24_DECODER_PYTHON%".
   exit /b 1

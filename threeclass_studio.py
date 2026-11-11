@@ -109,8 +109,8 @@ class ThreeClassStudio:
                 self.channels = list(CHANNELS_20)
         else:
             self.channels = list(config['channels'])
-        if (len(self.channels) != 20 or any(not isinstance(c, str) or not c or c != c.strip() for c in self.channels)
-                or len({c.casefold() for c in self.channels}) != 20):
+        if (len(self.channels) < 2 or any(not isinstance(c, str) or not c or c != c.strip() for c in self.channels)
+                or len({c.casefold() for c in self.channels}) != len(self.channels)):
             raise ValueError('Select twenty unique actual electrode sites.')
         self.channel_indices = {c.casefold():i for i, c in enumerate(self.channels)}
         if config.get('sfreq', 256) != 256 or config.get('window_s', 4.) not in (2., 4.) or config.get('stride_s', .25) != .25:
@@ -146,7 +146,8 @@ class ThreeClassStudio:
             calibration_diagnostics=None, classes=self.classes, task_label=self.task_label,
             calibration_total=len(self.classes)*int(config.get('calibration_cues_per_class', 12)),
             validation_total=len(self.classes)*int(config.get('validation_cues_per_class', 10)),
-            cue_duration_s=float(config.get('cue_duration_s', 8.)))
+            cue_duration_s=float(config.get('cue_duration_s', 8.)),
+            stage1_diagnostics=None, stage2_diagnostics=None, hierarchical_diagnostics=None)
         self.state['quality_details'] = {}
         if re.fullmatch(r'[A-Za-z0-9_-]{1,40}', self.state['participant']) is None:
             raise ValueError('Use a short pseudonymous participant ID: letters, digits, underscore or hyphen.')
@@ -188,9 +189,36 @@ class ThreeClassStudio:
                 self.udp_sock = None
 
     def _refresh_models(self):
+        if len(self.channels) != 20:
+            self.state.update(model_choices=[], rejected_models=[])
+            return dict(models=[], rejected=[])
         found = list_personal_models(self.reports, self.state['participant'], self.channels, self.classes)
         self.state.update(model_choices=found['models'], rejected_models=found['rejected'])
         return found
+
+    def _sync_hierarchical_state(self, quality='warming_up'):
+        if self.decoder and getattr(self.decoder, 'is_hierarchical', False):
+            from multiclass_decoder import build_hierarchical_diagnostics
+            s1, s2, hier = build_hierarchical_diagnostics(
+                self.decoder.arch,
+                self.decoder.alignment is not None,
+                0.0, 0.0, 0.0, 0.0,
+                gate_threshold=getattr(self.decoder, 'gate_threshold', 0.50),
+                mrcp_band=self.decoder.dual_filter.mrcp_band if self.decoder.dual_filter else (0.3, 3.0),
+                smr_band=self.decoder.dual_filter.smr_band if self.decoder.dual_filter else (4.0, 40.0),
+                quality=quality,
+            )
+            self.state.update(
+                stage1_diagnostics=s1,
+                stage2_diagnostics=s2,
+                hierarchical_diagnostics=hier,
+            )
+        else:
+            self.state.update(
+                stage1_diagnostics=None,
+                stage2_diagnostics=None,
+                hierarchical_diagnostics=None,
+            )
 
     @staticmethod
     def _calibration_summary(diagnostics):
@@ -213,6 +241,7 @@ class ThreeClassStudio:
         self.state.update(model_ready=False, model_role='untrained', model_sha256='', calibration_diagnostics=None,
                           model_scope='Personal calibration is required before fresh validation.')
         if self.reference_checkpoint is None:
+            self._sync_hierarchical_state('warming_up')
             return
         reference = MulticlassDecoder(self.reference_checkpoint, device=self.device)
         ref_classes = [c if c != 'action' else 'right_hand_grasp' for c in reference.classes]
@@ -225,11 +254,19 @@ class ThreeClassStudio:
                 model_scope='Random architecture template. Run personal calibration before validation.')
         elif [c.casefold() for c in reference.channels] == [c.casefold() for c in self.channels]:
             self.decoder = reference
-            reference_name = 'temporal CNN' if reference.arch == 'temporal_cnn' else 'reference model'
+            if getattr(reference, 'is_hierarchical', False):
+                reference_name = f'hierarchical dual-band ({reference.arch})'
+            elif reference.arch in ('dual_band_cnn', 'DualBandTemporalEEGNet'):
+                reference_name = 'dual-band CNN'
+            elif reference.arch == 'temporal_cnn':
+                reference_name = 'temporal CNN'
+            else:
+                reference_name = 'reference model'
             self.state.update(model_role='recorded_reference', model_sha256=reference.contract['sha256'],
                 model_scope=f'Recorded participant 08 {reference_name}. Fit your own calibration before validation.')
         else:
             self.state['model_scope'] = 'Selected physical montage needs personal fitting; reference predictions unavailable.'
+        self._sync_hierarchical_state('warming_up')
 
     def _clear_recording(self):
         self.raw, self.times, self.segment_ids, self.events, self.predictions = [], [], [], [], []
@@ -243,10 +280,11 @@ class ThreeClassStudio:
 
     def _reset_segment(self):
         self.segment += 1
+        n_ch = len(self.channels)
         self.plot_sos = butter(4, [8, 30], fs=256, btype='bandpass', output='sos')
-        self.plot_zi = np.zeros((len(self.plot_sos), 20, 2))
+        self.plot_zi = np.zeros((len(self.plot_sos), n_ch, 2))
         window_samples = self.decoder.window_samples if self.decoder else round(self.config.get('window_s', 4.)*256)
-        self.quality_buffer = RingBuffer(20, window_samples)
+        self.quality_buffer = RingBuffer(n_ch, window_samples)
         if self.decoder:
             self.decoder.reset()
         if self.adapter:
@@ -254,6 +292,7 @@ class ThreeClassStudio:
         self.state.update(quality='warming_up', decision='uncertain', raw_probabilities=[0.]*len(self.classes),
                           ema_probabilities=[0.]*len(self.classes), quality_details={}, window_s=window_samples/256,
                           prediction_timing=None, prediction_display_ack_ms=None)
+        self._sync_hierarchical_state('warming_up')
 
     def snapshot(self, seen=False):
         with self.lock:
@@ -601,6 +640,10 @@ class ThreeClassStudio:
             self.predictions.append(record)
             p, ema = packet['probabilities_raw'], packet['probabilities_ema']
             self.state.update(raw_probabilities=p, ema_probabilities=ema, decision=packet['class_name'], quality=packet['quality'])
+            if 'stage1_diagnostics' in packet:
+                self.state['stage1_diagnostics'] = packet['stage1_diagnostics']
+                self.state['stage2_diagnostics'] = packet['stage2_diagnostics']
+                self.state['hierarchical_diagnostics'] = packet['hierarchical_diagnostics']
             self.history['time'].append(sample_time)
             for i, c in enumerate(self.classes):
                 self.history[c].append(p[i])

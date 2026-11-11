@@ -93,6 +93,7 @@ class Studio:
             validation_total=2 * int(config.get('validation_pairs', 10)),
             cue_duration_s=float(config.get('trial_duration_s', 8.0)),
             quality_details={},
+            stage1_diagnostics=None, stage2_diagnostics=None, hierarchical_diagnostics=None,
 
             # Legacy compatibility state
             is_connected=False, is_streaming=False, demo_mode=False, is_calibrating=False,
@@ -231,6 +232,7 @@ class Studio:
             raw_probabilities=[0.0, 0.0], ema_probabilities=[0.0, 0.0],
             p_raw=0.0, p_smooth=0.0, grasp_command=0, continuous_flex=0.0,
             quality_details={}, prediction_timing=None, prediction_display_ack_ms=None,
+            stage1_diagnostics=None, stage2_diagnostics=None, hierarchical_diagnostics=None,
         )
 
     def snapshot(self, seen=False):
@@ -345,7 +347,6 @@ class Studio:
             elif path == '/api/stop':
                 self.cancel_fit.set()
                 self._abort(body.get('reason', 'cancelled'))
-                self.save()
             elif path == '/api/reset':
                 if self.state.get('is_training'):
                     raise ValueError('Cancel personal model fitting before resetting.')
@@ -572,6 +573,10 @@ class Studio:
                 decision='right_hand_grasp' if decision else 'rest',
                 quality=quality,
             )
+            if 'stage1_diagnostics' in packet:
+                self.state['stage1_diagnostics'] = packet['stage1_diagnostics']
+                self.state['stage2_diagnostics'] = packet['stage2_diagnostics']
+                self.state['hierarchical_diagnostics'] = packet['hierarchical_diagnostics']
 
             self.hist['prob_history'].append(p_action)
             self.hist['ema_history'].append(p_smooth)
