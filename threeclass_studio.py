@@ -909,6 +909,7 @@ def main():
     studio = ThreeClassStudio(config)
     if args.demo:
         studio.action('/api/demo')
+        studio.action('/api/start')
     handler = type('ThreeClassHandler', (Handler,), dict(studio=studio))
     server = ThreadingHTTPServer(('127.0.0.1', args.port), handler)
     worker = threading.Thread(target=studio.worker, daemon=True)

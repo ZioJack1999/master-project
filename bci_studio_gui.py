@@ -1012,6 +1012,7 @@ def main(default_protocol=None):
 
     if args.demo or args.mode == 'simulate':
         studio.action('/api/toggle_demo', {})
+        studio.action('/api/start', {})
     if default_protocol or args.mode == 'calibrate':
         print('Open the studio, Start Stream, then select Calibrate. Calibration requires visible cues.', flush=True)
 
