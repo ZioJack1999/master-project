@@ -1,6 +1,6 @@
 # Current project handoff
 
-Last updated: November 10, 2026 (America/New_York).
+Last updated: November 11, 2026 (America/New_York).
 
 ## Objective
 
@@ -8,11 +8,13 @@ Complete personal motor-imagery validation before November 26, 2026. Target at l
 
 ## Current baseline
 
-Fetched and reviewed GitHub `master` through `481a908`, including the verified hardware-transport handoff and duplicate-outlet guard.
+Reviewed GitHub default branch `master` through `93ce5d0`, including the 3D hand, the dedicated three-class live launcher and the synthetic demo controls.
 
 - Direct API acquisition is implemented: X24/ESU -> x86 Athena SDK in existing 32-bit `mastersp` -> LSL -> existing 64-bit decoder. A separate licensed acquisition GUI is not required for this route.
 - `Launch_BINARY_X24.bat`: binary GUI at http://127.0.0.1:8052. Personal calibration 18 x 8 seconds; validation 20 NEW cues.
 - `Launch_THREECLASS_X24.bat`: three-class GUI at http://127.0.0.1:8051. Personal calibration 36 x 8 seconds; validation 30 NEW cues.
+- `Launch_THREECLASS_Studio.bat`: three-class dashboard and 3D hand on port 8051 with Demo off. Use **Connect EEG** with an available compatible LSL source. The combined X24 launcher above starts and supervises the bridge.
+- `Launch_BINARY_Demo.bat` and `Launch_THREECLASS_Demo.bat` open the dashboard and viewer in synthetic mode. Click **Start Stream** to begin.
 - The three [expanded ZIPs](README.md#expanded-personal-validation-zips) each use `Launch_MULTICLASS_X24.bat` in their own extracted folder. Calibration/validation counts are 60/50, 84/70 and 108/90 cues for 5, 7 and 9 classes. The 7-class set adds wrist pronation and supination to the historical 5-class set. The historical 9-class set adds opponens and pinch grasp. Use the lab's installed x86 SDK and separate 32-bit LSL runtime as described in the package README.
 - Run one combined launcher at a time. Leave Demo OFF. Enter a pseudonymous participant ID, Start Stream, inspect quality, calibrate, then validate on fresh cues. Save before stopping. Ctrl+C in the launcher stops acquisition and GUI.
 - Earlier ZIPs, launchers and offline research remain in Git history and ignored local backups. Use the current launchers and expanded ZIPs above.
@@ -24,7 +26,7 @@ The November 5 committed `X24_CONNECTION_STATUS.md` reports real binary and thre
 
 The three-class checkpoint remained explicitly the historical participant-08 reference with personal validation blocked until calibration. Binary templates are untrained. Transport success is not personal classification accuracy. Electrode placement/reference, biological signal quality and prospective performance still require checking. SDK timestamps are anchored to packet arrival; transport/display latency is unmeasured. A previous freshness-stop incident is documented; do not disable guards to avoid it.
 
-Repository README records 112 passing tests and one Windows symlink skip from the lab cleanup session, plus six bridge tests in both architectures. These are prior-session results, not checks rerun today. Historical study test sets have been exposed; do not reuse them for fresh confirmation.
+The November 5 lab cleanup recorded 112 passing tests, one Windows symlink skip and six bridge tests in both architectures. The November 11 software checks are below. Historical study test sets have been exposed; do not reuse them for fresh confirmation.
 
 ## Next actions, in order
 
@@ -37,7 +39,17 @@ Repository README records 112 passing tests and one Windows symlink skip from th
 
 Cross-subject generalization remains deferred.
 
-## November 10 latest session
+## November 11 setup review
+
+Confirmed the live work launcher and both demo launchers on `origin/master`. The viewer identifies synthetic decisions and leaves confidence blank while the stream is idle. The README describes the live launch and the manual demo start.
+
+The full suite at `267f84a` passed 190 tests, with two skips for unavailable CUDA and Windows symlink creation. After the viewer follow-up, all 16 targeted viewer and studio tests passed. The binary verifier passed 19 retained hashes and the three-class verifier checked 28 required files including the fixed reference. Batch smoke checks confirmed the live studio opened with Demo off, disconnected and idle. Both demos opened idle, then produced finite probabilities after Start Stream. Zen rendered the hand in a WebGL framebuffer check and showed the synthetic source and blank idle confidence. The lab X24 and wearer accuracy still require the live trial.
+
+GitHub delivery of the setup was verified through `93ce5d0`. The Desktop live launcher matches Git, and the three launchers and viewer HTML were copied and checksum-verified in local Box `EEGMI_Personal`. Box cloud sync is unconfirmed. All temporary browser and studio processes used for testing exited.
+
+Next action: use the combined three-class X24 launcher on the lab PC, verify the incoming signal and complete personal calibration and the fresh validation block.
+
+## November 10 session
 
 Prepared the experimental 5-, 7- and 9-class X24 ZIPs for GitHub `master` in the commit titled `Package 5-, 7- and 9-class X24 validation labs`. Each starts without a checkpoint, fits from fresh personal calibration, reserves later whole cue blocks for tuning, and saves a separate session with frozen-model validation, rejection-aware confusion matrix, and per-class recall. The confidence floor is fixed at 1.5 divided by the class count with a 0.05 runner-up margin. There are no EEG recordings, private models or vendor SDK files in the ZIPs.
 
@@ -45,7 +57,7 @@ Software validation covered repeatable ZIP generation, hash verification through
 
 Delivery includes the three ZIPs in `downloads/` and checksum-verified copies in the local Box and Desktop download folders. Box cloud sync is unconfirmed. No GUI, bridge, training or acquisition process was left running. The next action is to finish three-class validation, then extract and test each expanded package with the lab X24.
 
-## November 6 latest session
+## November 6 session
 
 Request: "If there's something you can do, do it." Continued the new handoff priorities after documentation commit `89a5074`.
 
