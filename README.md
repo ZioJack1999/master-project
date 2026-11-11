@@ -17,11 +17,13 @@ Binary and three-class live transport, waveforms, probabilities and saving have 
 - [Three-class procedure](THREECLASS_LAB_README.md)
 - [Hardware/runtime details and measured connection checks](X24_CONNECTION_STATUS.md)
 
-## 3D virtual hand demos
+## 3D virtual hand
 
-Run `Launch_BINARY_Demo.bat` or `Launch_THREECLASS_Demo.bat` from this checkout. Each launcher starts a synthetic stream and opens the studio dashboard and its 3D hand viewer. The binary demo uses port 8052 and the three-class demo uses 8051. Close the launcher with Ctrl+C when finished so the port is free for the corresponding X24 app.
+Run `Launch_THREECLASS_Studio.bat` to open the three-class dashboard and hand viewer in live mode on port 8051. Use **Connect EEG** with an available compatible LSL stream. To start and supervise X24 acquisition, use `Launch_THREECLASS_X24.bat`.
 
-For a preview of each hand pose, enable **Test Override** in the hand viewer and use the manual controls. The demos use synthetic EEG and the hand viewer labels the source as synthetic.
+Run `Launch_BINARY_Demo.bat` or `Launch_THREECLASS_Demo.bat` to open the dashboard and hand viewer in synthetic demo mode. Click **Start Stream** in the dashboard to begin. The binary demo uses port 8052 and the three-class demo uses 8051. Close the launcher with Ctrl+C when finished to free its port.
+
+For a preview of each hand pose, enable **Test Override** in the hand viewer and use the manual controls.
 
 ## Expanded personal-validation ZIPs
 
