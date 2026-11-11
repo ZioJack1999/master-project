@@ -1,0 +1,575 @@
+{
+  "benchmark_date": "2026-11-11T00:56:48.364162Z",
+  "test_subject": "sub-08 (held-out test sessions ses-05+)",
+  "calibration_sessions": "ses-01 to ses-04",
+  "channels": [
+    "F3",
+    "Fz",
+    "F4",
+    "C3",
+    "Cz",
+    "C4",
+    "P3",
+    "Pz",
+    "P4",
+    "POz",
+    "O1",
+    "O2"
+  ],
+  "sfreq": 256,
+  "models": {
+    "baseline_smr": "decoder_and_models\\backbone_threeclass_temporaleegnet.pt",
+    "stage1_binary_smr": "decoder_and_models\\stage1_rest_movement_x24.pt",
+    "stage2_dualband_mrcp": "decoder_and_models\\stage2_direction_dualband_mrcp.pt"
+  },
+  "unsupervised_resting_alignment": {
+    "method": "Sion An et al. 2024 covariance whitening R_rest^(-1/2)",
+    "applied": true,
+    "fitting_protocol": "Fitted strictly on calibration rest cues (ses-01..ses-04); 0 test windows used",
+    "n_calib_rest_windows_used": 380,
+    "mrcp_cov_trace": 12.0,
+    "smr_cov_trace": 12.0
+  },
+  "clinical_bci_targets": {
+    "finger_extension_recall_target": "> 0.50 (historical collapse was 0/20)",
+    "rest_false_activation_rate_target_per_min": "< 3.0 / min",
+    "balanced_accuracy_target": "> 0.60"
+  },
+  "metrics": {
+    "baseline": {
+      "balanced_accuracy": 0.33784702847533804,
+      "finger_extension_recall": 0.07257501744591766,
+      "volar_grasp_recall": 0.05977165883143049,
+      "rest_recall": 0.8811944091486659,
+      "rest_false_activation_rate_per_min": 14.256670902160101,
+      "total_rest_minutes": 13.116666666666667,
+      "false_activation_count": 187,
+      "abstention_rate": 0.0,
+      "n_total_windows": 4496,
+      "n_scored_windows": 4496,
+      "n_abstain_windows": 0,
+      "confusion_matrix_3x3": [
+        [
+          1387,
+          36,
+          151
+        ],
+        [
+          1222,
+          89,
+          178
+        ],
+        [
+          1272,
+          57,
+          104
+        ]
+      ],
+      "confusion_matrix_with_abstain": [
+        [
+          1387,
+          36,
+          151,
+          0
+        ],
+        [
+          1222,
+          89,
+          178,
+          0
+        ],
+        [
+          1272,
+          57,
+          104,
+          0
+        ]
+      ],
+      "cue_balanced_accuracy": 0.32709681769147786,
+      "cue_finger_extension_recall": 0.010416666666666666,
+      "cue_volar_grasp_recall": 0.019417475728155338,
+      "cue_rest_recall": 0.9514563106796117,
+      "n_cue_trials": 302,
+      "cue_confusion_matrix": [
+        [
+          98,
+          2,
+          3,
+          0
+        ],
+        [
+          97,
+          2,
+          4,
+          0
+        ],
+        [
+          93,
+          2,
+          1,
+          0
+        ]
+      ]
+    },
+    "hierarchical": {
+      "balanced_accuracy": 0.38951515671721815,
+      "finger_extension_recall": 0.2868108862526169,
+      "volar_grasp_recall": 0.08059100067159167,
+      "rest_recall": 0.8011435832274459,
+      "rest_false_activation_rate_per_min": 23.40533672172808,
+      "total_rest_minutes": 13.116666666666667,
+      "false_activation_count": 307,
+      "abstention_rate": 0.00800711743772242,
+      "n_total_windows": 4496,
+      "n_scored_windows": 4460,
+      "n_abstain_windows": 36,
+      "confusion_matrix_3x3": [
+        [
+          1261,
+          51,
+          256
+        ],
+        [
+          905,
+          120,
+          442
+        ],
+        [
+          928,
+          86,
+          411
+        ]
+      ],
+      "confusion_matrix_with_abstain": [
+        [
+          1261,
+          51,
+          256,
+          6
+        ],
+        [
+          905,
+          120,
+          442,
+          22
+        ],
+        [
+          928,
+          86,
+          411,
+          8
+        ]
+      ],
+      "cue_balanced_accuracy": 0.3947208737864078,
+      "cue_finger_extension_recall": 0.28125,
+      "cue_volar_grasp_recall": 0.02912621359223301,
+      "cue_rest_recall": 0.8737864077669902,
+      "n_cue_trials": 302,
+      "cue_confusion_matrix": [
+        [
+          90,
+          1,
+          12,
+          0
+        ],
+        [
+          72,
+          3,
+          28,
+          0
+        ],
+        [
+          65,
+          4,
+          27,
+          0
+        ]
+      ]
+    },
+    "delta": {
+      "balanced_accuracy_gain": 0.05166812824188011,
+      "extension_recall_gain": 0.21423586880669926,
+      "grasp_recall_gain": 0.020819341840161175,
+      "rest_recall_gain": -0.08005082592121993,
+      "far_reduction_per_min": -9.148665819567979,
+      "cue_extension_recall_gain": 0.2708333333333333,
+      "cue_balanced_accuracy_gain": 0.06762405609492994
+    }
+  },
+  "historical_20_cues_audit": {
+    "baseline_cue_extension_recall": 0.0,
+    "hierarchical_cue_extension_recall": 0.25,
+    "baseline_window_extension_recall": 0.02564102564102564,
+    "hierarchical_window_extension_recall": 0.26373626373626374,
+    "historical_collapse_resolved": false,
+    "n_extension_cues_evaluated": 20
+  },
+  "continuous_streaming_replays": [
+    {
+      "session_path": "C:\\Users\\giaco\\Desktop\\Academic & Projects\\Master Project\\master-project-debug\\session_reports\\threeclass\\self\\1d4262619a4a48a38626a9279617746b\\eeg.npz",
+      "n_channels": 12,
+      "total_samples": 22720,
+      "duration_s": 88.75,
+      "n_windows_evaluated": 348,
+      "total_runtime_s": 8.541901588439941,
+      "mean_latency_ms": 18.060915804439325,
+      "max_latency_ms": 186.62059999769554,
+      "sum_to_one_calibrated": true,
+      "continuous_far_per_min": 239.31034482758622,
+      "non_rest_detection_count": 347,
+      "prediction_distribution": {
+        "2": 10,
+        "1": 337,
+        "-1": 1
+      }
+    },
+    {
+      "session_path": "C:\\Users\\giaco\\Desktop\\Academic & Projects\\Master Project\\master-project-debug\\session_reports\\threeclass\\self\\d7c88a55c8ec4ad2be0dfca644b9ffda\\eeg.npz",
+      "n_channels": 12,
+      "total_samples": 0,
+      "duration_s": 0.0,
+      "n_windows_evaluated": 0,
+      "total_runtime_s": 0.0,
+      "mean_latency_ms": 0.0,
+      "max_latency_ms": 0.0,
+      "sum_to_one_calibrated": true,
+      "continuous_far_per_min": 0.0,
+      "non_rest_detection_count": 0,
+      "prediction_distribution": {}
+    }
+  ],
+  "inventory_summary": {
+    "total_recordings_located": 124,
+    "sample_recordings": [
+      {
+        "type": "x24_session_npz",
+        "path": "C:\\Users\\giaco\\Desktop\\Academic & Projects\\Master Project\\master-project-debug\\session_reports\\threeclass\\self\\1d4262619a4a48a38626a9279617746b\\eeg.npz",
+        "session_id": "1d4262619a4a48a38626a9279617746b",
+        "participant": "self",
+        "source": "demo",
+        "n_channels": 20,
+        "n_samples": 22720,
+        "sfreq": 256.0,
+        "duration_s": 88.75,
+        "has_metadata": true,
+        "has_predictions": true,
+        "has_events": true,
+        "metadata": {
+          "schema_version": 1,
+          "task_mode": "threeclass_lab",
+          "source": "demo",
+          "participant": "self",
+          "channels": [
+            "Fp1",
+            "Fp2",
+            "F7",
+            "F3",
+            "Fz",
+            "F4",
+            "F8",
+            "T3",
+            "C3",
+            "Cz",
+            "C4",
+            "T4",
+            "T5",
+            "P3",
+            "Pz",
+            "P4",
+            "T6",
+            "O1",
+            "POz",
+            "O2"
+          ],
+          "sfreq": 256,
+          "unit": "V",
+          "session_started": "2026-11-03T23:49:18.237555+00:00",
+          "model_path": "C:\\Users\\giaco\\Desktop\\Academic & Projects\\Master Project\\master-project-debug\\decoder_and_models\\multiclass_covariance_sub08_v2.pt",
+          "model_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+          "model_role": "recorded_reference",
+          "reference_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+          "config": {
+            "checkpoint": "decoder_and_models/multiclass_covariance_sub08_v2.pt",
+            "channels": [
+              "Fp1",
+              "Fp2",
+              "F7",
+              "F3",
+              "Fz",
+              "F4",
+              "F8",
+              "T3",
+              "C3",
+              "Cz",
+              "C4",
+              "T4",
+              "T5",
+              "P3",
+              "Pz",
+              "P4",
+              "T6",
+              "O1",
+              "POz",
+              "O2"
+            ],
+            "sfreq": 256,
+            "window_s": 4.0,
+            "stride_s": 0.25,
+            "settle_s": 0.5,
+            "stream_name": "",
+            "source_id": "",
+            "input_unit": "",
+            "channel_labels": null,
+            "max_sample_age_s": 1.0,
+            "max_gap_s": 0.1,
+            "reports_dir": "session_reports/threeclass",
+            "calibration_cues_per_class": 12,
+            "validation_cues_per_class": 10,
+            "cue_duration_s": 8.0,
+            "torch_threads": 1,
+            "participant": "self"
+          },
+          "timing": "LSL/worker cue clock; browser/display latency unmeasured.",
+          "classes": [
+            "rest",
+            "volar_grasp",
+            "finger_extension"
+          ],
+          "results": [],
+          "protocol_in_progress": false,
+          "active_frozen": null
+        }
+      },
+      {
+        "type": "x24_session_npz",
+        "path": "C:\\Users\\giaco\\Desktop\\Academic & Projects\\Master Project\\master-project-debug\\session_reports\\threeclass\\self\\d7c88a55c8ec4ad2be0dfca644b9ffda\\eeg.npz",
+        "session_id": "d7c88a55c8ec4ad2be0dfca644b9ffda",
+        "participant": "self",
+        "source": "live",
+        "n_channels": 20,
+        "n_samples": 0,
+        "sfreq": 256.0,
+        "duration_s": 0.0,
+        "has_metadata": true,
+        "has_predictions": true,
+        "has_events": true,
+        "metadata": {
+          "schema_version": 1,
+          "task_mode": "threeclass_lab",
+          "source": "live",
+          "participant": "self",
+          "channels": [
+            "Fp1",
+            "Fp2",
+            "F7",
+            "F3",
+            "Fz",
+            "F4",
+            "F8",
+            "T3",
+            "C3",
+            "Cz",
+            "C4",
+            "T4",
+            "T5",
+            "P3",
+            "Pz",
+            "P4",
+            "T6",
+            "O1",
+            "POz",
+            "O2"
+          ],
+          "sfreq": 256,
+          "unit": "V",
+          "session_started": "2026-11-03T23:49:18.234558+00:00",
+          "model_path": "C:\\Users\\giaco\\Desktop\\Academic & Projects\\Master Project\\master-project-debug\\decoder_and_models\\multiclass_covariance_sub08_v2.pt",
+          "model_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+          "model_role": "recorded_reference",
+          "reference_sha256": "0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb",
+          "config": {
+            "checkpoint": "decoder_and_models/multiclass_covariance_sub08_v2.pt",
+            "channels": [
+              "Fp1",
+              "Fp2",
+              "F7",
+              "F3",
+              "Fz",
+              "F4",
+              "F8",
+              "T3",
+              "C3",
+              "Cz",
+              "C4",
+              "T4",
+              "T5",
+              "P3",
+              "Pz",
+              "P4",
+              "T6",
+              "O1",
+              "POz",
+              "O2"
+            ],
+            "sfreq": 256,
+            "window_s": 4.0,
+            "stride_s": 0.25,
+            "settle_s": 0.5,
+            "stream_name": "",
+            "source_id": "",
+            "input_unit": "",
+            "channel_labels": null,
+            "max_sample_age_s": 1.0,
+            "max_gap_s": 0.1,
+            "reports_dir": "session_reports/threeclass",
+            "calibration_cues_per_class": 12,
+            "validation_cues_per_class": 10,
+            "cue_duration_s": 8.0,
+            "torch_threads": 1,
+            "participant": "self"
+          },
+          "timing": "LSL/worker cue clock; browser/display latency unmeasured.",
+          "classes": [
+            "rest",
+            "volar_grasp",
+            "finger_extension"
+          ],
+          "results": [],
+          "protocol_in_progress": false,
+          "active_frozen": null
+        }
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-01_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-01_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-01",
+        "subject": "sub-08",
+        "n_events": 6,
+        "event_classes": [
+          "Wrist Supination",
+          "Wrist Extension",
+          "Opponens Grasp",
+          "Rest",
+          "Volar Grasp",
+          "Wrist Flexion"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-02_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-02_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-02",
+        "subject": "sub-08",
+        "n_events": 6,
+        "event_classes": [
+          "Wrist Extension",
+          "Opponens Grasp",
+          "Rest",
+          "Finger Extension",
+          "Pinch Grasp",
+          "Wrist Flexion"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-03_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-03_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-03",
+        "subject": "sub-08",
+        "n_events": 7,
+        "event_classes": [
+          "Wrist Extension",
+          "Opponens Grasp",
+          "Wrist Pronation",
+          "Rest",
+          "Finger Extension",
+          "Volar Grasp",
+          "Pinch Grasp"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-04_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-04_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-04",
+        "subject": "sub-08",
+        "n_events": 7,
+        "event_classes": [
+          "Wrist Supination",
+          "Wrist Extension",
+          "Opponens Grasp",
+          "Rest",
+          "Finger Extension",
+          "Wrist Pronation",
+          "Volar Grasp"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-07_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-07_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-07",
+        "subject": "sub-08",
+        "n_events": 6,
+        "event_classes": [
+          "Wrist Supination",
+          "Opponens Grasp",
+          "Rest",
+          "Finger Extension",
+          "Wrist Pronation",
+          "Pinch Grasp"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-08_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-08_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-08",
+        "subject": "sub-08",
+        "n_events": 7,
+        "event_classes": [
+          "Wrist Supination",
+          "Wrist Extension",
+          "Opponens Grasp",
+          "Rest",
+          "Wrist Pronation",
+          "Pinch Grasp",
+          "Wrist Flexion"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-09_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-09_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-09",
+        "subject": "sub-08",
+        "n_events": 6,
+        "event_classes": [
+          "Wrist Supination",
+          "Wrist Extension",
+          "Opponens Grasp",
+          "Rest",
+          "Wrist Pronation",
+          "Pinch Grasp"
+        ]
+      },
+      {
+        "type": "bcifest_heldout_edf",
+        "path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-10_eeg.edf",
+        "events_path": "C:\\Users\\giaco\\Box\\BCIFEST\\bids\\sub-08\\ses-02\\eeg\\sub-08_ses-02_task-olrandmcmitrain_run-10_events.tsv",
+        "run_id": "sub-08_ses-02_task-olrandmcmitrain_run-10",
+        "subject": "sub-08",
+        "n_events": 6,
+        "event_classes": [
+          "Wrist Supination",
+          "Wrist Extension",
+          "Rest",
+          "Finger Extension",
+          "Volar Grasp",
+          "Wrist Flexion"
+        ]
+      }
+    ]
+  }
+}

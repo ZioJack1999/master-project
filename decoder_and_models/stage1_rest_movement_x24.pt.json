@@ -1,0 +1,27 @@
+{
+  "model_path": "decoder_and_models\\stage1_rest_movement_x24.pt",
+  "sha256": "dbb023e1e3e9222c622cd2dfc67db6fd6cf99bb8d05e7b0fd8ebb7cd1609a7e7",
+  "created_at": "2026-11-11T00:58:50.737909Z",
+  "task": "stage1_rest_vs_movement",
+  "channels": [
+    "F3",
+    "Fz",
+    "F4",
+    "C3",
+    "Cz",
+    "C4",
+    "P3",
+    "Pz",
+    "P4",
+    "POz",
+    "O1",
+    "O2"
+  ],
+  "n_channels": 12,
+  "classes": [
+    "rest",
+    "movement"
+  ],
+  "best_val_balanced_accuracy": 0.6374831803667182,
+  "training_time_s": 184.6718430519104
+}

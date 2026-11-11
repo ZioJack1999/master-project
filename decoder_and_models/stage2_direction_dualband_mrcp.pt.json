@@ -1,0 +1,36 @@
+{
+  "model_path": "decoder_and_models\\stage2_direction_dualband_mrcp.pt",
+  "sha256": "2371d0c417b44da16ec548d988d44a6dd84d2dae68742a3eb7cb40c4d274b0da",
+  "created_at": "2026-11-11T01:03:05.873679Z",
+  "arch": "DualBandTemporalEEGNet",
+  "task": "stage2_volar_vs_extension_dualband_mrcp",
+  "channels": [
+    "F3",
+    "Fz",
+    "F4",
+    "C3",
+    "Cz",
+    "C4",
+    "P3",
+    "Pz",
+    "P4",
+    "POz",
+    "O1",
+    "O2"
+  ],
+  "n_channels": 12,
+  "sfreq": 256,
+  "classes": [
+    "volar_grasp",
+    "finger_extension"
+  ],
+  "n_classes": 2,
+  "pretrain_subjects": [
+    "sub-04",
+    "sub-07"
+  ],
+  "best_val_balanced_accuracy": 0.5994805516047245,
+  "val_extension_recall": 0.6242038216560509,
+  "val_grasp_recall": 0.574757281553398,
+  "training_time_s": 252.2694971561432
+}

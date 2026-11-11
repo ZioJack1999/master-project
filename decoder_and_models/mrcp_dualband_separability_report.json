@@ -1,0 +1,1160 @@
+{
+  "filter_contract": {
+    "branch_a_mrcp": {
+      "band_hz": [
+        0.3,
+        3.0
+      ],
+      "order": 2,
+      "type": "butterworth_sos_causal_zi"
+    },
+    "branch_b_smr": {
+      "band_hz": [
+        4.0,
+        40.0
+      ],
+      "order": 4,
+      "type": "butterworth_sos_causal_zi"
+    },
+    "channels": [
+      "F3",
+      "Fz",
+      "F4",
+      "C3",
+      "Cz",
+      "C4",
+      "P3",
+      "Pz",
+      "P4",
+      "POz",
+      "O1",
+      "O2"
+    ],
+    "core_motor_channels": [
+      "C3",
+      "Cz",
+      "C4"
+    ],
+    "recommended_bipolar_pairs": [
+      "C3-Cz",
+      "C4-Cz",
+      "C3-C4",
+      "Fz-Cz",
+      "Cz-Pz",
+      "F3-C3",
+      "C3-P3",
+      "F4-C4",
+      "C4-P4"
+    ]
+  },
+  "pooled_top15_stage2_grasp_vs_extension_features": [
+    {
+      "feature": "smr_Pz_rel_beta",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.1518,
+      "abs_cohens_d": 0.1518,
+      "fisher_j": 0.0115,
+      "roc_auc": 0.5422
+    },
+    {
+      "feature": "smr_P4_rel_mu",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.152,
+      "abs_cohens_d": 0.152,
+      "fisher_j": 0.0115,
+      "roc_auc": 0.5348
+    },
+    {
+      "feature": "smr_P4_rel_beta",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.1438,
+      "abs_cohens_d": 0.1438,
+      "fisher_j": 0.0103,
+      "roc_auc": 0.5409
+    },
+    {
+      "feature": "smr_P3_rel_beta",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.1375,
+      "abs_cohens_d": 0.1375,
+      "fisher_j": 0.0094,
+      "roc_auc": 0.5402
+    },
+    {
+      "feature": "smr_P4_mu_beta_ratio",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.1361,
+      "abs_cohens_d": 0.1361,
+      "fisher_j": 0.0093,
+      "roc_auc": 0.5456
+    },
+    {
+      "feature": "smr_Pz_mu_beta_ratio",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.1345,
+      "abs_cohens_d": 0.1345,
+      "fisher_j": 0.009,
+      "roc_auc": 0.5385
+    },
+    {
+      "feature": "smr_C3_rel_mu",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.1254,
+      "abs_cohens_d": 0.1254,
+      "fisher_j": 0.0079,
+      "roc_auc": 0.5332
+    },
+    {
+      "feature": "smr_C3_rel_beta",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.1259,
+      "abs_cohens_d": 0.1259,
+      "fisher_j": 0.0079,
+      "roc_auc": 0.5344
+    },
+    {
+      "feature": "smr_pair_Fz_Cz_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.12,
+      "abs_cohens_d": 0.12,
+      "fisher_j": 0.0072,
+      "roc_auc": 0.5135
+    },
+    {
+      "feature": "mrcp_pair_C4_P4_max",
+      "band": "MRCP (0.3-3.0 Hz)",
+      "cohens_d": -0.118,
+      "abs_cohens_d": 0.118,
+      "fisher_j": 0.007,
+      "roc_auc": 0.5264
+    },
+    {
+      "feature": "smr_Pz_rel_mu",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.1145,
+      "abs_cohens_d": 0.1145,
+      "fisher_j": 0.0066,
+      "roc_auc": 0.5239
+    },
+    {
+      "feature": "mrcp_pair_C3_Cz_max",
+      "band": "MRCP (0.3-3.0 Hz)",
+      "cohens_d": 0.1105,
+      "abs_cohens_d": 0.1105,
+      "fisher_j": 0.0061,
+      "roc_auc": 0.5312
+    },
+    {
+      "feature": "smr_Fz_gamma_low_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": 0.1052,
+      "abs_cohens_d": 0.1052,
+      "fisher_j": 0.0055,
+      "roc_auc": 0.513
+    },
+    {
+      "feature": "mrcp_Cz_min_amplitude",
+      "band": "MRCP (0.3-3.0 Hz)",
+      "cohens_d": 0.1031,
+      "abs_cohens_d": 0.1031,
+      "fisher_j": 0.0053,
+      "roc_auc": 0.5307
+    },
+    {
+      "feature": "mrcp_pair_C4_P4_min",
+      "band": "MRCP (0.3-3.0 Hz)",
+      "cohens_d": 0.1008,
+      "abs_cohens_d": 0.1008,
+      "fisher_j": 0.0051,
+      "roc_auc": 0.5144
+    }
+  ],
+  "pooled_top15_stage1_rest_vs_movement_features": [
+    {
+      "feature": "smr_Cz_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.4149,
+      "abs_cohens_d": 0.4149,
+      "fisher_j": 0.0861,
+      "roc_auc": 0.619
+    },
+    {
+      "feature": "smr_C3_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3841,
+      "abs_cohens_d": 0.3841,
+      "fisher_j": 0.0738,
+      "roc_auc": 0.61
+    },
+    {
+      "feature": "smr_Fz_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3519,
+      "abs_cohens_d": 0.3519,
+      "fisher_j": 0.0619,
+      "roc_auc": 0.5939
+    },
+    {
+      "feature": "smr_Pz_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3511,
+      "abs_cohens_d": 0.3511,
+      "fisher_j": 0.0616,
+      "roc_auc": 0.5943
+    },
+    {
+      "feature": "smr_P4_mu_beta_ratio",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3409,
+      "abs_cohens_d": 0.3409,
+      "fisher_j": 0.0581,
+      "roc_auc": 0.5935
+    },
+    {
+      "feature": "smr_Cz_beta_low_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3308,
+      "abs_cohens_d": 0.3308,
+      "fisher_j": 0.0547,
+      "roc_auc": 0.5911
+    },
+    {
+      "feature": "smr_P4_rel_mu",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3248,
+      "abs_cohens_d": 0.3248,
+      "fisher_j": 0.0527,
+      "roc_auc": 0.5864
+    },
+    {
+      "feature": "smr_P3_rel_mu",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.315,
+      "abs_cohens_d": 0.315,
+      "fisher_j": 0.0496,
+      "roc_auc": 0.5837
+    },
+    {
+      "feature": "smr_F3_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3136,
+      "abs_cohens_d": 0.3136,
+      "fisher_j": 0.0492,
+      "roc_auc": 0.5846
+    },
+    {
+      "feature": "smr_P3_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3122,
+      "abs_cohens_d": 0.3122,
+      "fisher_j": 0.0487,
+      "roc_auc": 0.5903
+    },
+    {
+      "feature": "smr_C4_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.3016,
+      "abs_cohens_d": 0.3016,
+      "fisher_j": 0.0455,
+      "roc_auc": 0.5956
+    },
+    {
+      "feature": "smr_P4_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.2974,
+      "abs_cohens_d": 0.2974,
+      "fisher_j": 0.0442,
+      "roc_auc": 0.5948
+    },
+    {
+      "feature": "smr_F4_mu_log",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.2918,
+      "abs_cohens_d": 0.2918,
+      "fisher_j": 0.0426,
+      "roc_auc": 0.5815
+    },
+    {
+      "feature": "smr_P3_mu_beta_ratio",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.2914,
+      "abs_cohens_d": 0.2914,
+      "fisher_j": 0.0425,
+      "roc_auc": 0.5757
+    },
+    {
+      "feature": "smr_C4_mu_beta_ratio",
+      "band": "SMR (4.0-40.0 Hz)",
+      "cohens_d": -0.2894,
+      "abs_cohens_d": 0.2894,
+      "fisher_j": 0.0419,
+      "roc_auc": 0.5841
+    }
+  ],
+  "subjects": {
+    "sub-00": {
+      "n_windows": 73,
+      "n_cues": 4,
+      "window_counts_by_class": {
+        "rest": 15,
+        "volar_grasp": 0,
+        "finger_extension": 58
+      },
+      "stage2_grasp_vs_extension_cv": null,
+      "top10_stage2_grasp_vs_extension_features": [],
+      "top10_stage1_rest_vs_movement_features": [
+        {
+          "feature": "smr_F3_theta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F3_beta_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F3_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F3_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_theta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_beta_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        }
+      ]
+    },
+    "sub-04": {
+      "n_windows": 1888,
+      "n_cues": 128,
+      "window_counts_by_class": {
+        "rest": 594,
+        "volar_grasp": 674,
+        "finger_extension": 620
+      },
+      "stage2_grasp_vs_extension_cv": {
+        "SMR_only": {
+          "cue_balanced_accuracy": 0.5051,
+          "volar_grasp_recall": 0.5556,
+          "finger_extension_recall": 0.4545,
+          "n_grasp_cues": 45,
+          "n_extension_cues": 44,
+          "confusion_matrix_grasp_ext": [
+            [
+              25,
+              20
+            ],
+            [
+              24,
+              20
+            ]
+          ]
+        },
+        "MRCP_only": {
+          "cue_balanced_accuracy": 0.3821,
+          "volar_grasp_recall": 0.3778,
+          "finger_extension_recall": 0.3864,
+          "n_grasp_cues": 45,
+          "n_extension_cues": 44,
+          "confusion_matrix_grasp_ext": [
+            [
+              17,
+              28
+            ],
+            [
+              27,
+              17
+            ]
+          ]
+        },
+        "DualBand_MRCP_plus_SMR": {
+          "cue_balanced_accuracy": 0.4376,
+          "volar_grasp_recall": 0.4889,
+          "finger_extension_recall": 0.3864,
+          "n_grasp_cues": 45,
+          "n_extension_cues": 44,
+          "confusion_matrix_grasp_ext": [
+            [
+              22,
+              23
+            ],
+            [
+              27,
+              17
+            ]
+          ]
+        }
+      },
+      "top10_stage2_grasp_vs_extension_features": [
+        {
+          "feature": "smr_pair_C3_Cz_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_C3_lap_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Cz_lap_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Pz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.3742,
+          "abs_cohens_d": 0.3742,
+          "fisher_j": 0.07,
+          "roc_auc": 0.6084
+        },
+        {
+          "feature": "smr_C3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.3567,
+          "abs_cohens_d": 0.3567,
+          "fisher_j": 0.0636,
+          "roc_auc": 0.5912
+        },
+        {
+          "feature": "smr_mu_laterality_c3_c4",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.2913,
+          "abs_cohens_d": 0.2913,
+          "fisher_j": 0.0424,
+          "roc_auc": 0.5737
+        },
+        {
+          "feature": "smr_Cz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.291,
+          "abs_cohens_d": 0.291,
+          "fisher_j": 0.0423,
+          "roc_auc": 0.5757
+        },
+        {
+          "feature": "smr_P3_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.2846,
+          "abs_cohens_d": 0.2846,
+          "fisher_j": 0.0405,
+          "roc_auc": 0.5353
+        },
+        {
+          "feature": "smr_P4_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.2826,
+          "abs_cohens_d": 0.2826,
+          "fisher_j": 0.0399,
+          "roc_auc": 0.542
+        },
+        {
+          "feature": "smr_P3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.2803,
+          "abs_cohens_d": 0.2803,
+          "fisher_j": 0.0393,
+          "roc_auc": 0.5762
+        }
+      ],
+      "top10_stage1_rest_vs_movement_features": [
+        {
+          "feature": "smr_Cz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.9189,
+          "abs_cohens_d": 0.9189,
+          "fisher_j": 0.4222,
+          "roc_auc": 0.7425
+        },
+        {
+          "feature": "smr_C3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.8049,
+          "abs_cohens_d": 0.8049,
+          "fisher_j": 0.3239,
+          "roc_auc": 0.7258
+        },
+        {
+          "feature": "smr_P3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.7692,
+          "abs_cohens_d": 0.7692,
+          "fisher_j": 0.2958,
+          "roc_auc": 0.7129
+        },
+        {
+          "feature": "smr_P4_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6982,
+          "abs_cohens_d": 0.6982,
+          "fisher_j": 0.2437,
+          "roc_auc": 0.693
+        },
+        {
+          "feature": "smr_Pz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6954,
+          "abs_cohens_d": 0.6954,
+          "fisher_j": 0.2418,
+          "roc_auc": 0.687
+        },
+        {
+          "feature": "smr_P3_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6806,
+          "abs_cohens_d": 0.6806,
+          "fisher_j": 0.2316,
+          "roc_auc": 0.702
+        },
+        {
+          "feature": "smr_Fz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6371,
+          "abs_cohens_d": 0.6371,
+          "fisher_j": 0.2029,
+          "roc_auc": 0.6782
+        },
+        {
+          "feature": "smr_pair_C3_Cz_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6325,
+          "abs_cohens_d": 0.6325,
+          "fisher_j": 0.2,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Cz_lap_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6325,
+          "abs_cohens_d": 0.6325,
+          "fisher_j": 0.2,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Pz_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6264,
+          "abs_cohens_d": 0.6264,
+          "fisher_j": 0.1962,
+          "roc_auc": 0.6843
+        }
+      ]
+    },
+    "sub-07": {
+      "n_windows": 4081,
+      "n_cues": 267,
+      "window_counts_by_class": {
+        "rest": 1314,
+        "volar_grasp": 1381,
+        "finger_extension": 1386
+      },
+      "stage2_grasp_vs_extension_cv": {
+        "SMR_only": {
+          "cue_balanced_accuracy": 0.5716,
+          "volar_grasp_recall": 0.5889,
+          "finger_extension_recall": 0.5543,
+          "n_grasp_cues": 90,
+          "n_extension_cues": 92,
+          "confusion_matrix_grasp_ext": [
+            [
+              53,
+              37
+            ],
+            [
+              41,
+              51
+            ]
+          ]
+        },
+        "MRCP_only": {
+          "cue_balanced_accuracy": 0.4616,
+          "volar_grasp_recall": 0.4667,
+          "finger_extension_recall": 0.4565,
+          "n_grasp_cues": 90,
+          "n_extension_cues": 92,
+          "confusion_matrix_grasp_ext": [
+            [
+              42,
+              48
+            ],
+            [
+              50,
+              42
+            ]
+          ]
+        },
+        "DualBand_MRCP_plus_SMR": {
+          "cue_balanced_accuracy": 0.5384,
+          "volar_grasp_recall": 0.5333,
+          "finger_extension_recall": 0.5435,
+          "n_grasp_cues": 90,
+          "n_extension_cues": 92,
+          "confusion_matrix_grasp_ext": [
+            [
+              48,
+              42
+            ],
+            [
+              42,
+              50
+            ]
+          ]
+        }
+      },
+      "top10_stage2_grasp_vs_extension_features": [
+        {
+          "feature": "smr_pair_Fz_Cz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.2667,
+          "abs_cohens_d": 0.2667,
+          "fisher_j": 0.0356,
+          "roc_auc": 0.5333
+        },
+        {
+          "feature": "smr_Pz_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.1969,
+          "abs_cohens_d": 0.1969,
+          "fisher_j": 0.0194,
+          "roc_auc": 0.5304
+        },
+        {
+          "feature": "smr_Fz_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.1772,
+          "abs_cohens_d": 0.1772,
+          "fisher_j": 0.0157,
+          "roc_auc": 0.5343
+        },
+        {
+          "feature": "smr_P4_rel_mu",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.1602,
+          "abs_cohens_d": 0.1602,
+          "fisher_j": 0.0128,
+          "roc_auc": 0.5301
+        },
+        {
+          "feature": "smr_Pz_rel_beta",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.1573,
+          "abs_cohens_d": 0.1573,
+          "fisher_j": 0.0124,
+          "roc_auc": 0.5371
+        },
+        {
+          "feature": "smr_P4_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.1549,
+          "abs_cohens_d": 0.1549,
+          "fisher_j": 0.012,
+          "roc_auc": 0.5348
+        },
+        {
+          "feature": "smr_Pz_rel_mu",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.152,
+          "abs_cohens_d": 0.152,
+          "fisher_j": 0.0115,
+          "roc_auc": 0.5276
+        },
+        {
+          "feature": "smr_pair_F4_C4_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.1485,
+          "abs_cohens_d": 0.1485,
+          "fisher_j": 0.011,
+          "roc_auc": 0.5247
+        },
+        {
+          "feature": "smr_pair_C4_P4_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.141,
+          "abs_cohens_d": 0.141,
+          "fisher_j": 0.0099,
+          "roc_auc": 0.5234
+        },
+        {
+          "feature": "smr_pair_Fz_Cz_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 0.1402,
+          "abs_cohens_d": 0.1402,
+          "fisher_j": 0.0098,
+          "roc_auc": 0.5243
+        }
+      ],
+      "top10_stage1_rest_vs_movement_features": [
+        {
+          "feature": "smr_Cz_lap_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6325,
+          "abs_cohens_d": 0.6325,
+          "fisher_j": 0.2,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Cz_lap_beta_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.6325,
+          "abs_cohens_d": 0.6325,
+          "fisher_j": 0.2,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_P3_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.265,
+          "abs_cohens_d": 0.265,
+          "fisher_j": 0.0351,
+          "roc_auc": 0.5636
+        },
+        {
+          "feature": "smr_P3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.2438,
+          "abs_cohens_d": 0.2438,
+          "fisher_j": 0.0297,
+          "roc_auc": 0.5675
+        },
+        {
+          "feature": "smr_Cz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.234,
+          "abs_cohens_d": 0.234,
+          "fisher_j": 0.0274,
+          "roc_auc": 0.5661
+        },
+        {
+          "feature": "smr_Pz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.2339,
+          "abs_cohens_d": 0.2339,
+          "fisher_j": 0.0274,
+          "roc_auc": 0.5637
+        },
+        {
+          "feature": "smr_P3_rel_mu",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.2188,
+          "abs_cohens_d": 0.2188,
+          "fisher_j": 0.0239,
+          "roc_auc": 0.5577
+        },
+        {
+          "feature": "smr_P4_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.2173,
+          "abs_cohens_d": 0.2173,
+          "fisher_j": 0.0236,
+          "roc_auc": 0.5481
+        },
+        {
+          "feature": "smr_C3_mu_beta_ratio",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.2163,
+          "abs_cohens_d": 0.2163,
+          "fisher_j": 0.0234,
+          "roc_auc": 0.5599
+        },
+        {
+          "feature": "smr_P4_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.2154,
+          "abs_cohens_d": 0.2154,
+          "fisher_j": 0.0232,
+          "roc_auc": 0.5605
+        }
+      ]
+    },
+    "sub-08": {
+      "n_windows": 5490,
+      "n_cues": 367,
+      "window_counts_by_class": {
+        "rest": 1953,
+        "volar_grasp": 1791,
+        "finger_extension": 1746
+      },
+      "stage2_grasp_vs_extension_cv": {
+        "SMR_only": {
+          "cue_balanced_accuracy": 0.5329,
+          "volar_grasp_recall": 0.4919,
+          "finger_extension_recall": 0.5739,
+          "n_grasp_cues": 124,
+          "n_extension_cues": 115,
+          "confusion_matrix_grasp_ext": [
+            [
+              61,
+              63
+            ],
+            [
+              49,
+              66
+            ]
+          ]
+        },
+        "MRCP_only": {
+          "cue_balanced_accuracy": 0.7495,
+          "volar_grasp_recall": 0.7339,
+          "finger_extension_recall": 0.7652,
+          "n_grasp_cues": 124,
+          "n_extension_cues": 115,
+          "confusion_matrix_grasp_ext": [
+            [
+              91,
+              33
+            ],
+            [
+              27,
+              88
+            ]
+          ]
+        },
+        "DualBand_MRCP_plus_SMR": {
+          "cue_balanced_accuracy": 0.7328,
+          "volar_grasp_recall": 0.7177,
+          "finger_extension_recall": 0.7478,
+          "n_grasp_cues": 124,
+          "n_extension_cues": 115,
+          "confusion_matrix_grasp_ext": [
+            [
+              89,
+              35
+            ],
+            [
+              29,
+              86
+            ]
+          ]
+        }
+      },
+      "top10_stage2_grasp_vs_extension_features": [
+        {
+          "feature": "mrcp_pair_C4_Cz_min",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": 0.278,
+          "abs_cohens_d": 0.278,
+          "fisher_j": 0.0386,
+          "roc_auc": 0.5746
+        },
+        {
+          "feature": "mrcp_pair_C3_Cz_max",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": 0.2105,
+          "abs_cohens_d": 0.2105,
+          "fisher_j": 0.0222,
+          "roc_auc": 0.5672
+        },
+        {
+          "feature": "smr_P4_rel_beta",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.201,
+          "abs_cohens_d": 0.201,
+          "fisher_j": 0.0202,
+          "roc_auc": 0.5568
+        },
+        {
+          "feature": "mrcp_pair_C4_Cz_max",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": -0.194,
+          "abs_cohens_d": 0.194,
+          "fisher_j": 0.0188,
+          "roc_auc": 0.5574
+        },
+        {
+          "feature": "smr_P3_rel_beta",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.1926,
+          "abs_cohens_d": 0.1926,
+          "fisher_j": 0.0185,
+          "roc_auc": 0.5523
+        },
+        {
+          "feature": "mrcp_Cz_min_amplitude",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": 0.1814,
+          "abs_cohens_d": 0.1814,
+          "fisher_j": 0.0165,
+          "roc_auc": 0.5608
+        },
+        {
+          "feature": "smr_Pz_rel_beta",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.1813,
+          "abs_cohens_d": 0.1813,
+          "fisher_j": 0.0164,
+          "roc_auc": 0.5509
+        },
+        {
+          "feature": "smr_F3_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.1751,
+          "abs_cohens_d": 0.1751,
+          "fisher_j": 0.0153,
+          "roc_auc": 0.5152
+        },
+        {
+          "feature": "mrcp_C3_min_amplitude",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": 0.1705,
+          "abs_cohens_d": 0.1705,
+          "fisher_j": 0.0145,
+          "roc_auc": 0.549
+        },
+        {
+          "feature": "smr_F3_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.1706,
+          "abs_cohens_d": 0.1706,
+          "fisher_j": 0.0145,
+          "roc_auc": 0.5183
+        }
+      ],
+      "top10_stage1_rest_vs_movement_features": [
+        {
+          "feature": "smr_P3_rel_beta",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.5142,
+          "abs_cohens_d": 0.5142,
+          "fisher_j": 0.1322,
+          "roc_auc": 0.6444
+        },
+        {
+          "feature": "smr_Cz_beta_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4834,
+          "abs_cohens_d": 0.4834,
+          "fisher_j": 0.1168,
+          "roc_auc": 0.6404
+        },
+        {
+          "feature": "smr_pair_C3_C4_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4201,
+          "abs_cohens_d": 0.4201,
+          "fisher_j": 0.0882,
+          "roc_auc": 0.5914
+        },
+        {
+          "feature": "smr_C3_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4195,
+          "abs_cohens_d": 0.4195,
+          "fisher_j": 0.088,
+          "roc_auc": 0.609
+        },
+        {
+          "feature": "smr_P4_rel_mu",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4171,
+          "abs_cohens_d": 0.4171,
+          "fisher_j": 0.087,
+          "roc_auc": 0.6126
+        },
+        {
+          "feature": "smr_pair_C3_Cz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4117,
+          "abs_cohens_d": 0.4117,
+          "fisher_j": 0.0848,
+          "roc_auc": 0.5847
+        },
+        {
+          "feature": "smr_Cz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4084,
+          "abs_cohens_d": 0.4084,
+          "fisher_j": 0.0834,
+          "roc_auc": 0.6095
+        },
+        {
+          "feature": "smr_Fz_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.4057,
+          "abs_cohens_d": 0.4057,
+          "fisher_j": 0.0823,
+          "roc_auc": 0.6046
+        },
+        {
+          "feature": "mrcp_pair_C3_Cz_max",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": 0.3799,
+          "abs_cohens_d": 0.3799,
+          "fisher_j": 0.0722,
+          "roc_auc": 0.6129
+        },
+        {
+          "feature": "smr_C4_mu_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": -0.3789,
+          "abs_cohens_d": 0.3789,
+          "fisher_j": 0.0718,
+          "roc_auc": 0.588
+        }
+      ]
+    },
+    "sub-99": {
+      "n_windows": 35,
+      "n_cues": 2,
+      "window_counts_by_class": {
+        "rest": 0,
+        "volar_grasp": 17,
+        "finger_extension": 18
+      },
+      "stage2_grasp_vs_extension_cv": null,
+      "top10_stage2_grasp_vs_extension_features": [
+        {
+          "feature": "mrcp_Pz_min_amplitude",
+          "band": "MRCP (0.3-3.0 Hz)",
+          "cohens_d": -1.547,
+          "abs_cohens_d": 1.547,
+          "fisher_j": 1.1966,
+          "roc_auc": 0.8203
+        },
+        {
+          "feature": "smr_F3_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F3_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Fz_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F4_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_F4_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_C3_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_C3_gamma_low_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        },
+        {
+          "feature": "smr_Cz_beta_high_log",
+          "band": "SMR (4.0-40.0 Hz)",
+          "cohens_d": 1.4142,
+          "abs_cohens_d": 1.4142,
+          "fisher_j": 1.0,
+          "roc_auc": 0.5
+        }
+      ],
+      "top10_stage1_rest_vs_movement_features": []
+    }
+  }
+}

@@ -1,0 +1,542 @@
+{
+  "audit_date": "2026-11-10",
+  "eegmi_personal": {
+    "sub-01": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 19,
+      "cues": {
+        "rest": 667,
+        "action": 667
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 53.03,
+        "artifact_rejection_rate": 0.6775,
+        "sampled_clean_windows": 405,
+        "empirical_cue_cv_balanced_accuracy": 0.5677
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.5677,
+      "historical_reference_balanced_accuracy": 0.6396,
+      "within_subject_balanced_accuracy": 0.6396,
+      "worthwhile": true,
+      "reason": "Signal quality std=53.0 uV (artifact rate=67.8%); 19 runs across 6 sessions; 667 rest / 667 action cues; Empirical sampled CV BA=56.8% | Historical full-cohort BA=64.0%."
+    },
+    "sub-02": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04"
+      ],
+      "n_runs": 14,
+      "cues": {
+        "rest": 479,
+        "action": 479
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 19.5,
+        "artifact_rejection_rate": 0.7414,
+        "sampled_clean_windows": 330,
+        "empirical_cue_cv_balanced_accuracy": 0.642
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.642,
+      "historical_reference_balanced_accuracy": 0.6198,
+      "within_subject_balanced_accuracy": 0.6198,
+      "worthwhile": true,
+      "reason": "Signal quality std=19.5 uV (artifact rate=74.1%); 14 runs across 4 sessions; 479 rest / 479 action cues; Empirical sampled CV BA=64.2% | Historical full-cohort BA=62.0%."
+    },
+    "sub-03": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 19,
+      "cues": {
+        "rest": 760,
+        "action": 760
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 28.55,
+        "artifact_rejection_rate": 0.275,
+        "sampled_clean_windows": 928,
+        "empirical_cue_cv_balanced_accuracy": 0.6214
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.6214,
+      "historical_reference_balanced_accuracy": 0.7594,
+      "within_subject_balanced_accuracy": 0.7594,
+      "worthwhile": true,
+      "reason": "Signal quality std=28.6 uV (artifact rate=27.5%); 19 runs across 6 sessions; 760 rest / 760 action cues; Empirical sampled CV BA=62.1% | Historical full-cohort BA=75.9%."
+    },
+    "sub-04": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 18,
+      "cues": {
+        "rest": 720,
+        "action": 720
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 47.75,
+        "artifact_rejection_rate": 0.968,
+        "sampled_clean_windows": 41,
+        "empirical_cue_cv_balanced_accuracy": null
+      },
+      "empirical_cue_cv_balanced_accuracy": null,
+      "historical_reference_balanced_accuracy": 0.6637,
+      "within_subject_balanced_accuracy": 0.6637,
+      "worthwhile": false,
+      "reason": "18 runs across 6 sessions."
+    },
+    "sub-05": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 18,
+      "cues": {
+        "rest": 718,
+        "action": 718
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 18.41,
+        "artifact_rejection_rate": 0.1742,
+        "sampled_clean_windows": 1057,
+        "empirical_cue_cv_balanced_accuracy": 0.5614
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.5614,
+      "historical_reference_balanced_accuracy": 0.6507,
+      "within_subject_balanced_accuracy": 0.6507,
+      "worthwhile": true,
+      "reason": "Signal quality std=18.4 uV (artifact rate=17.4%); 18 runs across 6 sessions; 718 rest / 718 action cues; Empirical sampled CV BA=56.1% | Historical full-cohort BA=65.1%."
+    },
+    "sub-06": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 22,
+      "cues": {
+        "rest": 760,
+        "action": 760
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 70.69,
+        "artifact_rejection_rate": 0.4772,
+        "sampled_clean_windows": 585,
+        "empirical_cue_cv_balanced_accuracy": 0.6153
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.6153,
+      "historical_reference_balanced_accuracy": 0.7898,
+      "within_subject_balanced_accuracy": 0.7898,
+      "worthwhile": true,
+      "reason": "Signal quality std=70.7 uV (artifact rate=47.7%); 22 runs across 6 sessions; 760 rest / 760 action cues; Empirical sampled CV BA=61.5% | Historical full-cohort BA=79.0%."
+    },
+    "sub-07": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 18,
+      "cues": {
+        "rest": 716,
+        "action": 716
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 23.64,
+        "artifact_rejection_rate": 0.0613,
+        "sampled_clean_windows": 1194,
+        "empirical_cue_cv_balanced_accuracy": 0.529
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.529,
+      "historical_reference_balanced_accuracy": 0.6534,
+      "within_subject_balanced_accuracy": 0.6534,
+      "worthwhile": true,
+      "reason": "Signal quality std=23.6 uV (artifact rate=6.1%); 18 runs across 6 sessions; 716 rest / 716 action cues; Empirical sampled CV BA=52.9% | Historical full-cohort BA=65.3%."
+    },
+    "sub-08": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 37,
+      "cues": {
+        "rest": 660,
+        "action": 660
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 23.24,
+        "artifact_rejection_rate": 0.0406,
+        "sampled_clean_windows": 614,
+        "empirical_cue_cv_balanced_accuracy": 0.7819
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.7819,
+      "historical_reference_balanced_accuracy": 0.878,
+      "within_subject_balanced_accuracy": 0.878,
+      "worthwhile": true,
+      "reason": "Signal quality std=23.2 uV (artifact rate=4.1%); 37 runs across 6 sessions; 660 rest / 660 action cues; Empirical sampled CV BA=78.2% | Historical full-cohort BA=87.8%."
+    },
+    "sub-09": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 18,
+      "cues": {
+        "rest": 720,
+        "action": 720
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 32.88,
+        "artifact_rejection_rate": 0.3648,
+        "sampled_clean_windows": 813,
+        "empirical_cue_cv_balanced_accuracy": 0.5257
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.5257,
+      "historical_reference_balanced_accuracy": 0.6795,
+      "within_subject_balanced_accuracy": 0.6795,
+      "worthwhile": true,
+      "reason": "Signal quality std=32.9 uV (artifact rate=36.5%); 18 runs across 6 sessions; 720 rest / 720 action cues; Empirical sampled CV BA=52.6% | Historical full-cohort BA=68.0%."
+    },
+    "sub-10": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 18,
+      "cues": {
+        "rest": 720,
+        "action": 720
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 21.7,
+        "artifact_rejection_rate": 0.1453,
+        "sampled_clean_windows": 1094,
+        "empirical_cue_cv_balanced_accuracy": 0.5556
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.5556,
+      "historical_reference_balanced_accuracy": 0.7171,
+      "within_subject_balanced_accuracy": 0.7171,
+      "worthwhile": true,
+      "reason": "Signal quality std=21.7 uV (artifact rate=14.5%); 18 runs across 6 sessions; 720 rest / 720 action cues; Empirical sampled CV BA=55.6% | Historical full-cohort BA=71.7%."
+    },
+    "sub-11": {
+      "dataset": "EEGMI_Personal",
+      "task": "binary_rest_action",
+      "montage": "eegmi_custom20",
+      "n_channels": 20,
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06"
+      ],
+      "n_runs": 18,
+      "cues": {
+        "rest": 649,
+        "action": 649
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 18.4,
+        "artifact_rejection_rate": 0.0477,
+        "sampled_clean_windows": 1219,
+        "empirical_cue_cv_balanced_accuracy": 0.7938
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.7938,
+      "historical_reference_balanced_accuracy": 0.8875,
+      "within_subject_balanced_accuracy": 0.8875,
+      "worthwhile": true,
+      "reason": "Signal quality std=18.4 uV (artifact rate=4.8%); 18 runs across 6 sessions; 649 rest / 649 action cues; Empirical sampled CV BA=79.4% | Historical full-cohort BA=88.8%."
+    }
+  },
+  "bcifest": {
+    "sub-00": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "classes": [
+        "rest",
+        "volar_grasp",
+        "finger_extension"
+      ],
+      "sessions": [
+        "ses-06",
+        "ses-07"
+      ],
+      "n_runs": 12,
+      "clean_cues": {
+        "finger_extension": 3,
+        "rest": 1
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 0.29,
+        "artifact_rejection_rate": 0.0,
+        "sampled_clean_windows": 44,
+        "empirical_cue_cv_balanced_accuracy": null
+      },
+      "empirical_cue_cv_balanced_accuracy": null,
+      "historical_reference_balanced_accuracy": null,
+      "threeclass_cue_balanced_accuracy": 0.3333,
+      "worthwhile": false,
+      "reason": "Excluded: insufficient three-class cue counts {'finger_extension': 3, 'rest': 1} across 12 runs."
+    },
+    "sub-01": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "sessions": [],
+      "n_runs": 0,
+      "clean_cues": {},
+      "worthwhile": false,
+      "reason": "Excluded: no task-olrandmcmitrain motor imagery runs recorded."
+    },
+    "sub-02": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "sessions": [],
+      "n_runs": 0,
+      "clean_cues": {},
+      "worthwhile": false,
+      "reason": "Excluded: no task-olrandmcmitrain motor imagery runs recorded."
+    },
+    "sub-04": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "classes": [
+        "rest",
+        "volar_grasp",
+        "finger_extension"
+      ],
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05"
+      ],
+      "n_runs": 65,
+      "clean_cues": {
+        "finger_extension": 45,
+        "rest": 40,
+        "volar_grasp": 48
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 27.06,
+        "artifact_rejection_rate": 0.7853,
+        "sampled_clean_windows": 38,
+        "empirical_cue_cv_balanced_accuracy": null
+      },
+      "empirical_cue_cv_balanced_accuracy": null,
+      "historical_reference_balanced_accuracy": 0.4122,
+      "threeclass_cue_balanced_accuracy": 0.4122,
+      "worthwhile": true,
+      "reason": "Worthwhile for three-class BCI; 65 EDF runs on disk across 5 sessions; Signal std=27.1 uV (artifact rate=78.5%); Live cue counts {'finger_extension': 45, 'rest': 40, 'volar_grasp': 48}; Empirical sampled CV BA=0.0% | Historical reference BA=41.2% (chance 33.3%)."
+    },
+    "sub-07": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "classes": [
+        "rest",
+        "volar_grasp",
+        "finger_extension"
+      ],
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06",
+        "ses-07",
+        "ses-08",
+        "ses-09",
+        "ses-10"
+      ],
+      "n_runs": 140,
+      "clean_cues": {
+        "volar_grasp": 97,
+        "finger_extension": 99,
+        "rest": 91
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 15.91,
+        "artifact_rejection_rate": 0.3986,
+        "sampled_clean_windows": 172,
+        "empirical_cue_cv_balanced_accuracy": 0.1667
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.1667,
+      "historical_reference_balanced_accuracy": 0.3628,
+      "threeclass_cue_balanced_accuracy": 0.3628,
+      "worthwhile": true,
+      "reason": "Worthwhile for three-class BCI; 140 EDF runs on disk across 10 sessions; Signal std=15.9 uV (artifact rate=39.9%); Live cue counts {'volar_grasp': 97, 'finger_extension': 99, 'rest': 91}; Empirical sampled CV BA=16.7% | Historical reference BA=36.3% (chance 33.3%)."
+    },
+    "sub-08": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "classes": [
+        "rest",
+        "volar_grasp",
+        "finger_extension"
+      ],
+      "sessions": [
+        "ses-01",
+        "ses-02",
+        "ses-03",
+        "ses-04",
+        "ses-05",
+        "ses-06",
+        "ses-07",
+        "ses-08",
+        "ses-09",
+        "ses-10",
+        "ses-21",
+        "ses-22",
+        "ses-23",
+        "ses-24",
+        "ses-25",
+        "ses-26",
+        "ses-27",
+        "ses-28",
+        "ses-29"
+      ],
+      "n_runs": 192,
+      "clean_cues": {
+        "volar_grasp": 130,
+        "rest": 132,
+        "finger_extension": 121
+      },
+      "signal_quality": {
+        "mean_channel_std_uv": 10.9,
+        "artifact_rejection_rate": 0.6872,
+        "sampled_clean_windows": 61,
+        "empirical_cue_cv_balanced_accuracy": 0.0667
+      },
+      "empirical_cue_cv_balanced_accuracy": 0.0667,
+      "historical_reference_balanced_accuracy": 0.5943,
+      "threeclass_cue_balanced_accuracy": 0.5943,
+      "worthwhile": true,
+      "reason": "Worthwhile for three-class BCI; 192 EDF runs on disk across 19 sessions; Signal std=10.9 uV (artifact rate=68.7%); Live cue counts {'volar_grasp': 130, 'rest': 132, 'finger_extension': 121}; Empirical sampled CV BA=6.7% | Historical reference BA=59.4% (chance 33.3%)."
+    },
+    "sub-99": {
+      "dataset": "BCIFEST",
+      "task": "task-olrandmcmitrain",
+      "sessions": [
+        "ses-33"
+      ],
+      "n_runs": 1,
+      "clean_cues": {
+        "finger_extension": 1,
+        "volar_grasp": 1
+      },
+      "worthwhile": false,
+      "reason": "Excluded: test dummy participant record."
+    }
+  },
+  "summary": {
+    "binary_worthwhile_subjects": [
+      "sub-01",
+      "sub-02",
+      "sub-03",
+      "sub-05",
+      "sub-06",
+      "sub-07",
+      "sub-08",
+      "sub-09",
+      "sub-10",
+      "sub-11"
+    ],
+    "binary_excluded_subjects": [
+      "sub-04"
+    ],
+    "threeclass_worthwhile_subjects": [
+      "sub-04",
+      "sub-07",
+      "sub-08"
+    ],
+    "threeclass_excluded_subjects": [
+      "sub-00",
+      "sub-01",
+      "sub-02",
+      "sub-99"
+    ]
+  }
+}
