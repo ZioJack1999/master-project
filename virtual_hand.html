@@ -422,7 +422,7 @@
         <div class="pill-label" id="pill-label">REST</div>
         <div class="pill-conf-badge" id="pill-conf">98.5%</div>
       </div>
-      <div class="pill-meta" id="pill-meta">SYNCHRONIZED WITH BCI DECODER</div>
+      <div class="pill-meta" id="pill-meta">WAITING FOR DECODER</div>
     </div>
 
     <!-- Right: Toolbar Controls -->
@@ -522,7 +522,7 @@
       <div class="hud-title">BCI Decoder Telemetry</div>
       <div style="font-size:11px; display:flex; flex-direction:column; gap:4px; color:var(--muted);">
         <div style="display:flex; justify-content:space-between;"><span>Participant:</span><strong id="meta-participant" style="color:#fff;">self</strong></div>
-        <div style="display:flex; justify-content:space-between;"><span>Mode:</span><strong id="meta-mode" style="color:#fff;">LSL Live</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mode:</span><strong id="meta-mode" style="color:#fff;">—</strong></div>
         <div style="display:flex; justify-content:space-between;"><span>Signal Quality:</span><strong id="meta-quality" style="color:var(--good);">Good</strong></div>
         <div style="display:flex; justify-content:space-between;"><span>Model Ready:</span><strong id="meta-ready" style="color:var(--good);">Yes</strong></div>
         <div style="display:flex; justify-content:space-between;"><span>Polling Sync Rate:</span><strong id="meta-poll-rate" style="color:#fff;">50 Hz (20ms)</strong></div>
@@ -741,17 +741,23 @@
         // Determine active class: protocol cue has priority if actively cueing, else live decision
         let activeClass = 'rest';
         let conf = 0.0;
-        let sourceMeta = 'LIVE BCI DECODER';
+        const decoderLabel = {
+          demo: 'SYNTHETIC DEMO',
+          replay: 'RECORDED REPLAY',
+          live: 'LIVE DECODER'
+        }[state.mode] || 'BCI DECODER';
+        let sourceMeta;
 
         if (state.cue && state.cue !== '' && state.cue !== 'idle') {
           activeClass = state.cue;
           conf = probs[activeClass] || 0.95;
           const rem = state.cue_remaining_s ? ` (${state.cue_remaining_s.toFixed(1)}s)` : '';
-          sourceMeta = `PROTOCOL CUE: ${activeClass.toUpperCase().replace('_', ' ')}${rem}`;
+          const cueLabel = state.mode === 'demo' ? 'SYNTHETIC DEMO CUE' : 'PROTOCOL CUE';
+          sourceMeta = `${cueLabel}: ${activeClass.toUpperCase().replace('_', ' ')}${rem}`;
         } else if (state.decision && state.decision !== 'uncertain') {
           activeClass = state.decision;
           conf = probs[activeClass] || 0.85;
-          sourceMeta = `LIVE DECODER DECISION: ${activeClass.toUpperCase().replace('_', ' ')}`;
+          sourceMeta = `${decoderLabel} DECISION: ${activeClass.toUpperCase().replace('_', ' ')}`;
         } else {
           // If uncertain, evaluate dominant probability
           let maxProb = 0.0;
@@ -769,7 +775,7 @@
             activeClass = 'rest';
             conf = probs['rest'] || 0.85;
           }
-          sourceMeta = 'LIVE DECODER: RESTING STATE';
+          sourceMeta = `${decoderLabel}: ${activeClass.toUpperCase().replace('_', ' ')}`;
         }
 
         // Continuous blend calculation

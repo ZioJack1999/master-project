@@ -17,6 +17,12 @@ Binary and three-class live transport, waveforms, probabilities and saving have 
 - [Three-class procedure](THREECLASS_LAB_README.md)
 - [Hardware/runtime details and measured connection checks](X24_CONNECTION_STATUS.md)
 
+## 3D virtual hand demos
+
+Run `Launch_BINARY_Demo.bat` or `Launch_THREECLASS_Demo.bat` from this checkout. Each launcher starts a synthetic stream and opens the studio dashboard and its 3D hand viewer. The binary demo uses port 8052 and the three-class demo uses 8051. Close the launcher with Ctrl+C when finished so the port is free for the corresponding X24 app.
+
+For a preview of each hand pose, enable **Test Override** in the hand viewer and use the manual controls. The demos use synthetic EEG and the hand viewer labels the source as synthetic.
+
 ## Expanded personal-validation ZIPs
 
 | Package | Calibration / new validation | Local GUI port |
@@ -76,4 +82,4 @@ Private EEG, cues, predictions, plots, personal models and logs stay under ignor
 
 The active repo contains the live apps, their runtime/model dependencies, the shared X24 bridge, operator docs, tests and the expanded lab ZIPs. The older offline experiments, historical result dumps, unused models and earlier distributions are in Git history. Local recovery copies are under ignored `backups/`.
 
-The binary verifier checks **21 retained original core/model hashes**. Retired files are listed in its manifest; removing an obsolete launcher or historical weight is not presented as changing the retained decoder. The three-class verifier checks runtime closure and its fixed reference checkpoint. Neither check establishes signal quality or personal accuracy.
+The binary verifier checks **19 retained core/model hashes** in the current manifest. The three-class verifier checks required runtime files and its fixed reference checkpoint. Personal accuracy requires fresh live validation.
