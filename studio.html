@@ -34,6 +34,8 @@
     .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:19px 21px; }
     .toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:10px; }
     label { display:grid; gap:5px; font-size:12px; color:var(--muted); }
+    #profileControl[hidden] { display:none; }
+    #profileSelect { min-width:165px; }
     .toolbar .grow { flex:1; min-width:10px; }
     .model { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:6px 20px; align-items:center; }
     .model strong { font-size:13px; }
@@ -94,6 +96,7 @@
 
   <section class="panel" aria-label="Session controls">
     <div class="toolbar">
+      <label id="profileControl" hidden>Class profile<select id="profileSelect" disabled></select></label>
       <label>Participant ID<input id="participant" value="self" maxlength="40" pattern="[A-Za-z0-9_-]+" autocomplete="off" spellcheck="false" aria-label="Pseudonymous participant ID"></label>
       <button id="connectBtn" type="button">Connect EEG</button>
       <button id="startBtn" type="button">Start stream</button>
@@ -190,10 +193,16 @@ const finite = x => typeof x === 'number' && Number.isFinite(x);
 const percent = x => finite(x) ? (x*100).toFixed(1)+'%' : '—';
 const normalizedName = x => String(x || '').toLowerCase().replace(/\s+/g,'_');
 const label = x => NAMES[normalizedName(x)] || String(x || 'Uncertain');
-let probabilityRows = [];
+let probabilityRows = [], classKey = '';
 function configureClasses(s) {
-  if (probabilityRows.length) return;
-  CLASSES = s.classes || CLASSES;
+  const classes = s.classes || CLASSES;
+  const key = classes.join(',');
+  if (key === classKey) return;
+  classKey = key;
+  CLASSES = classes;
+  probabilityRows = [];
+  $('probabilities').replaceChildren();
+  $('classLegend').replaceChildren();
   const task = s.task_label || (CLASSES.length === 2 ? 'binary' : 'three-class');
   const title = task[0].toUpperCase()+task.slice(1);
   document.title=task==='binary'?'Binary EEG Lab — Rest · Right-Hand Grasp':title+' EEG Lab';
@@ -218,14 +227,20 @@ function configureClasses(s) {
   }
 }
 
+function postAction(path, body, keepalive=false) {
+  return fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({...body,profile_revision:latest?.profile_revision}),keepalive});
+}
+
 async function action(path, body={}) {
   if (busy) return;
   busy=true; uiError=''; updateControls();
   try {
-    const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const res=await postAction(path,body);
     const data=await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'The action could not be completed.');
     if (path==='/api/connect') participantDirty=false;
+    if (path==='/api/profile') render(data);
     await poll();
   } catch(err) { uiError=err.message; showError(); }
   finally { busy=false; updateControls(); }
@@ -233,20 +248,25 @@ async function action(path, body={}) {
 const participantBody=()=>({participant:$('participant').value.trim()});
 const actions={connectBtn:()=>action('/api/connect',participantBody()),startBtn:()=>action('/api/start',participantBody()),stopBtn:()=>action('/api/stop'),saveBtn:()=>action('/api/save'),resetBtn:()=>action('/api/reset'),demoBtn:()=>action('/api/demo'),calibrateBtn:()=>action('/api/calibrate',participantBody()),validateBtn:()=>action('/api/validate',participantBody()),refreshModelsBtn:()=>action('/api/models',participantBody()),loadModelBtn:()=>action('/api/load-model',{...participantBody(),model_id:$('savedModel').value})};
 for (const [id,fn] of Object.entries(actions)) $(id).addEventListener('click',fn);
+$('profileSelect').addEventListener('change',event=>action('/api/profile',{profile:event.target.value}));
 
 function showError() {
   const text=uiError || pollError || (latest && latest.error) || '';
   $('error').textContent=text; $('error').style.display=text?'block':'none';
 }
 function updateControls() {
-  const s=latest || {}, protocol=Boolean(s.protocol_kind), blocked=busy||Boolean(s.training)||protocol;
+  const s=latest || {}, protocol=Boolean(s.protocol_kind), blocked=!latest||busy||Boolean(s.training)||protocol;
   const live=s.mode==='live', connected=Boolean(s.connected);
   const idChanged=participantDirty && $('participant').value.trim()!==String(s.participant||'');
-  $('connectBtn').disabled=blocked || Boolean(s.streaming);
+  const profileSelect=$('profileSelect');
+  profileSelect.disabled=blocked || Boolean(s.streaming);
+  if (s.profile) profileSelect.value=s.profile;
+  $('connectBtn').disabled=blocked || !live || Boolean(s.streaming);
   $('participant').disabled=blocked || Boolean(s.streaming);
   $('startBtn').disabled=blocked || idChanged || !connected || Boolean(s.streaming);
-  $('calibrateBtn').disabled=blocked || idChanged || !connected || !live;
-  $('validateBtn').disabled=blocked || idChanged || !connected || !live || !s.model_ready;
+  const binaryNeedsStream=s.task_label==='binary' && !s.streaming;
+  $('calibrateBtn').disabled=blocked || idChanged || !connected || !live || binaryNeedsStream;
+  $('validateBtn').disabled=blocked || idChanged || !connected || !live || !s.model_ready || binaryNeedsStream;
   $('stopBtn').disabled=busy || !(s.streaming||s.training||protocol);
   $('saveBtn').disabled=busy || Boolean(s.training) || protocol;
   $('resetBtn').disabled=blocked || Boolean(s.streaming);
@@ -260,6 +280,9 @@ function updateControls() {
   $('validateBtn').title=idChanged?'Apply the participant ID first.':s.model_ready?'Collect new cues with the personal model frozen.':'Complete personal calibration first.';
 }
 function renderModels(s) {
+  const supported=s.supports_saved_models!==false;
+  document.querySelector('.model-tools').style.display=supported?'':'none';
+  $('modelStoreStatus').hidden=!supported;
   const models=Array.isArray(s.model_choices)?s.model_choices:[], key=JSON.stringify(models.map(m=>[m.model_id,m.sha256]));
   if(key!==lastModels) {
     lastModels=key;const chosen=$('savedModel').value;$('savedModel').replaceChildren();
@@ -287,7 +310,7 @@ function acknowledgeRenderedCue(s) {
   requestAnimationFrame(()=>requestAnimationFrame(async()=>{
     try {
       if(document.hidden||!latest||latest.cue_run_id!==run||latest.cue_index!==trial||!latest.awaiting_cue_ack) return;
-      const response=await fetch('/api/cue-presented',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:run,trial}),keepalive:true});
+      const response=await postAction('/api/cue-presented',{run_id:run,trial},true);
       if(!response.ok&&response.status!==409) throw new Error('Cue display acknowledgement failed.');
       await poll();
     } catch(err) {pollError=err.message;showError();}
@@ -302,12 +325,20 @@ function acknowledgePredictionPaint(timing) {
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const current=latest?.prediction_timing;
     if(document.hidden||!latest.streaming||current?.session_id!==timing.session_id||current.index!==timing.index) return;
-    fetch('/api/prediction-painted',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({session_id:timing.session_id,index:timing.index})}).catch(()=>{});
+    postAction('/api/prediction-painted',{session_id:timing.session_id,index:timing.index}).catch(()=>{});
   }));
 }
 function render(s) {
+  if (latest && s.profile_revision < latest.profile_revision) return;
+  if (latest && s.profile_revision !== latest.profile_revision) participantDirty=false;
   latest=s;
+  const profileSelect=$('profileSelect');
+  $('profileControl').hidden=!s.profiles;
+  if (s.profiles && !profileSelect.options.length) {
+    for (const [profile, name] of Object.entries(s.profiles)) {
+      profileSelect.add(new Option(name, profile));
+    }
+  }
   configureClasses(s);
   const demo=s.mode==='demo', protocol=s.protocol_kind || '', training=Boolean(s.training);
   $('connectionBadge').className='badge'+(demo?' demo':s.connected?' good':'');
@@ -345,13 +376,13 @@ function render(s) {
   }
   decision.textContent=protocol==='calibration'?'Calibration in progress':training?'Fitting model':!s.streaming?'Paused':awaitingWindow?'Waiting for current cue EEG':!clean?'No clean decision':label(s.decision);
   if (labFooter) labFooter.textContent=(s.task_label || 'EEG')+' console · 256 Hz · '+(s.window_s||4)+' s windows · '+(s.stride_s||0.25)+' s updates';
-  timing.hidden=!(s.streaming&&timing&&!awaitingWindow&&protocol!=='calibration');
-  if(!timing.hidden) {
+  const timingReadout=$('timing');
+  timingReadout.hidden=!(s.streaming&&timing&&!awaitingWindow&&protocol!=='calibration');
+  if(!timingReadout.hidden) {
     const ms=value=>finite(value)?value.toFixed(1)+' ms':'—';
-    timing.textContent='Sample to prediction '+ms(timing.sample_to_ready_ms)+' · decoder chunk '+ms(timing.decoder_chunk_ms)+' · last sample to paint ack '+ms(s.prediction_display_ack_ms);
-    timing.title='Paint acknowledgement includes browser scheduling and the return trip to the local server.';
+    timingReadout.textContent='Sample to prediction '+ms(timing.sample_to_ready_ms)+' · decoder chunk '+ms(timing.decoder_chunk_ms)+' · last sample to paint ack '+ms(s.prediction_display_ack_ms);
+    timingReadout.title='Paint acknowledgement includes browser scheduling and the return trip to the local server.';
     acknowledgePredictionPaint(timing);
-  }
   }
   const q=s.quality_details||{}, badSites=[...(q.artifact_channels||[]),...(q.flat_channels||[])];
   const sites=[...new Set(badSites)];
@@ -371,8 +402,7 @@ function abortHiddenProtocol() {
   uiError='Cue run stopped because the cue display was hidden. Start a new visible run when ready.';
   showError();
   // Bypass action()'s busy flag when a start request returns after tab hiding.
-  fetch('/api/stop',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({reason:'Cue display hidden; run aborted.'}),keepalive:true})
+  postAction('/api/stop',{reason:'Cue display hidden; run aborted.'},true)
     .then(()=>poll()).catch(()=>{uiError='The cue display was hidden. Reconnect to confirm that the cue run stopped.';showError();});
 }
 document.addEventListener('visibilitychange',abortHiddenProtocol);

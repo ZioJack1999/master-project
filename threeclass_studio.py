@@ -440,7 +440,8 @@ class ThreeClassStudio:
             elif path == '/api/demo':
                 if self.protocol or self.state['streaming']:
                     raise ValueError('Stop and save before changing data source.')
-                self.save()
+                if self.raw or self.events or self.results:
+                    self.save()
                 if self.inlet:
                     self.inlet.close_stream()
                 self.inlet = self.adapter = None
@@ -712,7 +713,7 @@ class ThreeClassStudio:
                 )
                 self._send_udp(udp_packet)
 
-    def worker(self):
+    def worker(self, save_on_stop=True):
         rng = np.random.default_rng(42)
         next_demo = 0.
         while not self.stop_event.is_set():
@@ -784,9 +785,13 @@ class ThreeClassStudio:
             self.stop_event.wait(.01)
         with self.lock:
             self._abort('Studio closed.')
-            self.save()
-            if self.inlet:
-                self.inlet.close_stream()
+            try:
+                if save_on_stop:
+                    self.save()
+            finally:
+                if self.inlet:
+                    self.inlet.close_stream()
+                self.close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -829,10 +834,8 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = url.path
         if path in ('/', '/index.html'):
-            html_file = self.studio.root / 'threeclass_studio.html'
-            if not html_file.exists():
-                html_file = self.studio.root / 'studio.html'
-            self.respond(200, html_file.read_text(encoding='utf-8'), html=True)
+            page = self.studio.root / 'studio.html'
+            self.respond(200, page.read_text(encoding='utf-8'), html=True)
         elif path in ('/virtual_hand', '/virtual_hand.html', '/hand'):
             hand_file = self.studio.root / 'virtual_hand.html'
             if hand_file.exists():

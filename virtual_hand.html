@@ -649,13 +649,13 @@
         const meta = $('pill-meta');
 
         const cleanClass = className.toLowerCase();
-        let displayName = 'REST';
+        let displayName = cleanClass.toUpperCase().replaceAll('_', ' ');
         let stateKey = 'rest';
 
-        if (cleanClass.includes('grasp') || cleanClass.includes('action')) {
+        if (cleanClass === 'volar_grasp' || cleanClass === 'right_hand_grasp' || cleanClass === 'action') {
           displayName = 'VOLAR GRASP';
           stateKey = 'volar_grasp';
-        } else if (cleanClass.includes('extension')) {
+        } else if (cleanClass === 'finger_extension') {
           displayName = 'FINGER EXTENSION';
           stateKey = 'finger_extension';
         }

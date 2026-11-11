@@ -49,6 +49,7 @@ class Studio:
         self.stop_event = self.stop
         self.cancel_fit = threading.Event()
         self.training_cancel = self.cancel_fit
+        self.training_thread = None
 
         self.classes = list(config.get('classes', BINARY_CLASSES))
         self.task = 'binary'
@@ -88,7 +89,7 @@ class Studio:
             window_s=float(self.contract.get('n_times', 512)) / float(self.contract.get('sfreq', 256)),
             stride_s=0.25,
             model_scope='Personal calibration is required before fresh validation.' if self.contract.get('role') == 'personal_training_template' else 'Binary model loaded.',
-            cue_run_id='', awaiting_cue_ack=False, model_choices=[], rejected_models=[],
+            cue_run_id='', awaiting_cue_ack=False, model_choices=[], rejected_models=[], supports_saved_models=False,
             calibration_diagnostics=None, classes=self.classes, task_label=self.task_label,
             calibration_total=2 * int(config.get('personal_calibration_pairs', 9)),
             validation_total=2 * int(config.get('validation_pairs', 10)),
@@ -249,6 +250,9 @@ class Studio:
             self.state['demo_mode'] = (self.state.get('mode') == 'demo' or self.state.get('demo_mode', False))
             self.state['source'] = 'synthetic_demo' if self.state['demo_mode'] else ('recorded_replay' if self.replay_data is not None else 'live')
             self.state['step_count'] = len(self.predictions)
+            self.state['training'] = self.state['is_training']
+            self.state['training_progress'] = self.state['training_status']
+            self.state['model_sha256'] = self.contract.get('sha256', '')
             return dict(
                 self.state,
                 waves={k: list(v) for k, v in self.waves.items()},
@@ -348,6 +352,8 @@ class Studio:
                     self.replay_anchor = None
                     self.replay_next = 0.
             elif path == '/api/start':
+                if body.get('participant', self.state['participant']) != self.state['participant']:
+                    raise ValueError('Apply the participant ID before starting a recording.')
                 if not self.state['connected'] and self.state['mode'] != 'demo':
                     raise ValueError('Connect live EEG, or choose synthetic demo to preview the interface.')
                 self.decoder.reset_state() if self.decoder else None
@@ -405,6 +411,8 @@ class Studio:
                 if self.replay_data is not None:
                     raise ValueError('Recorded replay cannot run prospective cues. Restart without --replay-edf for your live self-test.')
                 kind = 'calibration' if path == '/api/calibrate' else 'validation'
+                if kind == 'validation' and body.get('participant', self.state['participant']) != self.state['participant']:
+                    raise ValueError('Apply the participant ID before validating a recording.')
                 if kind == 'validation' and self.contract.get('role') == 'personal_training_template':
                     raise ValueError('Run personal calibration first. The architecture template has no fitted classifier.')
                 if kind == 'validation' and self.config.get('require_personal_calibration', False) and not self.state['personalized']:
@@ -465,7 +473,24 @@ class Studio:
             elif path == '/api/prediction-painted':
                 return {}
             elif path == '/api/connect':
-                self.state.update(mode='live', connected=True, is_connected=True, error='', status='Connected.')
+                if self.state['streaming'] or self.state['is_training'] or self.state['mode'] != 'live':
+                    raise ValueError('Stop the recording and select live EEG before connecting.')
+                participant = body.get('participant', self.state['participant'])
+                if not isinstance(participant, str) or re.fullmatch(r'[A-Za-z0-9_-]{1,40}', participant) is None:
+                    raise ValueError('Use a short pseudonymous participant ID: letters, digits, underscore or hyphen.')
+                if participant != self.state['participant']:
+                    if self.raw or self.events or self.results:
+                        self.save()
+                    self.checkpoint = self.base_checkpoint
+                    self.contract = load_contract(self.checkpoint)
+                    self._clear_recording()
+                    self.results = []
+                    self.state.update(participant=participant, participant_id=participant, personalized=False,
+                                      model_ready=False, model_role=self.contract.get('role', 'untrained'),
+                                      model_path=str(self.checkpoint), threshold=self.contract.get('threshold', 0.5),
+                                      calibration_result=None, validation_result=None, result=None, last_saved='')
+                    self.load_decoder(False)
+                self.state['status'] = 'EEG connected.' if self.state['connected'] else 'Waiting for a compatible EEG stream.'
             else:
                 raise ValueError(f'Unknown operation: {path}')
             return self.snapshot()
@@ -907,10 +932,8 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = url.path
         if path in ('/', '/index.html'):
-            html_path = self.studio.root / 'studio.html'
-            if not html_path.exists():
-                html_path = self.studio.root / 'threeclass_studio.html'
-            self.respond(200, html_path.read_text(encoding='utf-8'), 'text/html')
+            page = self.studio.root / 'studio.html'
+            self.respond(200, page.read_text(encoding='utf-8'), 'text/html')
         elif path in ('/virtual_hand', '/virtual_hand.html', '/hand'):
             hand_file = self.studio.root / 'virtual_hand.html'
             if hand_file.exists():

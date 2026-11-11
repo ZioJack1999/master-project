@@ -9,7 +9,7 @@ CLASSES = ['rest', 'volar_grasp', 'finger_extension']
 REFERENCE = 'decoder_and_models/multiclass_covariance_sub08_v2.pt'
 REFERENCE_SHA256 = '0f7ac12e985e2f659cc47d2d258cb998025b7dc1722e9cf48fb11599f0d724fb'
 REQUIRED_FILES = [
-    'threeclass_studio.py', 'threeclass_personal.py', 'threeclass_studio.html',
+    'threeclass_studio.py', 'threeclass_personal.py', 'studio.html',
     'threeclass_cues.py', 'threeclass_model_store.py', 'threeclass_decisions.py',
     'threeclass_acquisition.py',
     'threeclass_preflight.py', 'verify_threeclass_bundle.py',

@@ -3,6 +3,7 @@ Tests for virtual_hand_viewer.py and batch launcher shortcuts.
 """
 
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -13,7 +14,6 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DESKTOP_DIR = Path.home() / "Desktop"
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -148,14 +148,16 @@ def test_standalone_udp_bridge():
         bridge.stop()
 
 
-def test_batch_launchers_exist():
-    """Verify both repository and Desktop batch scripts exist."""
-    repo_bat = REPO_ROOT / "Launch_Virtual_Hand_Window.bat"
-    desktop_bat = DESKTOP_DIR / "Launch_Virtual_Hand_Window.bat"
-
-    assert repo_bat.is_file(), f"Missing {repo_bat}"
-    assert desktop_bat.is_file(), f"Missing {desktop_bat}"
-
-    # Verify content references virtual_hand_viewer.py
-    assert "virtual_hand_viewer.py" in repo_bat.read_text(encoding="utf-8")
-    assert "virtual_hand_viewer.py" in desktop_bat.read_text(encoding="utf-8")
+def test_studio_launcher_forwards_viewer_options(tmp_path):
+    """Open viewer help through the shared launcher without a browser."""
+    if os.name == 'nt':
+        command = ['cmd.exe', '/d', '/c', 'call', str(REPO_ROOT / 'Launch_Studio.bat')]
+    else:
+        command = [sys.executable, str(REPO_ROOT / 'launch_studio.py')]
+    result = subprocess.run(
+        [*command, 'hand', '--help'], cwd=tmp_path,
+        env=dict(os.environ, BCI_STUDIO_PYTHON=sys.executable),
+        capture_output=True, text=True, timeout=30, check=True,
+    )
+    assert '3D Virtual Hand Desktop Viewer' in result.stdout
+    assert '--standalone' in result.stdout

@@ -8,11 +8,11 @@ Verified November 5, 2026: ESU/X24 â†’ 32-bit mastersp â†’ LSL â†�
 
 ## Start
 
-Run **Launch_BINARY_X24.bat from this project folder**. It starts the bridge, checks fresh samples and opens http://127.0.0.1:8052. Close other applications that own the ESU. Keep the launch process running; Ctrl+C stops the GUI and bridge. Closing the browser tab alone does not stop acquisition.
+Open **Launch_Studio.bat** from this project folder and choose **BCI Studio with X24 bridge**. It starts the bridge, checks fresh samples and opens the shared dashboard at http://127.0.0.1:8051 with Three-class selected. Close other applications that own the ESU. Keep the launch process running and use Ctrl+C to stop the GUI and bridge. Closing the browser tab leaves acquisition running.
 
 The old extracted BCI_binary folder is ignored and is not a supported entry point. Use the launchers beside this document. Historical experiments and distributions are recoverable in Git history and local ignored backups.
 
-Leave Demo Mode OFF. Enter a pseudonymous participant ID, click Start Stream and inspect the signal. Verify physical cap sites/reference and electrode quality. Click Personal calibration (18 Ã— 8s), follow the REST/imagined right-hand grasp cues, and wait for Personal model ready. Start Stream again and Validate for 20 NEW cues. Save Session & Stop afterwards. Initial template probabilities have no learned meaning.
+Leave Demo off. Enter a pseudonymous participant ID, connect EEG and inspect the signal before calibration. Follow the [lab guide](README_LAB_GUIDE.md) for the three-class protocol or binary fallback. Stop streaming before changing the class profile. The shared dashboard keeps the bridge running while the selected profile reconnects.
 
 ## Verified results
 

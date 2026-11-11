@@ -5,15 +5,13 @@ import json
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-from multiclass_lab_bundle import CLASS_SETS, FILES, MANIFEST, ROOT, policy
+from multiclass_lab_bundle import CLASS_SETS, FILES, MANIFEST, ROOT, expanded_config
 
 
 def build(output, n_classes, root=ROOT):
     root, output = Path(root), Path(output)
-    config = json.loads((root/'threeclass_config.json').read_text(encoding='utf-8'))
-    del config['checkpoint']
-    config.update(classes=CLASS_SETS[n_classes], policy=policy(n_classes),
-                  reports_dir=f'session_reports/{n_classes}class')
+    base = json.loads((root/'threeclass_config.json').read_text(encoding='utf-8'))
+    config = expanded_config(base, n_classes)
     files = {}
     for name in FILES:
         if name == 'multiclass_config.json':

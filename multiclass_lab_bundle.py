@@ -15,15 +15,24 @@ FILES = (
     'README.md', 'Launch_MULTICLASS_X24.bat', 'requirements.txt',
     'multiclass_config.json', 'multiclass_lab_bundle.py', 'run_x24.py',
     'x24_lsl_bridge.py', 'athena_acquisition.py', 'lsl_acquisition.py',
-    'threeclass_studio.py', 'threeclass_studio.html', 'threeclass_acquisition.py',
+    'threeclass_studio.py', 'studio.html', 'threeclass_acquisition.py',
     'threeclass_cues.py', 'threeclass_decisions.py', 'threeclass_model_store.py',
     'threeclass_personal.py', 'multiclass_decoder.py', 'multiclass_features.py',
     'multiclass_metrics.py', 'model_utils.py', 'networks.py', 'realtime_bci_decoder.py',
+    'temporal_networks.py', 'dual_band_filter.py',
+    'virtual_hand.html', 'static/js/three.min.js', 'static/js/virtual_hand.js',
 )
 
 
 def policy(n_classes):
     return dict(ema_alpha=1., dwell_updates=1, min_confidence=1.5/n_classes, min_margin=.05)
+
+
+def expanded_config(base, n_classes):
+    config = dict(base, classes=CLASS_SETS[n_classes], policy=policy(n_classes),
+                  reports_dir=f'session_reports/{n_classes}class')
+    config.pop('checkpoint', None)
+    return config
 
 
 def verify_bundle(root=ROOT):

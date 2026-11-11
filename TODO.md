@@ -8,14 +8,13 @@ Complete personal motor-imagery validation before November 26, 2026. Target at l
 
 ## Current baseline
 
-Reviewed GitHub default branch `master` through `93ce5d0`, including the 3D hand, the dedicated three-class live launcher and the synthetic demo controls.
+Reviewed GitHub default branch `master` through `5302e70`. The consolidation is in the commit titled `Unify the BCI studio and class profile selection`.
 
 - Direct API acquisition is implemented: X24/ESU -> x86 Athena SDK in existing 32-bit `mastersp` -> LSL -> existing 64-bit decoder. A separate licensed acquisition GUI is not required for this route.
-- `Launch_BINARY_X24.bat`: binary GUI at http://127.0.0.1:8052. Personal calibration 18 x 8 seconds; validation 20 NEW cues.
-- `Launch_THREECLASS_X24.bat`: three-class GUI at http://127.0.0.1:8051. Personal calibration 36 x 8 seconds; validation 30 NEW cues.
-- `Launch_THREECLASS_Studio.bat`: three-class dashboard and 3D hand on port 8051 with Demo off. Use **Connect EEG** with an available compatible LSL source. The combined X24 launcher above starts and supervises the bridge.
-- `Launch_BINARY_Demo.bat` and `Launch_THREECLASS_Demo.bat` open the dashboard and viewer in synthetic mode. Click **Start Stream** to begin.
-- The three [expanded ZIPs](README.md#expanded-personal-validation-zips) each use `Launch_MULTICLASS_X24.bat` in their own extracted folder. Calibration/validation counts are 60/50, 84/70 and 108/90 cues for 5, 7 and 9 classes. The 7-class set adds wrist pronation and supination to the historical 5-class set. The historical 9-class set adds opponens and pinch grasp. Use the lab's installed x86 SDK and separate 32-bit LSL runtime as described in the package README.
+- The Desktop **BCI Studio** shortcut opens `Launch_Studio.bat`. Choose the X24 bridge, an existing compatible LSL source, or a synthetic preview. The dashboard opens on port 8051 with Three-class selected. It uses one 3D hand viewer.
+- Three-class is the current lab priority. Personal calibration is 36 x 8 seconds and validation is 30 new cues. Binary is the fallback with 18 x 8 seconds and 20 new validation cues. The fixed-profile `Launch_THREECLASS_X24.bat` and `Launch_BINARY_X24.bat` are also available on ports 8051 and 8052 respectively.
+- **Class profile** switches the decoder and cue list in the same dashboard. Stop streaming and wait for fitting to finish before switching. The previous profile's recording is saved and the next profile starts idle. In live mode, reconnect the selected profile to EEG. The X24 supervisor keeps its bridge running.
+- The 5-, 7- and 9-class profiles remain experimental pending a decision on lab use. Each starts untrained and has its own saved models and sessions. Their [published ZIPs](README.md#expanded-personal-validation-zips) still launch independently.
 - Run one combined launcher at a time. Leave Demo OFF. Enter a pseudonymous participant ID, Start Stream, inspect quality, calibrate, then validate on fresh cues. Save before stopping. Ctrl+C in the launcher stops acquisition and GUI.
 - Earlier ZIPs, launchers and offline research remain in Git history and ignored local backups. Use the current launchers and expanded ZIPs above.
 - Existing `RESUME_NOTES.md` describes November 4 and is superseded for current operation by this file, `README.md` and `X24_CONNECTION_STATUS.md`.
@@ -32,12 +31,22 @@ The November 5 lab cleanup recorded 112 passing tests, one Windows symlink skip 
 
 - [x] Search the accessible source, Box EEGMI_Personal and two Desktop distribution roots for saved GUI-session metadata. November 6: only two old November 3 three-class session records were found, both with empty results and no cue events; one is demo, the other marked live but still a recorded reference. Neither is completed personal validation. No November 5 lab recording was found in these roots.
 - [ ] Obtain the lab PC's complete relevant `session_reports/` subfolders (raw NPZ, metadata, cue events, predictions, personal checkpoint/contract/training diagnostics and bridge preflight/logs). Preserve their relationships and privacy. Local historical EEGMI datasets are not substitutes for these new lab sessions.
-- [ ] Complete the three-class lab trial. Verify montage/reference and clean signal, fit a personal model, freeze it, collect a fresh validation block and save the complete session. Repeat independently in each expanded package, one X24 bridge at a time. If binary acceptance was a transport or format check, collect a separate fresh binary validation block as needed.
+- [ ] Complete the three-class lab trial. Verify montage/reference and clean signal, fit a personal model, freeze it, collect a fresh validation block and save the complete session. Use the binary fallback if needed and collect its own fresh validation block.
 - [ ] Analyze completed validation: cue-level balanced accuracy, per-class recall, confusion matrix including rejected cues, accepted coverage, timing gaps, artifacts and train/tuning gaps. State sample sizes and uncertainty. Keep binary and three-class results separate.
 - [ ] If performance is below target, investigate labels/cue timing, physical quality, units/montage, rejected windows and calibration adequacy before changing the NN. Select changes using calibration training/tuning only; reserve new validation data for confirmation.
 - [ ] Version, test and document any necessary changes; update current operator instructions and this handoff. Publish only code/non-identifying evidence; keep recordings and personal models private.
 
 Cross-subject generalization remains deferred.
+
+## November 11 consolidation and profile selector
+
+Consolidated the duplicate dashboards into `studio.html`, six overlapping batch files into the `Launch_Studio.bat` menu, and the binary and three-class procedures into one lab guide. The shared console defaults to Three-class and uses a single active decoder worker. A profile change preserves the previous recording, isolates calibration, checkpoints and reports by profile, and keeps the X24 supervisor in charge of the bridge. The binary and three-class fixed-profile X24 launchers and the published experimental ZIPs remain available.
+
+The full suite passed 191 tests with two skips for unavailable CUDA and Windows symlink creation. The binary verifier passed 19 retained hashes and the three-class verifier passed all 28 required files. Both fixed X24 launchers passed `--verify-only`, including the shared-selector option for three-class. A headless Zen check switched between three-class, seven-class and binary using the dashboard, verified the matching probability rows, and confirmed the selector disabled during streaming. The local Box copy connected both three-class and binary to the same synthetic LSL outlet after a profile switch. Physical X24 acquisition and prospective accuracy still require the lab run.
+
+Archived the old Desktop deliveries, launchers and notes under `Master Project/Archive`, and grouped app shortcuts under `Desktop/Apps`. The Desktop went from 35 visible entries to 13. The local Box mirror archives 43 superseded files under `EEGMI_Personal/Archive/Older lab files`. Box cloud sync is unconfirmed. The test browser, mock LSL sender and studio processes exited.
+
+Next action: open the Desktop **BCI Studio** shortcut, choose the X24 bridge on the lab PC, and complete a three-class calibration and fresh validation block.
 
 ## November 11 setup review
 

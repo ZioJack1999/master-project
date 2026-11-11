@@ -6,26 +6,29 @@ Live motor-imagery apps for the B-Alert X24/ESU. Acquisition runs in **32-bit ma
 
 | App | Launch from this folder | Local GUI | Personal calibration / new validation |
 |---|---|---|---|
-| Rest / imagined right-hand grasp | `Launch_BINARY_X24.bat` | http://127.0.0.1:8052 | 18 calibration cues / 20 new validation cues |
 | Rest / Volar Grasp / Finger Extension | `Launch_THREECLASS_X24.bat` | http://127.0.0.1:8051 | 36 calibration cues / 30 new validation cues |
+| Rest / imagined right-hand grasp (fallback) | `Launch_BINARY_X24.bat` | http://127.0.0.1:8052 | 18 calibration cues / 20 new validation cues |
 
 Connect the ESU, power on the X24 and run one launcher. It verifies model integrity, starts the 32-bit bridge, checks fresh labeled 256 Hz EEG and opens the GUI. Keep the launcher running. Closing the browser tab alone does not stop acquisition; Ctrl+C in the launcher stops both processes. Finish and save one experiment before switching apps.
 
 Binary and three-class live transport, waveforms, probabilities and saving have been verified on this PC through the shared bridge. The three-class test saved 11,848 samples per channel at 256 Hz and correctly retained its recorded-reference identity. Both apps require personal calibration and fresh validation before any claim about accuracy on a new wearer.
 
-- [Binary lab procedure](README_LAB_GUIDE.md)
-- [Three-class procedure](THREECLASS_LAB_README.md)
+- [Binary and three-class lab guide](README_LAB_GUIDE.md)
 - [Hardware/runtime details and measured connection checks](X24_CONNECTION_STATUS.md)
 
 ## 3D virtual hand
 
-Run `Launch_THREECLASS_Studio.bat` to open the three-class dashboard and hand viewer in live mode on port 8051. Use **Connect EEG** with an available compatible LSL stream. To start and supervise X24 acquisition, use `Launch_THREECLASS_X24.bat`.
+Open `Launch_Studio.bat` and choose the X24 bridge, an existing LSL source, or a synthetic demo. All three options open the same dashboard and hand viewer on port 8051. **Class profile** starts at Three-class and lets you select Binary or an experimental expanded profile in the same dashboard.
 
-Run `Launch_BINARY_Demo.bat` or `Launch_THREECLASS_Demo.bat` to open the dashboard and hand viewer in synthetic demo mode. Click **Start Stream** in the dashboard to begin. The binary demo uses port 8052 and the three-class demo uses 8051. Close the launcher with Ctrl+C when finished to free its port.
+Stop streaming and wait for any model fitting to finish before switching. The studio saves the previous profile's recording and opens the selected profile idle. In live mode, check the participant ID and use **Connect EEG** before starting again. The X24 bridge stays running while you switch. Click **Start stream** to begin a synthetic preview.
+
+For direct launch, pass `studio`, `demo`, or `hand` to `Launch_Studio.bat`. Additional arguments go to the selected app. Set `BCI_STUDIO_PYTHON` to use a particular decoder interpreter. The standalone X24 launchers in the table above still open their fixed profiles.
 
 For a preview of each hand pose, enable **Test Override** in the hand viewer and use the manual controls.
 
 ## Expanded personal-validation ZIPs
+
+The 5-, 7-, and 9-class workflows are experimental and pending a decision on lab use. In the shared console they use their own cue lists, personal models, and recording folders. Each starts untrained. The hand viewer animates Rest, Volar Grasp, and Finger Extension.
 
 | Package | Calibration / new validation | Local GUI port |
 |---|---|---|

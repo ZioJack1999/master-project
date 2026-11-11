@@ -37,6 +37,11 @@ def test_package_and_personal_validation(count, tmp_path):
     assert config['validation_cues_per_class'] == 10
     assert config['policy'] == policy(count)
 
+    if count == 5:
+        help_result = subprocess.run([sys.executable, '-E', 'threeclass_studio.py', '--help'],
+                                     cwd=root, capture_output=True, text=True, check=True)
+        assert '--open-virtual-hand' in help_result.stdout
+
     # Use shorter synthetic runs through the normal actions and the real fitter.
     config.update(calibration_cues_per_class=8, validation_cues_per_class=1,
                   cue_duration_s=7., epochs=1, ensemble_seeds=[42], threads=1)

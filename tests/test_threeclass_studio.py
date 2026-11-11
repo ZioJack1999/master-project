@@ -27,7 +27,7 @@ def studio(tmp_path):
     config.update(checkpoint=str(ROOT/config['checkpoint']), participant='synthetic_fixture',
                   validation_cues_per_class=1, epochs=2, patience=2,
                   ensemble_seeds=[42], threads=1)
-    shutil.copy2(ROOT/'threeclass_studio.html', tmp_path/'threeclass_studio.html')
+    shutil.copy2(ROOT/'studio.html', tmp_path/'studio.html')
     now = [100.]
     instance = ThreeClassStudio(config, root=tmp_path, clock=lambda:now[0])
     return instance, now

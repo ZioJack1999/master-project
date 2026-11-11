@@ -68,7 +68,7 @@ This protocol establishes a standardized operating procedure for:
 
 ```mermaid
 flowchart TD
-    A["1. Launch Studio GUI<br/>(Launch_BCI_3D_Studio.bat)"] --> B["2. Hardware & LSL Stream Check<br/>(Inspect signal std & 60Hz noise)"]
+    A["1. Launch Studio GUI<br/>(Launch_Studio.bat)"] --> B["2. Hardware & LSL Stream Check<br/>(Inspect signal std & 60Hz noise)"]
     B --> C["3. Resting Baseline Collection<br/>(60-90s quiet rest for URA)"]
     C --> D["4. Guided Calibration Run<br/>(10-12 cues / class with visual prompts)"]
     D --> E["5. Fine-Tune Personal Model<br/>(Click 'Fit Personal Model' ~20s)"]
@@ -77,7 +77,7 @@ flowchart TD
 ```
 
 ### Step 1: Launch the Studio
-- Double-click [Launch_BCI_3D_Studio.bat](file:///C:/Users/giaco/Desktop/Launch_BCI_3D_Studio.bat) on the Desktop.
+- Open [Launch_Studio.bat](Launch_Studio.bat) and select the profile for your recording.
   - Binary Studio: `http://127.0.0.1:8052`
   - Three-Class Studio: `http://127.0.0.1:8051`
 - Enter the Participant ID (e.g., `sub-giacomo_01`) and verify LSL stream connection.

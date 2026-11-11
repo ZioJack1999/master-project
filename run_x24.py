@@ -74,6 +74,8 @@ def main():
     parser.add_argument('--port', type=int)
     parser.add_argument('--device', choices=['auto', 'cuda', 'cpu'], help='Three-class model device (default: auto).')
     parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument('--profile-selector', action='store_true',
+                        help='Use the shared console after three-class X24 preflight.')
     parser.add_argument('--check-only', action='store_true', help='Probe both processes and exit without starting the GUI.')
     parser.add_argument('--verify-only', action='store_true', help='Verify the distribution without starting acquisition.')
     args = parser.parse_args()
@@ -81,6 +83,8 @@ def main():
         parser.error('The supervisor/decoder must use 64-bit Python; only acquisition uses mastersp.')
     if args.task == 'binary' and args.device is not None:
         parser.error('--device is supported by the three-class GUI.')
+    if args.profile_selector and args.task != 'threeclass':
+        parser.error('--profile-selector uses three-class X24 preflight.')
     if args.task == 'multiclass':
         from multiclass_lab_bundle import verify_bundle
         config = verify_bundle(ROOT)
@@ -131,6 +135,8 @@ def main():
         contract = dict(channels=config['channels'], sfreq=config['sfreq'])
     else:
         contract = dict(channels=config['channels'], sfreq=config['sfreq'])
+    if args.profile_selector:
+        from unified_studio import main as studio_main
     if args.verify_only:
         print(json.dumps(dict(verified=True, task=task_name, classes=config.get('classes', contract.get('classes')))))
         return
@@ -166,10 +172,11 @@ def main():
             print(json.dumps(report, indent=2), flush=True)
             if args.check_only:
                 return
-            if args.task == 'binary':
-                from bci_studio_gui import main as studio_main
-            else:
-                from threeclass_studio import main as studio_main
+            if not args.profile_selector:
+                if args.task == 'binary':
+                    from bci_studio_gui import main as studio_main
+                else:
+                    from threeclass_studio import main as studio_main
             sys.argv = ['studio', '--config', str(config_path), '--port', str(args.port)]
             if args.no_browser:
                 sys.argv.append('--no-browser')
