@@ -8,7 +8,7 @@ Complete personal motor-imagery validation before November 26, 2026. Target at l
 
 ## Current baseline
 
-Reviewed GitHub default branch `master` through `5302e70`. The consolidation is in the commit titled `Unify the BCI studio and class profile selection`.
+Reviewed GitHub default branch `master` through `4bd5476`. The synthetic hand preview fix is in the commit titled `Cycle all three hand poses in the synthetic demo`.
 
 - Direct API acquisition is implemented: X24/ESU -> x86 Athena SDK in existing 32-bit `mastersp` -> LSL -> existing 64-bit decoder. A separate licensed acquisition GUI is not required for this route.
 - The Desktop **BCI Studio** shortcut opens `Launch_Studio.bat`. Choose the X24 bridge, an existing compatible LSL source, or a synthetic preview. The dashboard opens on port 8051 with Three-class selected. It uses one 3D hand viewer.
@@ -37,6 +37,16 @@ The November 5 lab cleanup recorded 112 passing tests, one Windows symlink skip 
 - [ ] Version, test and document any necessary changes; update current operator instructions and this handoff. Publish only code/non-identifying evidence; keep recordings and personal models private.
 
 Cross-subject generalization remains deferred.
+
+## November 11 synthetic hand preview
+
+The open studio was on Binary, which has Rest and Right-Hand Grasp. The three-class demo also depended on model predictions from synthetic noise to move the hand. The Three-class demo now shows scripted Rest, Volar Grasp and Finger Extension for two seconds each after Start stream. The dashboard and hand viewer identify the scripted pose. The synthetic EEG and decoder probabilities retain their own provenance.
+
+Full suite: 192 passed and two skips for unavailable CUDA and Windows symlink creation. Both integrity verifiers passed, covering 28 three-class files and 19 retained binary hashes. A Zen smoke test confirmed the dashboard showed Finger Extension, the hand hyperextended and spread its fingers, and Stop returned it to rest. The isolated test studio and browser exited. No hardware checks were run.
+
+Next action: reopen the Desktop studio, choose Synthetic demo with Three-class selected and click Start stream. The priority for the lab remains three-class personal calibration and fresh validation.
+
+The local Box copies of the demo source, dashboard, hand viewer, README and regression test were updated and verified by checksum.
 
 ## November 11 consolidation and profile selector
 

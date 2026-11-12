@@ -26,6 +26,8 @@ For direct launch, pass `studio`, `demo`, or `hand` to `Launch_Studio.bat`. Addi
 
 For a preview of each hand pose, enable **Test Override** in the hand viewer and use the manual controls.
 
+In the Three-class synthetic demo, **Start stream** cycles the hand through Rest, Volar Grasp, and Finger Extension. Each scripted pose lasts two seconds. The dashboard continues to show synthetic EEG and its decoder output separately.
+
 ## Expanded personal-validation ZIPs
 
 The 5-, 7-, and 9-class workflows are experimental and pending a decision on lab use. In the shared console they use their own cue lists, personal models, and recording folders. Each starts untrained. The hand viewer animates Rest, Volar Grasp, and Finger Extension.

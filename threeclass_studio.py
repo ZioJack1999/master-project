@@ -24,6 +24,7 @@ from threeclass_model_store import list_personal_models, validate_personal_model
 from threeclass_decisions import FIXED_POLICY as POLICY, cue_decision, mean_probability_decision
 
 ROOT = Path(__file__).resolve().parent
+DEMO_POSE_SECONDS = 2.
 
 
 def clock_now():
@@ -290,6 +291,7 @@ class ThreeClassStudio:
 
     def _reset_segment(self):
         self.segment += 1
+        self.demo_started_at = None
         n_ch = len(self.channels)
         self.plot_sos = butter(4, [8, 30], fs=256, btype='bandpass', output='sos')
         self.plot_zi = np.zeros((len(self.plot_sos), n_ch, 2))
@@ -308,7 +310,11 @@ class ThreeClassStudio:
         with self.lock:
             if seen:
                 self.last_ui_seen = self.clock()
-            return dict(self.state, waves={k:list(v) for k, v in self.waves.items()},
+            demo_pose = None
+            if self.demo_started_at is not None:
+                elapsed = max(0., self.clock() - self.demo_started_at)
+                demo_pose = CLASSES[int(elapsed // DEMO_POSE_SECONDS) % len(CLASSES)]
+            return dict(self.state, demo_pose=demo_pose, waves={k:list(v) for k, v in self.waves.items()},
                         probability_history={k:list(v) for k, v in self.history.items()})
 
     def _abort(self, reason):
@@ -503,6 +509,8 @@ class ThreeClassStudio:
             if self.inlet:
                 self.inlet.flush()
             self._reset_segment()
+            if self.state['mode'] == 'demo' and self.task == 'threeclass':
+                self.demo_started_at = self.clock()
             self.state.update(streaming=True,
                               status='Synthetic preview running.' if self.state['mode'] == 'demo' else 'Recording EEG.',
                               error='')

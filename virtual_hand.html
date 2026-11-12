@@ -463,7 +463,7 @@
   <aside class="glass-card interactive" id="hud-drawer">
     
     <!-- Probabilities -->
-    <div class="hud-card">
+    <div class="hud-card" id="probabilities-card">
       <div class="hud-title">
         <span>Class Probabilities</span>
         <span id="hud-fps" style="font-variant-numeric:tabular-nums; font-size:10px; color:var(--good);">60 FPS</span>
@@ -730,6 +730,15 @@
       // Process state from BCI Studio
       function handleStateUpdate(state) {
         if (!state || manualMode) return;
+
+        const demoPose = state.mode === 'demo' && state.streaming ? state.demo_pose : null;
+        $('probabilities-card').hidden = Boolean(demoPose);
+        if (demoPose) {
+          if (hand) hand.setTargetState(demoPose, 0, 1);
+          updateTargetPill(demoPose, null, 'SCRIPTED DEMO POSE');
+          updateTelemetryHUD(state);
+          return;
+        }
 
         const classes = state.classes || ['rest', 'volar_grasp', 'finger_extension'];
         const ema = state.ema_probabilities || state.raw_probabilities || [0, 0, 0];

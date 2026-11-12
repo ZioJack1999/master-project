@@ -354,14 +354,17 @@ function render(s) {
   $('trainingProgress').textContent=training?(s.training_progress||'Fitting your personal model…'):'';
   $('protocolTitle').textContent=training?'Fitting personal model':protocol==='calibration'?'Personal calibration':protocol==='validation'?'Fresh frozen-model validation':demo?'Synthetic signal preview':'Live signal preview';
   const cue=normalizedName(s.cue);
+  const demoPose=demo && s.streaming ? s.demo_pose : null;
   let shownCue, instruction;
   if (training) { shownCue='Training…'; instruction='Your calibration is complete. Wait for fitting to finish before starting fresh validation.'; }
   else if (protocol && cue) { shownCue=label(cue); instruction=INSTRUCTIONS[cue] || 'Follow the displayed cue and stay still.'; }
+  else if (demoPose) { shownCue=label(demoPose); instruction='Scripted hand pose. The EEG trace is synthetic.'; }
   else if (!s.connected) { shownCue='Connect your EEG'; instruction='Check the cap, stream and units, then collect your own calibration.'; }
   else if (!s.streaming) { shownCue=demo?'Ready to preview':s.model_ready?'Ready to validate':'Ready to calibrate'; instruction=demo?'Choose Start stream to preview synthetic noise.':s.model_ready?'Start a new validation block with the personal model frozen.':'Choose Personal calibration when the live EEG is clean.'; }
   else { shownCue=demo?'Synthetic demo':'Observe the EEG'; instruction=demo?'This is synthetic noise. Calibration and validation are disabled.':'Rest naturally while checking the signal. Calibration starts when you choose it.'; }
   if (shownCue!==lastCue) { $('cue').textContent=shownCue; lastCue=shownCue; }
-  $('cue').style.color=protocol&&CLASSES.includes(cue)?COLORS[CLASSES.indexOf(cue)]:'var(--text)';
+  const shownClass=CLASSES.indexOf(protocol ? cue : demoPose);
+  $('cue').style.color=shownClass>=0?COLORS[shownClass]:'var(--text)';
   $('cueInstruction').textContent=instruction;
   $('cueCount').textContent=protocol?'Cue '+(s.cue_index||0)+' of '+(s.cue_total||0):'';
   $('cueTime').textContent=protocol?(s.awaiting_cue_ack?'Starting after display confirmation…':finite(s.cue_remaining_s)?Math.max(0,s.cue_remaining_s).toFixed(1)+' s remaining':''):'';

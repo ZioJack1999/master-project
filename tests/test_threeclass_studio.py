@@ -319,6 +319,26 @@ def test_pending_connection_is_discarded_after_source_switch(studio, monkeypatch
         worker.join(5.)
 
 
+def test_threeclass_demo_cycles_scripted_poses_independently_of_decoder(studio):
+    s, now = studio
+    assert s.action('/api/demo')['demo_pose'] is None
+    assert s.action('/api/start')['demo_pose'] == 'rest'
+    s.state.update(decision='volar_grasp', ema_probabilities=[0.1, 0.8, 0.1])
+    now[0] += 2.
+    assert s.snapshot()['demo_pose'] == 'volar_grasp'
+    now[0] += 2.
+    state = s.snapshot()
+    assert state['demo_pose'] == 'finger_extension'
+    assert state['decision'] == 'volar_grasp'
+    assert state['ema_probabilities'] == [0.1, 0.8, 0.1]
+    now[0] += 2.
+    assert s.snapshot()['demo_pose'] == 'rest'
+    assert s.action('/api/stop')['demo_pose'] is None
+    assert s.action('/api/start')['demo_pose'] == 'rest'
+    assert s.action('/api/stop')['demo_pose'] is None
+    assert s.action('/api/demo')['demo_pose'] is None
+
+
 def test_demo_sample_clock_survives_a_scheduling_pause(studio):
     s, now = studio
     s.action('/api/demo')
