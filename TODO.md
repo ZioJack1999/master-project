@@ -2,13 +2,15 @@
 
 Last updated: November 11, 2026 (America/New_York).
 
+For a new chat, use [RESTART_HANDOFF.md](RESTART_HANDOFF.md). This documentation session started no Studio, bridge, or acquisition processes.
+
 ## Objective
 
 Complete personal motor-imagery validation before November 26, 2026. Target at least 70% balanced accuracy on new cues, with leakage, overfitting and underfitting checks. The user reports the system accepts binary and is trying three-class. Prospective personal accuracy remains unreported.
 
 ## Current baseline
 
-Reviewed GitHub default branch `master` through `b36ced3`, including the scripted synthetic hand preview. The lab workflow fixes are in the commit titled `Harden X24 lab launch and validation feedback`.
+Reviewed GitHub default branch `master` through `6610228`, including the scripted synthetic hand preview and the latest X24 launch and validation fixes.
 
 - Direct API acquisition is implemented: X24/ESU -> x86 Athena SDK in existing 32-bit `mastersp` -> LSL -> existing 64-bit decoder. A separate licensed acquisition GUI is not required for this route.
 - The Desktop **BCI Studio** shortcut opens `Launch_Studio.bat`. Choose the X24 bridge, an existing compatible LSL source, or a synthetic preview. The dashboard opens on port 8051 with Three-class selected. It uses one 3D hand viewer.
@@ -64,7 +66,7 @@ Consolidated the duplicate dashboards into `studio.html`, six overlapping batch 
 
 The full suite passed 191 tests with two skips for unavailable CUDA and Windows symlink creation. The binary verifier passed 19 retained hashes and the three-class verifier passed all 28 required files. Both fixed X24 launchers passed `--verify-only`, including the shared-selector option for three-class. A headless Zen check switched between three-class, seven-class and binary using the dashboard, verified the matching probability rows, and confirmed the selector disabled during streaming. The local Box copy connected both three-class and binary to the same synthetic LSL outlet after a profile switch. Physical X24 acquisition and prospective accuracy still require the lab run.
 
-Archived the old Desktop deliveries, launchers and notes under `Master Project/Archive`, and grouped app shortcuts under `Desktop/Apps`. The Desktop went from 35 visible entries to 13. The local Box mirror archives 43 superseded files under `EEGMI_Personal/Archive/Older lab files`. Box cloud sync is unconfirmed. The test browser, mock LSL sender and studio processes exited.
+Archived the old Desktop deliveries, launchers and notes under `Master Project/Archive`. The app shortcuts were later restored to the Desktop and the temporary `Apps` folder was removed. The local Box mirror archives 43 superseded files under `EEGMI_Personal/Archive/Older lab files`. Box cloud sync is unconfirmed. The test browser, mock LSL sender and studio processes exited.
 
 Next action: open the Desktop **BCI Studio** shortcut, choose the X24 bridge on the lab PC, and complete a three-class calibration and fresh validation block.
 
