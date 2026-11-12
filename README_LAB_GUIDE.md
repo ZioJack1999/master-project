@@ -11,7 +11,7 @@ Open `Launch_Studio.bat` and choose the X24 bridge. The shared dashboard opens o
 
 1. Connect the ESU, power the X24 and close competing acquisition programs.
 2. Verify the physical cap/reference and electrode quality with the lab's vendor tools. The studio does not measure impedance or change the reference.
-3. Launch the app with Demo off. Enter a pseudonymous participant ID, apply it with Connect/Reconnect EEG when prompted, then click Start Stream.
+3. Close any earlier BCI Studio or demo launcher, then launch the app with Demo off. Enter a pseudonymous participant ID, apply it with Connect/Reconnect EEG when prompted, then click Start Stream.
 4. Inspect the source, timestamps, live C3/Cz/C4 traces and quality status. Fix artifacts, flat channels and connection errors before calibration. Review all 20 sites in the three-class app.
 
 The supported bridge profile is the first-generation X24 10-20 at 256 Hz. It reads the SDK's actual channel names and maps these 20 EEG sites into model order:
@@ -30,6 +30,8 @@ The classes are **Rest, Volar Grasp, Finger Extension**. Live transport, all-sit
 4. Start a frozen validation block of **30 new cues / 240 seconds**. Use the same model and policy for the block. If either changes after review, collect new cues to evaluate it.
 5. Save the session under `session_reports/threeclass/`. Keep raw EEG, events, predictions, model hashes, quality/rejection counts and metrics together.
 
+The live launcher opens the cue dashboard first. Open **3D Virtual Hand Window** when needed and keep the dashboard visible. During validation the hand waits for an eligible prediction from the current cue and shows the accepted decoder decision.
+
 The supplied participant-08 covariance-NN checkpoint is a recorded reference. The GUI requires a personal fit before fresh validation. Calibration partitions whole cues before signal-quality exclusions, fits preprocessing only on training cues and reserves later cues for tuning. Validation uses a frozen saved model and policy. Rejected cues count as errors.
 
 ### Reusing a personal model
@@ -42,7 +44,7 @@ During streaming, the timing line reports EEG sample to prediction, decoder chun
 
 ### Three-class checks
 
-`Launch_THREECLASS_X24.bat --check-only` verifies the reference and runtime, then checks for fresh labeled 256 Hz EEG through both architectures. Use `threeclass_preflight.py --config <run config> --inspect-lsl` for acquisition details when the bridge is running. The private run config is under `session_reports/x24_bridge/`.
+`Launch_THREECLASS_X24.bat --verify-only --profile-selector` checks the decoder setup without starting acquisition. On the lab PC, `Launch_THREECLASS_X24.bat --check-only` also checks for fresh labeled 256 Hz EEG through the X24 bridge. Use `threeclass_preflight.py --config <run config> --inspect-lsl` for acquisition details when the bridge is running. The private run config is under `session_reports/x24_bridge/`.
 
 ## Binary calibration and validation
 

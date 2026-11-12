@@ -18,7 +18,7 @@ Binary and three-class live transport, waveforms, probabilities and saving have 
 
 ## 3D virtual hand
 
-Open `Launch_Studio.bat` and choose the X24 bridge, an existing LSL source, or a synthetic demo. All three options open the same dashboard and hand viewer on port 8051. **Class profile** starts at Three-class and lets you select Binary or an experimental expanded profile in the same dashboard.
+Open `Launch_Studio.bat` and choose the X24 bridge, an existing LSL source, or a synthetic demo. All three options open the same dashboard on port 8051. **Class profile** starts at Three-class and lets you select Binary or an experimental expanded profile in the same dashboard. In live mode, use **3D Virtual Hand Window** to open the viewer when needed and keep the cue dashboard visible during a run.
 
 Stop streaming and wait for any model fitting to finish before switching. The studio saves the previous profile's recording and opens the selected profile idle. In live mode, check the participant ID and use **Connect EEG** before starting again. The X24 bridge stays running while you switch. Click **Start stream** to begin a synthetic preview.
 

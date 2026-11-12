@@ -12,19 +12,24 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parent
+STREAM_NAME = 'BAlert_X24'
 SOURCE_ID = 'abm_x24_mastersp'
+SDK = Path(r'C:\ABM\B-Alert\SDK')
 
 
 def acquisition_environment():
     prefix = Path.home() / 'miniconda3/envs/mastersp'
     runtime = ROOT / '.runtime/x24-lsl32'
-    if not (prefix / 'python.exe').exists() or not (runtime / 'pylsl/lib/lsl.dll').exists():
-        raise RuntimeError('mastersp or the local 32-bit pylsl runtime is missing. See X24_CONNECTION_STATUS.md.')
+    required = [prefix / 'python.exe', runtime / 'pylsl/lib/lsl.dll', SDK / 'bin/ABM_Athena.dll']
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise RuntimeError('X24 acquisition runtime missing: ' + ', '.join(missing) +
+                           '. See X24_CONNECTION_STATUS.md for the lab setup.')
     env = dict(os.environ)
     env['PATH'] = os.pathsep.join(str(p) for p in (prefix, prefix / 'Library/bin', prefix / 'Scripts')) + os.pathsep + env.get('PATH', '')
     env['PYTHONPATH'] = os.pathsep.join((str(runtime), str(ROOT)))
     env['PYTHONNOUSERSITE'] = '1'
-    env['ABMSDK'] = r'C:\ABM\B-Alert\SDK'
+    env['ABMSDK'] = str(SDK)
     return prefix / 'python.exe', env
 
 
@@ -99,7 +104,7 @@ def main():
         task_name, default_port = args.task, 8052 if args.task == 'binary' else 8051
     if args.port is None:
         args.port = default_port
-    config.update(stream_name='BAlert_X24', source_id=SOURCE_ID, input_unit='', channel_labels=None)
+    config.update(stream_name=STREAM_NAME, source_id=SOURCE_ID, input_unit='', channel_labels=None)
     if args.task == 'binary':
         from realtime_bci_decoder import load_contract, RealtimeBCIDecoder
         checkpoint = ROOT / config['checkpoint']
@@ -131,8 +136,8 @@ def main():
             print(f'Three-class model on {config["device"]}: {torch.cuda.get_device_name(0)}', flush=True)
         else:
             print('Three-class model on CPU.', flush=True)
+        contract = dict(channels=config['channels'], sfreq=config['sfreq'], classes=decoder.classes)
         del decoder
-        contract = dict(channels=config['channels'], sfreq=config['sfreq'])
     else:
         contract = dict(channels=config['channels'], sfreq=config['sfreq'])
     if args.profile_selector:
@@ -143,8 +148,12 @@ def main():
     from pylsl import resolve_byprop
     if resolve_byprop('source_id', SOURCE_ID, timeout=1.):
         raise RuntimeError('An X24 bridge is already running. Use its decoder GUI or stop it before launching another.')
-    with socket.socket() as test_socket:
-        test_socket.bind(('127.0.0.1', args.port))
+    try:
+        with socket.socket() as test_socket:
+            test_socket.bind(('127.0.0.1', args.port))
+    except OSError as exc:
+        raise RuntimeError(f'Cannot open studio port {args.port}. Close the previous studio launcher or choose another port.') from exc
+    python32, env = acquisition_environment()
     # Preserve any user-local config: use a separate ignored run-specific config.
     directory = ROOT / 'session_reports/x24_bridge'
     directory.mkdir(parents=True, exist_ok=True)
@@ -152,7 +161,6 @@ def main():
     config_path = directory / (run_id + '.config.json')
     config_path.write_text(json.dumps(config, indent=2), encoding='utf-8')
     stop_file = directory / (run_id + '.stop')
-    python32, env = acquisition_environment()
     with (directory / (run_id + '.log')).open('w', encoding='utf-8') as log:
         bridge = subprocess.Popen([str(python32), '-u', str(ROOT / 'x24_lsl_bridge.py'),
                                    '--stop-file', str(stop_file)], cwd=ROOT, env=env,
@@ -180,7 +188,9 @@ def main():
             sys.argv = ['studio', '--config', str(config_path), '--port', str(args.port)]
             if args.no_browser:
                 sys.argv.append('--no-browser')
-            print('X24 ready. Start Stream to inspect signals, then Personal calibration. Ctrl+C stops both processes.', flush=True)
+            action = 'Start stream' if args.task == 'binary' else 'Connect EEG, then Start stream'
+            print(f'X24 ready. {action} to inspect signals, then choose Personal calibration. Ctrl+C stops both processes.',
+                  flush=True)
             studio_main()
         finally:
             stop_file.write_text('stop', encoding='ascii')

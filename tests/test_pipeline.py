@@ -243,10 +243,22 @@ def test_untrained_template_cannot_emit_predictions_or_validate(tmp_path):
         with pytest.raises(socket.timeout): receiver.recvfrom(8192)
         assert d.packets_sent==0
     finally: d.close();receiver.close()
-    s=Studio(dict(checkpoint=str(p)),root=tmp_path,clock=lambda:100.)
-    s.state['is_connected']=True;s.action('/api/toggle_stream',{})
-    with pytest.raises(ValueError,match='template'): s.action('/api/validate',{})
-    s.decoder.close()
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as receiver:
+        receiver.bind(('127.0.0.1', 0))
+        receiver.settimeout(.1)
+        s = Studio(dict(checkpoint=str(p), udp_port=receiver.getsockname()[1]), root=tmp_path, clock=lambda:100.)
+        try:
+            s.state['is_connected'] = True
+            s.action('/api/toggle_stream')
+            data = np.random.default_rng(2).normal(0, 5e-6, (20, 640)).astype('float32')
+            s.ingest(data, 96.+np.arange(640)/256)
+            with pytest.raises(socket.timeout):
+                receiver.recvfrom(8192)
+            with pytest.raises(ValueError, match='template'):
+                s.action('/api/validate')
+        finally:
+            s.decoder.close()
+            s.udp_sock.close()
 
 
 def test_scope_uses_every_filtered_sample_and_replay_is_labeled(checkpoint,tmp_path,monkeypatch):

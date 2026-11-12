@@ -390,8 +390,10 @@ class ThreeClassStudio:
             elif path == '/api/cue-presented':
                 if not self.protocol or not self.state['streaming'] or self.state['mode'] != 'live':
                     raise ValueError('No live cue is awaiting display acknowledgement.')
-                self.protocol.acknowledge(body.get('run_id'), body.get('trial'), self.clock())
-                self._refresh(self.clock())
+                now = self.clock()
+                self.protocol.acknowledge(body.get('run_id'), body.get('trial'), now)
+                self.last_ui_seen = now
+                self._refresh(now)
             elif path == '/api/prediction-painted':
                 index = body.get('index')
                 if (body.get('session_id') == self.session_id and type(index) is int
@@ -879,7 +881,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.respond(404, dict(error='Static asset not found.'))
         elif path == '/api/state':
-            self.respond(200, self.studio.snapshot(seen=True))
+            cue_display = parse_qs(url.query).get('cue_display') == ['1']
+            self.respond(200, self.studio.snapshot(seen=cue_display))
         else:
             self.respond(404, dict(error='Not found.'))
     def do_POST(self):

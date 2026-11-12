@@ -135,7 +135,9 @@ def main():
         try:
             if not args.no_browser:
                 webbrowser.open(url)
-                webbrowser.open(f'{url}/virtual_hand')
+                if args.demo:
+                    from virtual_hand_viewer import launch_viewer_window
+                    launch_viewer_window(f'{url}/virtual_hand')
             server.serve_forever(poll_interval=.2)
         except KeyboardInterrupt:
             pass

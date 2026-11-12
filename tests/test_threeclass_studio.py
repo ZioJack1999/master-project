@@ -361,6 +361,33 @@ def test_demo_sample_clock_survives_a_scheduling_pause(studio):
         worker.join(5.)
 
 
+def test_only_dashboard_polling_keeps_an_acknowledged_cue_alive(studio):
+    s, now = studio
+    s.state['connected'] = True
+    handler = type('HeartbeatHandler', (app.Handler,), {'studio': s})
+    with ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        url = f'http://127.0.0.1:{server.server_port}/api/state'
+        try:
+            started = s.action('/api/calibrate')
+            s.action('/api/cue-presented', dict(run_id=started['cue_run_id'], trial=1))
+            now[0] += 2.
+            with urllib.request.urlopen(url + '?cue_display=1', timeout=3) as response:
+                assert json.load(response)['streaming']
+            assert s.last_ui_seen == now[0]
+
+            now[0] += 3.1
+            with urllib.request.urlopen(url, timeout=3) as response:
+                assert json.load(response)['streaming']
+            s._refresh(now[0])
+            assert not s.state['streaming'] and s.protocol is None
+            assert s.results[-1]['reason'] == 'Cue display connection timed out; run aborted.'
+        finally:
+            server.shutdown()
+            worker.join(timeout=3)
+
+
 def test_http_console_and_demo_gates(studio):
     s, _ = studio
     handler = type('TestHandler', (app.Handler,), dict(studio=s))

@@ -371,7 +371,9 @@ function render(s) {
   cueProgress.style.width=protocol&&finite(s.cue_remaining_s)?Math.max(0,Math.min(100,100*(1-s.cue_remaining_s/(s.cue_duration_s || 8))))+'%':'0%';
   const timing=s.prediction_timing;
   const awaitingWindow=protocol==='validation'&&'prediction_timing' in s&&(!timing||s.awaiting_cue_ack||timing.cue_run_id!==s.cue_run_id||timing.cue_trial!==s.cue_index);
-  const raw=s.raw_probabilities||[], ema=s.ema_probabilities||[], clean=s.quality==='ok'&&Boolean(s.streaming)&&s.model_role!=='untrained';
+  const raw=s.raw_probabilities||[], ema=s.ema_probabilities||[];
+  const untrained=['untrained','personal_training_template'].includes(s.model_role);
+  const clean=s.quality==='ok'&&Boolean(s.streaming)&&!untrained;
   const showProbabilities=clean&&!awaitingWindow;
   for (const [i, {value, bar}] of probabilityRows.entries()) {
     value.textContent=(showProbabilities?percent(raw[i]):'—')+' / '+(showProbabilities?percent(ema[i]):'—');
@@ -495,7 +497,8 @@ async function poll() {
   if(polling) return;
   polling=true;
   try {
-    const response=await fetch('/api/state',{cache:'no-store'});
+    const stateUrl=document.hidden ? '/api/state' : '/api/state?cue_display=1';
+    const response=await fetch(stateUrl,{cache:'no-store'});
     if(!response.ok) throw new Error('State unavailable');
     pollError='';
     render(await response.json());

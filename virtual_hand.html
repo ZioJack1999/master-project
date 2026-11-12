@@ -732,7 +732,14 @@
         if (!state || manualMode) return;
 
         const demoPose = state.mode === 'demo' && state.streaming ? state.demo_pose : null;
-        $('probabilities-card').hidden = Boolean(demoPose);
+        const live = state.mode === 'live';
+        const untrained = live && ['untrained', 'personal_training_template'].includes(state.model_role);
+        const validation = state.protocol_kind === 'validation';
+        const timing = state.prediction_timing;
+        const awaitingWindow = validation && 'prediction_timing' in state &&
+          (state.awaiting_cue_ack || !timing ||
+           timing.cue_run_id !== state.cue_run_id || timing.cue_trial !== state.cue_index);
+        $('probabilities-card').hidden = Boolean(demoPose || awaitingWindow || untrained || state.streaming === false);
         if (demoPose) {
           if (hand) hand.setTargetState(demoPose, 0, 1);
           updateTargetPill(demoPose, null, 'SCRIPTED DEMO POSE');
@@ -747,26 +754,33 @@
           probs[c] = ema[idx] !== undefined ? ema[idx] : 0.0;
         });
 
-        // Determine active class: protocol cue has priority if actively cueing, else live decision
+        // Calibration shows the cue. Validation shows the accepted decoder output for that cue.
         let activeClass = 'rest';
-        let conf = 0.0;
+        let conf = null;
         const decoderLabel = {
           demo: 'SYNTHETIC DEMO',
           replay: 'RECORDED REPLAY',
-          live: 'LIVE DECODER'
+          live: state.model_role === 'recorded_reference' ? 'LIVE REFERENCE DECODER' : 'LIVE DECODER'
         }[state.mode] || 'BCI DECODER';
         let sourceMeta;
 
-        if (state.cue && state.cue !== '' && state.cue !== 'idle') {
+        if (state.streaming === false) {
+          sourceMeta = 'DECODER PAUSED';
+        } else if (untrained && !state.cue) {
+          sourceMeta = 'PERSONAL CALIBRATION REQUIRED';
+        } else if (awaitingWindow) {
+          sourceMeta = 'WAITING FOR CURRENT CUE EEG';
+        } else if (!validation && state.cue && state.cue !== 'idle') {
           activeClass = state.cue;
-          conf = probs[activeClass] ?? 0;
           const rem = state.cue_remaining_s ? ` (${state.cue_remaining_s.toFixed(1)}s)` : '';
           const cueLabel = state.mode === 'demo' ? 'SYNTHETIC DEMO CUE' : 'PROTOCOL CUE';
           sourceMeta = `${cueLabel}: ${activeClass.toUpperCase().replace('_', ' ')}${rem}`;
-        } else if (state.decision && state.decision !== 'uncertain') {
+        } else if (state.decision && state.decision !== 'uncertain' && (!(live || validation) || state.quality === 'ok')) {
           activeClass = state.decision;
           conf = probs[activeClass] ?? 0;
           sourceMeta = `${decoderLabel} DECISION: ${activeClass.toUpperCase().replace('_', ' ')}`;
+        } else if (live || validation) {
+          sourceMeta = 'NO ACCEPTED DECODER DECISION';
         } else {
           // If uncertain, evaluate dominant probability
           let maxProb = 0.0;
@@ -798,10 +812,10 @@
         }
 
         if (hand) {
-          hand.setTargetState(activeClass, probs, continuousVal);
+          hand.setTargetState(activeClass, conf ?? 0, continuousVal);
         }
 
-        updateTargetPill(activeClass, state.streaming === false ? null : conf, sourceMeta);
+        updateTargetPill(activeClass, conf, sourceMeta);
         updateTelemetryHUD(state);
       }
 

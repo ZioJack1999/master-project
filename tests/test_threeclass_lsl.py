@@ -40,7 +40,7 @@ def test_real_lsl_threeclass_http_warmup_and_partial_calibration_disconnect(tmp_
     http = threading.Thread(target=server.serve_forever, daemon=True)
     base = f'http://127.0.0.1:{server.server_port}'
 
-    def api(path='/api/state', body=None):
+    def api(path='/api/state?cue_display=1', body=None):
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(base+path, data=data,
             method='POST' if body is not None else 'GET', headers={'Content-Type':'application/json'})

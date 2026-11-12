@@ -564,7 +564,8 @@ class Studio:
         before = self.decoder.samples_seen if self.decoder else 0
         t0 = time.perf_counter()
 
-        output_ready = self.state['personalized'] or not self.config.get('require_personal_calibration', False)
+        output_ready = (self.contract.get('role') != 'personal_training_template' and
+                        (self.state['personalized'] or not self.config.get('require_personal_calibration', False)))
         protocol_output = self.protocol is None or (self.protocol.kind == 'validation' and self.config.get('validation_udp_output', True))
         emit = self.state['source'] == 'live' and protocol_output and output_ready
 
@@ -627,7 +628,7 @@ class Studio:
                 self.hist[key].append(val)
                 row[ch + '_rms_uv'] = val if idx is not None else None
 
-            if emit or self.udp_port:
+            if emit:
                 class_name = 'right_hand_grasp' if (decision and quality == 'ok') else 'rest'
                 class_id = 1 if (decision and quality == 'ok') else 0
                 udp_packet = dict(

@@ -1,4 +1,7 @@
 # Clinical BCI Recording, Calibration & Real-Time Validation Protocol
+
+> Research draft for resting alignment and pretrained model experiments. Use the [X24 lab guide](README_LAB_GUIDE.md) for the current 20-channel three-class recording and validation procedure.
+
 **Document ID**: SOP-BCI-2026-V1  
 **Project**: Master Project – Non-Invasive Motor Imagery BCI with Virtual Hand Actuation  
 **Author / Lab**: Giacomo / Ata Lab  

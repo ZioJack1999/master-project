@@ -8,7 +8,7 @@ Complete personal motor-imagery validation before November 26, 2026. Target at l
 
 ## Current baseline
 
-Reviewed GitHub default branch `master` through `4bd5476`. The synthetic hand preview fix is in the commit titled `Cycle all three hand poses in the synthetic demo`.
+Reviewed GitHub default branch `master` through `b36ced3`, including the scripted synthetic hand preview. The lab workflow fixes are in the commit titled `Harden X24 lab launch and validation feedback`.
 
 - Direct API acquisition is implemented: X24/ESU -> x86 Athena SDK in existing 32-bit `mastersp` -> LSL -> existing 64-bit decoder. A separate licensed acquisition GUI is not required for this route.
 - The Desktop **BCI Studio** shortcut opens `Launch_Studio.bat`. Choose the X24 bridge, an existing compatible LSL source, or a synthetic preview. The dashboard opens on port 8051 with Three-class selected. It uses one 3D hand viewer.
@@ -37,6 +37,16 @@ The November 5 lab cleanup recorded 112 passing tests, one Windows symlink skip 
 - [ ] Version, test and document any necessary changes; update current operator instructions and this handoff. Publish only code/non-identifying evidence; keep recordings and personal models private.
 
 Cross-subject generalization remains deferred.
+
+## November 11 lab rehearsal
+
+The live launcher opens the cue dashboard first. The hand viewer is available from its button. Only a visible dashboard or a valid cue acknowledgement keeps a cue run active. During validation the hand waits for an eligible prediction from the current cue and returns to rest when the decoder rejects it. Binary UDP output follows the live, trained-model and protocol guards. The launcher reports busy ports and missing x86 runtime files before starting acquisition.
+
+The full suite passed 193 tests with two skips for unavailable CUDA and Windows symlink creation. Both X24 batch launchers passed `--verify-only`, and the integrity verifiers passed 28 three-class files and 19 binary hashes. The X24 supervisor accepted 264 fresh samples from an isolated 20-channel software LSL sender at 256 Hz, saved its preflight and stopped the child. A full synthetic rehearsal acknowledged 36 calibration cues, fit on 27 training cues with 9 held out for tuning, reloaded the saved model and recorded 30 new validation cues with the model hash frozen. Calibration and validation EEG, events and validation metrics were saved separately. Zen showed the scripted Finger Extension pose and returned to Rest on Stop. A viewer logic check covered stale windows, rejected predictions and decoder decisions that differed from the cue.
+
+The local Box mirror was updated and the changed files were verified by checksum. Box cloud sync is unconfirmed. All rehearsal processes exited. The home workstation lacks the x86 mastersp interpreter, local 32-bit LSL DLL and Athena SDK DLL. The lab PC must verify physical acquisition and live signal quality.
+
+Next action on the lab PC: close any earlier Studio launcher, choose **BCI Studio with X24 bridge**, then **Connect EEG** and **Start stream** in Three-class. Inspect the fresh stream and channel quality before personal calibration. After fitting, collect a fresh 30-cue validation block and save the session. The [X24 lab guide](README_LAB_GUIDE.md) is the current procedure.
 
 ## November 11 synthetic hand preview
 
